@@ -31,7 +31,7 @@ git push origin v0.1.1-test.1
 
 ## GitHub 配置与检查
 
-固定Godot4.6.3 Mono与.NET8，先编译C#再验证；安装的导出模板复制到既有发布门使用的隔离APPDATA。验证包括两轮18套、权限/边界/UI、四关矩阵、工具、Windows导出和启动。性能按D-028暂缓，HUMAN与实际FPS不作自动构建通过结论。
+固定Godot4.6.3 Mono与.NET8，解析安装目录中真正的Console EXE并验证版本，先编译C#再验证；安装的导出模板复制到既有发布门使用的隔离APPDATA。验证包括两轮18套、权限/边界/UI、四关矩阵、工具、Windows导出和启动。性能按D-028暂缓，HUMAN与实际FPS不作自动构建通过结论。
 
 默认`GITHUB_TOKEN`足够，不需要把个人token写进仓库。验证任务只有contents:read；只有推送版本标签且验证成功的发布任务具有contents:write。仓库需允许Actions及所引用的固定SHA action；组织策略禁止写权限时，发布会失败，需管理员调整仓库策略。源码提交不会包含gitignore中的本机凭据、构建和验证日志，云端重新生成这些产物。
 

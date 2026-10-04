@@ -37,6 +37,16 @@ jobs:
           use-dotnet: true
           include-templates: true
 
+      - name: Resolve Godot console executable
+        shell: powershell
+        run: |
+          $installation = Join-Path $env:USERPROFILE 'godot'
+          $console = @(Get-ChildItem -LiteralPath $installation -Recurse -File -Filter 'Godot_v4.6.3-stable_mono_win64_console.exe')
+          if ($console.Count -ne 1) { throw 'Expected exactly one Godot 4.6.3 Mono console executable.' }
+          $version = & $console[0].FullName --version
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch '^4\.6\.3\.stable\.mono') { throw "Unexpected Godot version: $version" }
+          "WARSEED_GODOT_CONSOLE=$($console[0].FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build managed runtime
         shell: powershell
         run: |
@@ -57,7 +67,7 @@ jobs:
         run: >-
           powershell.exe -NoProfile -ExecutionPolicy Bypass
           -File .\tools\verify_grey_ridge_release.ps1
-          -GodotConsolePath "$env:GODOT"
+          -GodotConsolePath "$env:WARSEED_GODOT_CONSOLE"
           -SessionId "ci-${env:GITHUB_RUN_ID}-${env:GITHUB_RUN_ATTEMPT}"
 
       - name: Build versioned Windows package
