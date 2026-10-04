@@ -2,7 +2,7 @@ class_name CardActionProjector
 extends RefCounted
 
 
-func project(snapshot: WorldSnapshot, battle: BattleDefinition) -> Array[CardActionSnapshot]:
+func project(snapshot: WorldSnapshot, battle: BattleDefinition, contextual: bool = false, only_card_id: StringName = &"", only_commander_id: StringName = &"") -> Array[CardActionSnapshot]:
 	var result: Array[CardActionSnapshot] = []
 	if snapshot == null or battle == null or snapshot.is_true_state or snapshot.knowledge == null:
 		return result
@@ -11,12 +11,15 @@ func project(snapshot: WorldSnapshot, battle: BattleDefinition) -> Array[CardAct
 	var faction := snapshot.get_faction(snapshot.observer_faction_id)
 	if faction == null:
 		return result
-	result.append_array(TacticalActionProjector.new().project(snapshot, battle))
+	result.append_array(TacticalActionProjector.new().project(snapshot, battle,contextual,only_card_id))
 	var headquarters := _headquarters_actions(snapshot)
-	result.append_array(headquarters)
+	for decision in headquarters:
+		if not contextual or decision.commander_id == only_commander_id: result.append(decision)
 	if headquarters.is_empty():
-		result.append_array(_recon_actions(snapshot, battle))
+		for decision in _recon_actions(snapshot, battle):
+			if not contextual or decision.commander_id == only_commander_id: result.append(decision)
 	for card in snapshot.unit_cards:
+		if contextual and card.definition_id != only_card_id: continue
 		if card.faction_id != snapshot.observer_faction_id:
 			continue
 		if card.deployment_state == UnitCardState.DeploymentState.RESERVE and card.available_strength > 0:
@@ -24,6 +27,7 @@ func project(snapshot: WorldSnapshot, battle: BattleDefinition) -> Array[CardAct
 		if card.deployment_state != UnitCardState.DeploymentState.DEPLOYED:
 			continue
 		for kind in [SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT, SupportOrderCommand.SupportKind.EMERGENCY_FORTIFY, SupportOrderCommand.SupportKind.RAPID_MOBILITY, SupportOrderCommand.SupportKind.FRONTLINE_LOGISTICS, SupportOrderCommand.SupportKind.ENGINEERING_ROUTE]:
+			if contextual and kind == SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT: continue
 			if battle.support_for_kind(kind) == null:
 				continue
 			if kind == SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT and card.current_strength >= card.authorized_strength:

@@ -48,8 +48,9 @@ func configure(host: SimulationHost) -> void:
 	roster_status.configure(host)
 	if not host.campaign_persistence_changed.is_connected(_refresh_validity):
 		host.campaign_persistence_changed.connect(_refresh_validity)
-	var battle := simulation_host.world.battle_definition
+	var battle := simulation_host.get_battle_definition()
 	if battle != null:
+		tutorial_toggle.visible = battle.tutorial_available
 		_commander_definitions.assign(battle.commander_definitions)
 		_unit_card_definitions.assign(battle.unit_card_definitions)
 		_doctrine_definitions = battle.doctrine_dictionary()
@@ -264,7 +265,7 @@ func _build_ui() -> void:
 func _rebuild_content() -> void:
 	if not _built:
 		return
-	var battle := simulation_host.world.battle_definition if simulation_host != null else null
+	var battle := simulation_host.get_battle_definition() if simulation_host != null else null
 	var battle_name := GameText.t(battle.display_name_key) if battle != null else GameText.t(&"GREY_RIDGE_TITLE")
 	var starting_count := battle.starting_card_count if battle != null else ArmyPlan.STARTING_CARD_COUNT
 	var limit_minutes := ceili(float(battle.time_limit_ticks if battle != null else SimulationWorld.GREY_RIDGE_TIME_LIMIT_TICKS) * SimulationWorld.TICK_SECONDS / 60.0)
@@ -286,6 +287,11 @@ func _rebuild_content() -> void:
 		int(campaign_record.get("merit", 0)),
 		int(campaign_record.get("battle_count", 0)),
 	]
+	var growth := simulation_host != null and simulation_host.get_battle_definition() != null and simulation_host.get_battle_definition().growth_mode
+	if growth:
+		roster_summary_label.text = GameText.t(&"GROWTH_MATCH_HELP")
+	reset_campaign_button.visible = not growth
+	tutorial_toggle.visible = not growth
 	reset_campaign_button.disabled = campaign_record.is_empty() and (simulation_host == null or not simulation_host.has_campaign_error())
 	_clear_container(commander_grid)
 	_clear_container(unit_card_grid)
@@ -295,10 +301,20 @@ func _rebuild_content() -> void:
 	_doctrine_menus.clear()
 	_posture_menus.clear()
 	_tactical_detail_labels.clear()
-	for definition in _commander_definitions:
-		commander_grid.add_child(_create_commander_panel(definition as CommanderDefinition))
-	for definition in _unit_card_definitions:
-		unit_card_grid.add_child(_create_unit_card_panel(definition as UnitCardDefinition))
+	if growth:
+		for definition in _commander_definitions:
+			commander_grid.add_child(_create_legion_panel(definition))
+		var authority_help := Label.new()
+		authority_help.text = GameText.t(&"GROWTH_MICRO_HELP")
+		authority_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		authority_help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		unit_card_grid.add_child(authority_help)
+		get_node("Backdrop/Margin/Layout/Scroll/Content/UnitCardTitle").text = GameText.t(&"LEGION_AUTO_HELP")
+	else:
+		for definition in _commander_definitions:
+			commander_grid.add_child(_create_commander_panel(definition as CommanderDefinition))
+		for definition in _unit_card_definitions:
+			unit_card_grid.add_child(_create_unit_card_panel(definition as UnitCardDefinition))
 	_refresh_validity()
 	_apply_responsive_layout()
 
@@ -337,6 +353,9 @@ func _create_commander_panel(definition: CommanderDefinition) -> PanelContainer:
 		GameText.t(definition.personality_key),
 		GameText.t(StringName("%s_TOOLTIP" % String(definition.personality_key))),
 	]
+	if simulation_host.get_battle_definition().growth_mode:
+		personality.text = GameText.t(&"PREBATTLE_PERSONALITY") % TacticalHelp.personality_name(definition.personality_key, true)
+		personality.tooltip_text = TacticalHelp.personality(definition.personality_key, true)
 	personality.add_theme_color_override("font_color", Color(0.61, 0.7, 0.67))
 	layout.add_child(personality)
 	_personality_labels[definition.definition_id] = personality
@@ -502,9 +521,11 @@ func _create_unit_card_panel(definition: UnitCardDefinition) -> PanelContainer:
 	var record := simulation_host.get_campaign_record() if simulation_host != null else {}
 	var card_record := (record.get("cards", {}) as Dictionary).get(String(definition.definition_id), {}) as Dictionary
 	stats.tooltip_text = CompositionText.from_definition(definition, card_record)
+	if definition.starting_strength > 0:
+		stats.text = GameText.t(&"GROWTH_CARD_COST") % [definition.starting_strength, definition.authorized_strength, definition.recruitment_cost]
 	if definition.composition.size() > 1:
 		stats.text += "\n" + CompositionText.from_definition(definition, card_record)
-	var available_strength := int(card_record.get("available_strength", definition.authorized_strength))
+	var available_strength := definition.starting_strength if definition.starting_strength > 0 else int(card_record.get("available_strength", definition.authorized_strength))
 	var readiness := Label.new()
 	readiness.name = "Readiness"
 	readiness.text = GameText.t(&"PREBATTLE_CARD_READINESS") % [available_strength, definition.authorized_strength]
@@ -535,7 +556,7 @@ func _create_unit_card_panel(definition: UnitCardDefinition) -> PanelContainer:
 	starting.button_pressed = _plan.is_unit_card_starting(definition.definition_id)
 	starting.toggled.connect(_on_starting_toggled.bind(definition.definition_id))
 	choices.add_child(starting)
-	if available_strength < definition.authorized_strength:
+	if definition.starting_strength == 0 and available_strength < definition.authorized_strength:
 		var replacement_cost := ArmyRosterStore.replacement_cost(record, definition.definition_id)
 		var affordable := ArmyRosterStore.affordable_replacements(record, definition.definition_id)
 		var replenish := Button.new()
@@ -563,7 +584,7 @@ func _refresh_validity() -> void:
 	var errors := _validation_errors()
 	start_button.disabled = not errors.is_empty()
 	if errors.is_empty():
-		var battle := simulation_host.world.battle_definition if simulation_host != null else null
+		var battle := simulation_host.get_battle_definition() if simulation_host != null else null
 		validation_label.text = GameText.t(&"ARMY_PLAN_READY_GENERIC") % (battle.starting_card_count if battle != null else ArmyPlan.STARTING_CARD_COUNT)
 		validation_label.modulate = Color(0.46, 0.84, 0.67)
 	else:
@@ -603,8 +624,8 @@ func _reset_plan() -> void:
 
 
 func _default_plan() -> ArmyPlan:
-	if simulation_host != null and simulation_host.world.battle_definition != null:
-		return simulation_host.world.battle_definition.create_default_army_plan()
+	if simulation_host != null and simulation_host.get_battle_definition() != null:
+		return simulation_host.get_battle_definition().create_default_army_plan()
 	return ArmyPlan.grey_ridge_default()
 
 
@@ -634,6 +655,18 @@ func _tutorial_scenario_id() -> StringName:
 
 
 func _start_battle() -> void:
+	if simulation_host != null and simulation_host.get_battle_definition().growth_mode:
+		if not is_plan_valid() or start_button.disabled: return
+		start_button.disabled = true
+		var frozen := _plan.duplicate_plan()
+		var screen := BattleLoadingScreen.new()
+		get_tree().root.add_child(screen)
+		var built := await screen.build_world(SimulationWorld.ScenarioKind.FINAL_DECISION, simulation_host.get_campaign_record(), frozen)
+		var success := simulation_host.start_grey_ridge(frozen, _create_prebattle_metrics(), built)
+		screen.queue_free()
+		if success: visible = false
+		else: _refresh_validity()
+		return
 	if simulation_host != null and simulation_host.start_grey_ridge(_plan, _create_prebattle_metrics()):
 		visible = false
 
@@ -690,7 +723,7 @@ func _apply_layout_for_size(viewport_size: Vector2) -> void:
 	footer.vertical = narrow
 	roster_bar.vertical = narrow
 	footer.custom_minimum_size.y = 96.0 if narrow else 42.0
-	var battle := simulation_host.world.battle_definition if simulation_host != null else null
+	var battle := simulation_host.get_battle_definition() if simulation_host != null else null
 	var battle_name := GameText.t(battle.display_name_key) if battle != null else GameText.t(&"GREY_RIDGE_TITLE")
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -738,3 +771,82 @@ func _panel_style(border_color: Color) -> StyleBoxFlat:
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(3)
 	return style
+
+func _create_legion_panel(definition: CommanderDefinition) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var box := VBoxContainer.new()
+	panel.add_child(box)
+	var entry := _plan.legion(definition.definition_id)
+	var heading := Label.new()
+	heading.text = GameText.t(definition.display_name_key) + " · 60"
+	box.add_child(heading)
+	var menu := OptionButton.new()
+	menu.name = "General"
+	menu.fit_to_longest_item = false
+	box.add_child(menu)
+	var profiles := CommanderProfile.roster()
+	for profile in profiles:
+		menu.add_item(GameText.t(profile.name_key))
+		var index := menu.item_count - 1
+		menu.get_popup().set_item_tooltip(index, profile.description())
+		if profile.profile_id == entry.profile_id: menu.select(index)
+	menu.tooltip_text = CommanderProfile.find(entry.profile_id).description() + "\n" + TacticalHelp.growth_hero(entry.profile_id)
+	var description := Label.new()
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.text = menu.tooltip_text
+	box.add_child(description)
+	menu.item_selected.connect(func(index: int) -> void:
+		var chosen := profiles[index].profile_id
+		if not _plan.swap_legion_profile(entry.legion_id, chosen): return
+		_record_plan_change()
+		_rebuild_content())
+	var grid := GridContainer.new()
+	grid.columns = 2
+	box.add_child(grid)
+	var total_label := Label.new()
+	for i in range(4):
+		var label := Label.new()
+		label.text = GameText.t([&"LEGION_ROLE_RECON", &"LEGION_ROLE_ASSAULT", &"LEGION_ROLE_ARMOR", &"LEGION_ROLE_FIREPOWER"][i])
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.clip_text = true
+		grid.add_child(label)
+		var amount := Label.new()
+		amount.name = "Role%d" % i
+		amount.text = "%d → %d" % [entry.starting_strengths()[i], entry.role_strengths[i]]
+		amount.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		amount.tooltip_text = GameText.t(&"LEGION_COMPOSITION_HELP")
+		for card in _unit_card_definitions:
+			if card.commander_definition_id == entry.legion_id and card.role_key == [&"UNIT_CARD_ROLE_RECON", &"UNIT_CARD_ROLE_ASSAULT", &"UNIT_CARD_ROLE_ARMOR", &"UNIT_CARD_ROLE_FIREPOWER"][i]:
+				amount.tooltip_text += "\n" + TacticalHelp.growth_unit(card, CommanderProfile.find(entry.profile_id))
+		label.tooltip_text = amount.tooltip_text
+		grid.add_child(amount)
+	box.add_child(total_label)
+	_refresh_legion_total(entry, total_label)
+	return panel
+
+func _refresh_legion_total(entry: LegionConfiguration, label: Label) -> void:
+	var count := 0
+	for value in entry.role_strengths: count += value
+	label.text = GameText.t(&"LEGION_TOTAL") % count
+	label.modulate = Color.WHITE if count == 60 else Color("ef7560")
+
+func _create_handoff_settings() -> void:
+	for contact in [true, false]:
+		var row := HBoxContainer.new()
+		unit_card_grid.add_child(row)
+		var label := Label.new()
+		label.text = GameText.t(&"HANDOFF_CONTACT" if contact else &"HANDOFF_QUIET")
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var seconds := SpinBox.new()
+		seconds.min_value = 1
+		seconds.max_value = 30 if contact else 60
+		seconds.value = (_plan.contact_handoff_ticks if contact else _plan.quiet_handoff_ticks) / 10.0
+		seconds.suffix = "s"
+		row.add_child(seconds)
+		seconds.value_changed.connect(func(value: float) -> void:
+			if contact: _plan.contact_handoff_ticks = roundi(value * 10)
+			else: _plan.quiet_handoff_ticks = roundi(value * 10)
+			_record_plan_change()
+			_refresh_validity())

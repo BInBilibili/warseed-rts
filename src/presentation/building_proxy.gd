@@ -49,8 +49,11 @@ func _draw() -> void:
 		size = Vector2(110.0, 82.0)
 	elif snapshot.definition_id == &"forward_support_station":
 		size = Vector2(72.0, 54.0)
-	draw_rect(Rect2(-size * 0.5, size), color, true)
-	draw_rect(Rect2(-size * 0.5, size), Color("d7e3bb"), false, 3.0)
+	if snapshot.definition_id == &"command_center" and snapshot.enabled:
+		WsArtLibrary.draw_headquarters(self, snapshot.faction_id == SimulationWorld.LOCAL_PLAYER_ID)
+	else:
+		draw_rect(Rect2(-size * 0.5, size), color, true)
+		draw_rect(Rect2(-size * 0.5, size), Color("d7e3bb"), false, 3.0)
 	if selected:
 		draw_rect(Rect2(-size * 0.5 - Vector2(6.0, 6.0), size + Vector2(12.0, 12.0)), Color("f2c94c"), false, 3.0)
 	var health_ratio := snapshot.health / snapshot.max_health if snapshot.max_health > 0.0 else 0.0

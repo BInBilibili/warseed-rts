@@ -1,15 +1,30 @@
 class_name TacticalActionProjector
 extends RefCounted
 
+var _firing_minimum_by_card: Dictionary = {}
 
-func project(snapshot: WorldSnapshot, battle: BattleDefinition) -> Array[CardActionSnapshot]:
+
+func project(snapshot: WorldSnapshot, battle: BattleDefinition, filter_cards: bool = false, only_card_id: StringName = &"") -> Array[CardActionSnapshot]:
 	var result: Array[CardActionSnapshot] = []
 	if snapshot == null or snapshot.is_true_state or snapshot.knowledge == null or snapshot.knowledge.faction_id != snapshot.observer_faction_id or battle == null:
 		return result
 	var faction := snapshot.get_faction(snapshot.observer_faction_id)
 	if faction == null:
 		return result
+	# Build once per projection from this observer's value snapshot. No cross-tick cache.
+	_firing_minimum_by_card.clear()
+	var members: Dictionary = {}
+	for unit in snapshot.units:
+		if not members.has(unit.entity_id): members[unit.entity_id] = unit
 	for card in snapshot.unit_cards:
+		if filter_cards and card.definition_id != only_card_id: continue
+		var minimum := INF
+		for id in card.active_member_entity_ids:
+			var member := members.get(id) as UnitSnapshot
+			if member != null and member.ammunition > 0: minimum = minf(minimum, member.minimum_attack_range)
+		_firing_minimum_by_card[card.definition_id] = minimum
+	for card in snapshot.unit_cards:
+		if filter_cards and card.definition_id != only_card_id: continue
 		if card.faction_id != snapshot.observer_faction_id or card.tactical_kind < 0 or card.deployment_state != UnitCardState.DeploymentState.DEPLOYED:
 			continue
 		var definition: UnitCardDefinition
@@ -17,6 +32,11 @@ func project(snapshot: WorldSnapshot, battle: BattleDefinition) -> Array[CardAct
 			if candidate.definition_id == card.definition_id:
 				definition = candidate
 				break
+		if definition == null:
+			for formation in battle.enemy_formations:
+				if formation.unit_card_definition != null and formation.unit_card_definition.definition_id == card.definition_id:
+					definition = formation.unit_card_definition
+					break
 		if definition == null or definition.tactical_ability == null:
 			continue
 		var ability := definition.tactical_ability
@@ -57,6 +77,15 @@ func project(snapshot: WorldSnapshot, battle: BattleDefinition) -> Array[CardAct
 					var decision := _make(snapshot, faction, card, ability, target.position, target.region_id)
 					decision.target_name_key = target.display_name_key
 					result.append(decision)
+				elif battle.map_definition != null:
+					# A formation can exploit an observed target without an omniscient commander.
+					var nearest: UnitSnapshot
+					for hostile in snapshot.units:
+						if hostile.enabled and hostile.faction_id != card.faction_id and hostile.is_visible_to_local_player and (nearest == null or card.center_position.distance_squared_to(hostile.position) < card.center_position.distance_squared_to(nearest.position)):
+							nearest = hostile
+					if nearest != null:
+						result.append(_make(snapshot, faction, card, ability, nearest.position))
+
 			TacticalAbilityDefinition.Kind.RESUPPLY:
 				for target in snapshot.unit_cards:
 					if target.faction_id == card.faction_id and target.deployment_state == UnitCardState.DeploymentState.DEPLOYED and (target.ammunition < target.ammunition_capacity or target.organization_enabled and target.organization < battle.organization_max):
@@ -82,11 +111,9 @@ func _target_ready(snapshot: WorldSnapshot, card: UnitCardSnapshot, ability: Tac
 
 
 func _has_firing_member(snapshot: WorldSnapshot, card: UnitCardSnapshot, point: Vector2) -> bool:
-	for id in card.active_member_entity_ids:
-		var member := snapshot.get_unit(id)
-		if member != null and member.ammunition > 0 and card.center_position.distance_to(point) >= member.minimum_attack_range:
-			return true
-	return false
+	var minimum: float = _firing_minimum_by_card.get(card.definition_id, INF)
+	return is_finite(minimum) and card.center_position.distance_to(point) >= minimum
+
 
 
 func _make(snapshot: WorldSnapshot, faction: FactionSnapshot, card: UnitCardSnapshot, ability: TacticalAbilityDefinition, point: Vector2, target: StringName = &"", entity: int = 0) -> CardActionSnapshot:

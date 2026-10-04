@@ -7,6 +7,10 @@ enum Kind {
 	LOW_ORGANIZATION,
 	LOW_SUPPLY,
 	REINFORCEMENT_REQUEST,
+	UNDER_ATTACK,
+	SUPPLY_THREAT,
+	SUPPLY_CAPTURED,
+	SUPPLY_LOST,
 }
 
 enum Severity {
@@ -23,6 +27,7 @@ enum Action {
 	REQUEST_REINFORCEMENT,
 	KEEP_PLAN,
 	RETURN_TO_COMMANDER,
+	REPLAN,
 }
 
 var exception_id: StringName
@@ -38,6 +43,7 @@ var position: Vector2
 var value_current: float
 var value_limit: float
 var action_ids: Array[int]
+var region_id: StringName
 
 
 func _init(
@@ -85,4 +91,5 @@ func to_dictionary() -> Dictionary:
 		"value_current": snappedf(value_current, 0.001),
 		"value_limit": snappedf(value_limit, 0.001),
 		"action_ids": action_ids.duplicate(),
+		"region_id": String(region_id),
 	}

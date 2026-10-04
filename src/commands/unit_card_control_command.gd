@@ -7,6 +7,7 @@ enum Action {
 	STAY_MANUAL,
 }
 
+var automatic_return: bool = false
 var unit_card_id: StringName
 var action: Action
 
@@ -25,3 +26,11 @@ func _init(
 
 func get_supersession_key() -> String:
 	return "UNIT_CARD_CONTROL_%s" % unit_card_id
+
+
+func duplicate_value() -> UnitCardControlCommand:
+	var result := UnitCardControlCommand.new(command_id, issuer_id, issued_tick, unit_card_id, action)
+	result.issuer_kind = issuer_kind
+	result.agent_id = agent_id
+	result.automatic_return = automatic_return
+	return result

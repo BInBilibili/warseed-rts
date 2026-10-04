@@ -28,7 +28,10 @@ func _initialize() -> void:
 	root.add_child(selector)
 	current_scene = selector
 	await _wait_frames(8)
-	_validate_selector(selector, 4)
+	if selector.get_selected_battle().scenario_id != &"final_decision":
+		_fail("growth match must be the default mode")
+	await _click_control(selector._mode_buttons[1])
+	_validate_selector(selector, 5)
 	await _save_screenshot(DESKTOP_OUTPUT)
 
 	await _click_control(selector.get_battle_button(&"fog_forest"))
@@ -76,7 +79,8 @@ func _initialize() -> void:
 	DisplayServer.window_set_size(Vector2i(640, 800))
 	root.content_scale_size = Vector2i(640, 800)
 	await _wait_frames(10)
-	_validate_selector(selector, 4)
+	await _click_control(selector._mode_buttons[1])
+	_validate_selector(selector, 5)
 	await _save_screenshot(NARROW_OUTPUT)
 
 	DisplayServer.window_set_size(VIEWPORT_SIZE)

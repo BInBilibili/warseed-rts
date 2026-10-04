@@ -53,6 +53,19 @@ $files = @(
     [ordered]@{ source = "docs\CURRENT_PLAYTEST_FEEDBACK_FOCUS.md"; destination = "CURRENT_PLAYTEST_FEEDBACK_FOCUS.md"; required = $true }
 )
 
+# The Mono export's native launcher/PCK require the adjacent managed runtime.
+# Keep its relative tree intact so the kit is self-contained like the export.
+$managedRuntime = Join-Path $repositoryRoot "build\windows\data_WARSEED_windows_x86_64"
+if ([IO.File]::Exists((Join-Path $repositoryRoot "WARSEED.csproj")) -and -not [IO.Directory]::Exists($managedRuntime)) {
+    throw "Required managed export directory not found: $managedRuntime"
+}
+if ([IO.Directory]::Exists($managedRuntime)) {
+    foreach ($runtimeFile in [IO.Directory]::GetFiles($managedRuntime, "*", [IO.SearchOption]::AllDirectories) | Sort-Object) {
+        $relativeRuntimeFile = $runtimeFile.Substring($repositoryRoot.Length).TrimStart([IO.Path]::DirectorySeparatorChar)
+        $files += [ordered]@{ source = $relativeRuntimeFile; destination = $relativeRuntimeFile; required = $true }
+    }
+}
+
 foreach ($entry in $files) {
     $sourcePath = Join-Path $repositoryRoot $entry.source
     if ($entry.required -and -not [IO.File]::Exists($sourcePath)) {

@@ -77,6 +77,10 @@ func configure(host: SimulationHost) -> void:
 
 
 func begin_from_preference() -> void:
+	if simulation_host != null and simulation_host.get_battle_definition() != null and not simulation_host.get_battle_definition().tutorial_available:
+		_active = false
+		visible = false
+		return
 	var scenario_id := _scenario_id()
 	if persistence_enabled and not TutorialProgressStore.is_scenario_enabled(scenario_id):
 		_active = false

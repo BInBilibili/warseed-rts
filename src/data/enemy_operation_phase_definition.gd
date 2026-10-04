@@ -3,6 +3,8 @@ extends Resource
 
 enum Kind { OPENING, REDIRECT, EXPLOIT, RESERVE }
 
+@export var prerequisite_phase_ids: Array[StringName] = []
+@export var require_control_region_id: StringName
 @export var phase_id: StringName
 @export var kind: Kind = Kind.OPENING
 @export var formation_role_id: StringName
@@ -25,6 +27,8 @@ func validate(battle: BattleDefinition) -> DataValidationResult:
 		result.add(DataValidationResult.Reason.INVALID_REFERENCE, "enemy phase formation missing")
 	if not target_region_id.is_empty() and not battle.region_dictionary().has(target_region_id):
 		result.add(DataValidationResult.Reason.INVALID_REFERENCE, "enemy phase region missing")
+	if not require_control_region_id.is_empty() and not battle.region_dictionary().has(require_control_region_id):
+		result.add(DataValidationResult.Reason.INVALID_REFERENCE, "enemy phase capture condition missing")
 	for point in route_points:
 		if not point.is_finite() or not battle.battlefield_bounds.has_point(point):
 			result.add(DataValidationResult.Reason.INVALID_VALUE, "enemy phase route invalid")

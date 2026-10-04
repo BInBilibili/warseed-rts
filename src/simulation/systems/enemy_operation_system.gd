@@ -80,6 +80,19 @@ func advance(world: SimulationWorld) -> void:
 			node.changed_tick = world.current_tick
 			node.reason = &"OBJECTIVE_AREA_REACHED"
 		if node.status != Status.WAITING or world.current_tick < node.definition.earliest_tick: continue
+		var dependencies_ready := true
+		for dependency in node.definition.prerequisite_phase_ids:
+			var found := false
+			for prior in _state.phases:
+				if prior.definition.phase_id == dependency and prior.status == Status.COMPLETED:
+					found = true
+			dependencies_ready = dependencies_ready and found
+		if not dependencies_ready:
+			continue
+		if not node.definition.require_control_region_id.is_empty():
+			var region := snapshot.get_strategic_region(node.definition.require_control_region_id)
+			if region == null or region.contested or region.controller_faction_id != snapshot.observer_faction_id:
+				continue
 		if node.definition.kind not in [Kind.OPENING, Kind.RESERVE] and not _state.committed_formation_ids.has(node.formation_id):
 			var held_reserve := false
 			for other in _state.phases:
@@ -120,11 +133,19 @@ func _issue(world: SimulationWorld, node: EnemyOperationPhaseSnapshot, immediate
 		command = FormationMoveCommand.new(world.allocate_command_id(), 2, GameCommand.IssuerKind.AGENT, world.current_tick, formation.leader_entity_id, formation.formation_id, target, node.definition.route_points)
 	command.agent_id = world.battle_definition.enemy_agent_id
 	command.task_id = world.battle_definition.enemy_task_id
+	var leader := world.units.get(formation.leader_entity_id) as UnitState
+	if world.battle_definition.map_definition != null and leader != null:
+		command.task_id = leader.assigned_task_id
 	var receipt := world.validate_command(command) if immediate else world.submit_command(command)
 	if not receipt.is_accepted():
 		node.reason = &"COMMAND_REJECTED"
 		return
 	world.enemy_action_audit.annotate(world,command,node.definition.phase_id,&"LEGAL_FACTION_OBSERVATION" if node.definition.kind == Kind.RESERVE else &"LOCKED_PLAN_TIMELINE",String(node.reason) if node.definition.kind == Kind.RESERVE else "operation=%s;phase=%s" % [_state.operation_id,node.definition.phase_id],world.current_tick if node.definition.kind == Kind.RESERVE else 0,0,world.enemy_reaction_committed_until_tick)
+	var operation_task := world.tasks.get(command.task_id) as TaskState
+	if operation_task != null and operation_task.kind == TaskState.Kind.ENEMY_OPERATION:
+		operation_task.target_position = target
+		operation_task.planned_route = node.definition.route_points.duplicate()
+		operation_task.set_phase(TaskState.Phase.ADVANCING, world.current_tick, String(node.definition.phase_id))
 	if immediate: world._apply_command(command)
 	if not _state.committed_formation_ids.has(node.formation_id): _state.committed_formation_ids.append(node.formation_id)
 	node.command_id = command.command_id
@@ -155,7 +176,7 @@ func _withdraw(world: SimulationWorld, formation_ids: Array[int]) -> void:
 		if formation.member_entity_ids.is_empty(): continue
 		var command := FormationMoveCommand.new(world.allocate_command_id(), 2, GameCommand.IssuerKind.AGENT, world.current_tick, formation.leader_entity_id, id, _state.retreat_position)
 		command.agent_id = world.battle_definition.enemy_agent_id
-		command.task_id = world.battle_definition.enemy_task_id
+		command.task_id = (world.units[formation.leader_entity_id] as UnitState).assigned_task_id if world.battle_definition.map_definition != null else world.battle_definition.enemy_task_id
 		if world.submit_command(command).is_accepted():
 			world.enemy_action_audit.annotate(world,command,&"doctrine_withdrawal",&"LEGAL_FACTION_OBSERVATION","own_strength_at_or_below_doctrine_threshold",world.current_tick,0,world.current_tick)
 			_state.withdrawn_formation_ids.append(id)

@@ -30,6 +30,7 @@ enum Kind {
 	DEFEND_AREA,
 	ATTACK_TARGET,
 	SCOUT_AREA,
+	ENEMY_OPERATION,
 }
 
 enum Phase {
@@ -84,6 +85,7 @@ var activation_tick: int = 0
 var doctrine_effect: DoctrineTaskParameters
 var final_target_position: Vector2
 var has_staged_target: bool = false
+var remaining_staged_route: PackedVector2Array = PackedVector2Array()
 var requires_observed_contact: bool = false
 var reported_visible_contact_ids: Array[int] = []
 var discovered_contact_ids: Array[int] = []

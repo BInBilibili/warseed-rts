@@ -17,6 +17,8 @@ var situation: BattlefieldSituationSnapshot
 func _ready() -> void:
 	for button in [frontline_button, task_button, threat_button, intelligence_button]:
 		button.toggled.connect(_emit_visibility)
+	frontline_button.hide()
+	frontline_button.set_pressed_no_signal(false)
 	refresh_locale()
 	set_process_unhandled_key_input(true)
 
@@ -79,7 +81,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	var button: Button
 	match key.keycode:
-		KEY_1: button = frontline_button
+		KEY_1: return
 		KEY_2: button = task_button
 		KEY_3: button = threat_button
 		KEY_4: button = intelligence_button

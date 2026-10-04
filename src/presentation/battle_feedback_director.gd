@@ -1,6 +1,12 @@
 class_name BattleFeedbackDirector
 extends Node
 
+var _indexed_feedback_snapshot: WorldSnapshot
+var _feedback_units: Dictionary = {}
+var _feedback_cards: Dictionary = {}
+var _feedback_commanders: Dictionary = {}
+var _feedback_names: Dictionary = {}
+
 signal feedback_emitted(message_key: StringName, arguments: Array, severity: int)
 signal effect_requested(kind: StringName, position: Vector2, faction_id: int, entity_id: int)
 
@@ -64,6 +70,8 @@ func _ready() -> void:
 
 
 func reset(event_count: int = 0) -> void:
+	_indexed_feedback_snapshot = null
+	_feedback_units.clear()
 	_event_cursor = maxi(0, event_count)
 	_last_feedback_tick_by_scope.clear()
 	_focus_windows.clear()
@@ -84,6 +92,7 @@ func set_audio_enabled(enabled: bool) -> void:
 func process_events(events: Array[SimulationEvent], snapshot: WorldSnapshot) -> void:
 	if snapshot == null:
 		return
+	_indexed_feedback_snapshot = null
 	if events.size() < _event_cursor:
 		reset(0)
 	while _event_cursor < events.size():
@@ -157,18 +166,19 @@ func _process_event(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
 
 
 func _process_attack_started(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
-	var attacker := snapshot.get_unit(event.entity_id)
+	var attacker := _indexed_unit(snapshot,event.entity_id)
 	var target_id := _detail_int(event.detail, "target")
 	if attacker == null or not _is_relevant_attack(attacker, target_id, snapshot):
 		return
+	var scope := "engagement:%s" % _unit_feedback_scope(attacker, snapshot)
+	if not _feedback_ready(Cue.ENGAGEMENT,scope,event.tick): return
 	var actor_key := _unit_or_card_display_key(attacker, snapshot)
-	var scope := "engagement:%s" % (attacker.unit_card_id if not attacker.unit_card_id.is_empty() else attacker.formation_id)
 	if _emit_feedback(Cue.ENGAGEMENT, &"BATTLE_FEEDBACK_ENGAGEMENT", [actor_key], Severity.INFO, scope, event.tick):
 		effect_requested.emit(&"engagement", attacker.position, attacker.faction_id, attacker.entity_id)
 
 
 func _process_projectile_fired(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
-	var attacker := snapshot.get_unit(event.entity_id)
+	var attacker := _indexed_unit(snapshot,event.entity_id)
 	var target_id := _detail_int(event.detail, "target")
 	if attacker == null or not _is_relevant_attack(attacker, target_id, snapshot):
 		return
@@ -178,7 +188,7 @@ func _process_projectile_fired(event: SimulationEvent, snapshot: WorldSnapshot) 
 
 func _process_damage(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
 	var target_id := _detail_int(event.detail, "target")
-	var target_unit := snapshot.get_unit(target_id)
+	var target_unit := _indexed_unit(snapshot,target_id)
 	var target_building := snapshot.get_building(target_id)
 	if target_unit == null and target_building == null:
 		return
@@ -200,36 +210,36 @@ func _process_damage(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
 
 
 func _process_unit_destroyed(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
-	var unit := snapshot.get_unit(event.entity_id)
+	var unit := _indexed_unit(snapshot,event.entity_id)
 	if unit == null or unit.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 		return
 	var card_key := _unit_or_card_display_key(unit, snapshot)
-	if _emit_feedback(Cue.UNDER_PRESSURE, &"BATTLE_FEEDBACK_LOSS", [card_key], Severity.WARNING, "loss:%s" % unit.unit_card_id, event.tick):
+	if _emit_feedback(Cue.UNDER_PRESSURE, &"BATTLE_FEEDBACK_LOSS", [card_key], Severity.WARNING, "loss:%s" % _unit_feedback_scope(unit, snapshot), event.tick):
 		effect_requested.emit(&"pressure", unit.position, unit.faction_id, unit.entity_id)
 
 
 func _process_reinforcement(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
 	var card_id := StringName(_detail_string(event.detail, "card"))
-	var card := snapshot.get_unit_card(card_id)
+	var card := _indexed_card(snapshot,card_id)
 	if card == null or card.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 		return
-	if _emit_feedback(Cue.REINFORCEMENT, &"BATTLE_FEEDBACK_REINFORCEMENT", [card.display_name_key], Severity.INFO, "reinforcement:%s" % card_id, event.tick):
+	if _emit_feedback(Cue.REINFORCEMENT, &"BATTLE_FEEDBACK_REINFORCEMENT", [_card_feedback_key(card, snapshot)], Severity.INFO, "reinforcement:%s" % _card_feedback_scope(card, snapshot), event.tick):
 		effect_requested.emit(&"reinforcement", card.center_position, card.faction_id, event.entity_id)
 
 
 func _process_deployment_started(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
-	var card := snapshot.get_unit_card(StringName(_detail_string(event.detail, "card")))
+	var card := _indexed_card(snapshot,StringName(_detail_string(event.detail, "card")))
 	if card == null or card.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 		return
-	if _emit_feedback(Cue.DEPLOYMENT, &"BATTLE_FEEDBACK_DEPLOYMENT_STARTED", [card.display_name_key], Severity.INFO, "deploy-start:%s" % card.definition_id, event.tick):
+	if _emit_feedback(Cue.DEPLOYMENT, &"BATTLE_FEEDBACK_DEPLOYMENT_STARTED", [_card_feedback_key(card, snapshot)], Severity.INFO, "deploy-start:%s" % card.definition_id, event.tick):
 		effect_requested.emit(&"deployment_started", _detail_vector2(event.detail, "position"), card.faction_id, event.entity_id)
 
 
 func _process_card_deployed(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
-	var card := snapshot.get_unit_card(StringName(_detail_string(event.detail, "card")))
+	var card := _indexed_card(snapshot,StringName(_detail_string(event.detail, "card")))
 	if card == null or card.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 		return
-	if _emit_feedback(Cue.DEPLOYMENT, &"BATTLE_FEEDBACK_CARD_DEPLOYED", [card.display_name_key], Severity.INFO, "deploy-complete:%s" % card.definition_id, event.tick):
+	if _emit_feedback(Cue.DEPLOYMENT, &"BATTLE_FEEDBACK_CARD_DEPLOYED", [_card_feedback_key(card, snapshot)], Severity.INFO, "deploy-complete:%s" % card.definition_id, event.tick):
 		effect_requested.emit(&"deployment_complete", card.center_position, card.faction_id, event.entity_id)
 
 
@@ -252,12 +262,12 @@ func _process_support_started(event: SimulationEvent, snapshot: WorldSnapshot) -
 		var card_id := StringName(_detail_string(event.detail, detail_key))
 		if card_id.is_empty():
 			continue
-		var card := snapshot.get_unit_card(card_id)
+		var card := _indexed_card(snapshot,card_id)
 		if card == null or card.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 			return
 		var message_key := &"BATTLE_FEEDBACK_FORTIFY_STARTED"
 		var effect_kind := &"fortify"
-		var arguments: Array = [card.display_name_key]
+		var arguments: Array = [_card_feedback_key(card, snapshot)]
 		if detail_key == "rapid_mobility":
 			message_key = &"BATTLE_FEEDBACK_MOBILITY_STARTED"
 			effect_kind = &"mobility"
@@ -282,8 +292,8 @@ func _process_support_ended(event: SimulationEvent, snapshot: WorldSnapshot) -> 
 		var card_id := StringName(_detail_string(event.detail, detail_key))
 		if card_id.is_empty():
 			continue
-		var card := snapshot.get_unit_card(card_id)
-		if card != null and _emit_feedback(Cue.EFFECT_ENDED, &"BATTLE_FEEDBACK_CARD_EFFECT_ENDED", [card.display_name_key], Severity.INFO, "support-ended:%s:%s" % [detail_key, card_id], event.tick):
+		var card := _indexed_card(snapshot,card_id)
+		if card != null and _emit_feedback(Cue.EFFECT_ENDED, &"BATTLE_FEEDBACK_CARD_EFFECT_ENDED", [_card_feedback_key(card, snapshot)], Severity.INFO, "support-ended:%s:%s" % [detail_key, card_id], event.tick):
 			effect_requested.emit(&"effect_ended", card.center_position, card.faction_id, event.entity_id)
 		return
 	var recon_region_id := StringName(_detail_string(event.detail, "air_recon"))
@@ -305,7 +315,7 @@ func _process_engineering_route_opened(event: SimulationEvent, snapshot: WorldSn
 
 func _process_doctrine_equipped(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
 	var commander_id := StringName(_detail_string(event.detail, "commander"))
-	var commander := snapshot.get_commander(commander_id)
+	var commander := _indexed_commander(snapshot,commander_id)
 	if commander == null or commander.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 		return
 	var doctrine_key := StringName("DOCTRINE_%s" % _detail_string(event.detail, "doctrine").to_upper())
@@ -313,7 +323,7 @@ func _process_doctrine_equipped(event: SimulationEvent, snapshot: WorldSnapshot)
 
 
 func _process_supply_node_activated(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
-	var card := snapshot.get_unit_card(StringName(_detail_string(event.detail, "card")))
+	var card := _indexed_card(snapshot,StringName(_detail_string(event.detail, "card")))
 	var region := snapshot.get_strategic_region(StringName(_detail_string(event.detail, "region")))
 	if card == null or card.faction_id != SimulationWorld.LOCAL_PLAYER_ID or region == null:
 		return
@@ -355,21 +365,21 @@ func _process_region_capture_interrupted(event: SimulationEvent, snapshot: World
 
 
 func _process_organization_changed(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
-	var card := snapshot.get_unit_card(StringName(_detail_string(event.detail, "card")))
+	var card := _indexed_card(snapshot,StringName(_detail_string(event.detail, "card")))
 	if card == null or card.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 		return
 	var band := _detail_int(event.detail, "band")
 	var severity := Severity.WARNING if band <= 1 else Severity.INFO
-	if _emit_feedback(Cue.REGION, &"BATTLE_FEEDBACK_ORGANIZATION_CHANGED", [card.display_name_key, card.organization_state_key], severity, "organization:%s:%d" % [card.definition_id, band], event.tick):
+	if _emit_feedback(Cue.REGION, &"BATTLE_FEEDBACK_ORGANIZATION_CHANGED", [_card_feedback_key(card, snapshot), card.organization_state_key], severity, "organization:%s:%d" % [_card_feedback_scope(card, snapshot), band], event.tick):
 		effect_requested.emit(&"organization", card.center_position, card.faction_id, event.entity_id)
 
 
 func _process_card_withdrawn(event: SimulationEvent, snapshot: WorldSnapshot) -> void:
-	var card := snapshot.get_unit_card(StringName(_detail_string(event.detail, "card")))
+	var card := _indexed_card(snapshot,StringName(_detail_string(event.detail, "card")))
 	if card == null or card.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 		return
 	var position := _entity_position(snapshot, event.entity_id)
-	if _emit_feedback(Cue.UNDER_PRESSURE, &"BATTLE_FEEDBACK_CARD_WITHDRAWN", [card.display_name_key], Severity.WARNING, "withdrawn:%s" % card.definition_id, event.tick):
+	if _emit_feedback(Cue.UNDER_PRESSURE, &"BATTLE_FEEDBACK_CARD_WITHDRAWN", [_card_feedback_key(card, snapshot)], Severity.WARNING, "withdrawn:%s" % _card_feedback_scope(card, snapshot), event.tick):
 		effect_requested.emit(&"withdrawal", position, card.faction_id, event.entity_id)
 
 
@@ -385,14 +395,17 @@ func _register_focus_fire(source_id: int, target_id: int, tick: int, snapshot: W
 	_focus_windows[target_id] = window
 	if sources.size() < FOCUS_SOURCE_THRESHOLD:
 		return
+	var target := _indexed_unit(snapshot,target_id)
+	var scope := "focus:%s" % (_unit_feedback_scope(target,snapshot) if target != null else str(target_id))
+	if not _feedback_ready(Cue.FOCUS_FIRE,scope,tick): return
 	var target_key := _entity_display_key(snapshot, target_id)
-	if _emit_feedback(Cue.FOCUS_FIRE, &"BATTLE_FEEDBACK_FOCUS_FIRE", [target_key], Severity.WARNING, "focus:%d" % target_id, tick):
+	if _emit_feedback(Cue.FOCUS_FIRE, &"BATTLE_FEEDBACK_FOCUS_FIRE", [target_key], Severity.WARNING, scope, tick):
 		var target_faction := _entity_faction(snapshot, target_id)
 		effect_requested.emit(&"focus", _entity_position(snapshot, target_id), target_faction, target_id)
 
 
 func _register_card_damage(unit: UnitSnapshot, amount: float, tick: int, snapshot: WorldSnapshot) -> void:
-	var scope_id := unit.unit_card_id if not unit.unit_card_id.is_empty() else StringName("formation_%d" % unit.formation_id)
+	var scope_id := _unit_feedback_scope(unit, snapshot)
 	var window := _damage_windows.get(scope_id, {}) as Dictionary
 	if window.is_empty() or tick - int(window.get("start_tick", tick)) > DAMAGE_WINDOW_TICKS:
 		window = {"start_tick": tick, "amount": 0.0}
@@ -402,7 +415,7 @@ func _register_card_damage(unit: UnitSnapshot, amount: float, tick: int, snapsho
 		return
 	var card_key := _unit_or_card_display_key(unit, snapshot)
 	if _emit_feedback(Cue.UNDER_PRESSURE, &"BATTLE_FEEDBACK_UNDER_PRESSURE", [card_key], Severity.WARNING, "pressure:%s" % scope_id, tick):
-		var card := snapshot.get_unit_card(unit.unit_card_id)
+		var card := _indexed_card(snapshot,unit.unit_card_id)
 		var position := card.center_position if card != null else unit.position
 		effect_requested.emit(&"pressure", position, unit.faction_id, unit.entity_id)
 	window["amount"] = 0.0
@@ -410,11 +423,16 @@ func _register_card_damage(unit: UnitSnapshot, amount: float, tick: int, snapsho
 	_damage_windows[scope_id] = window
 
 
-func _emit_feedback(cue: Cue, message_key: StringName, arguments: Array, severity: Severity, scope: String, tick: int) -> bool:
+func _feedback_ready(cue: Cue, scope: String, tick: int) -> bool:
 	var cooldown_key := "%d:%s" % [cue, scope]
 	var last_tick := int(_last_feedback_tick_by_scope.get(cooldown_key, -1000000))
-	if tick - last_tick < _cue_cooldown_ticks(cue):
+	return tick - last_tick >= _cue_cooldown_ticks(cue)
+
+
+func _emit_feedback(cue: Cue, message_key: StringName, arguments: Array, severity: Severity, scope: String, tick: int) -> bool:
+	if not _feedback_ready(cue,scope,tick):
 		return false
+	var cooldown_key := "%d:%s" % [cue, scope]
 	_last_feedback_tick_by_scope[cooldown_key] = tick
 	_last_feedback_tick_by_scope["count:%d" % cue] = int(_last_feedback_tick_by_scope.get("count:%d" % cue, 0)) + 1
 	last_cue = cue
@@ -528,14 +546,14 @@ func _is_relevant_attack(attacker: UnitSnapshot, target_id: int, snapshot: World
 
 
 func _unit_or_card_display_key(unit: UnitSnapshot, snapshot: WorldSnapshot) -> StringName:
-	var card := snapshot.get_unit_card(unit.unit_card_id) if not unit.unit_card_id.is_empty() else null
+	var card := _indexed_card(snapshot,unit.unit_card_id) if not unit.unit_card_id.is_empty() else null
 	if card != null:
-		return card.display_name_key
+		return _card_feedback_key(card, snapshot)
 	return StringName("UNIT_%s" % String(unit.definition_id).to_upper())
 
 
 func _entity_display_key(snapshot: WorldSnapshot, entity_id: int) -> StringName:
-	var unit := snapshot.get_unit(entity_id)
+	var unit := _indexed_unit(snapshot,entity_id)
 	if unit != null:
 		return _unit_or_card_display_key(unit, snapshot)
 	var building := snapshot.get_building(entity_id)
@@ -545,7 +563,7 @@ func _entity_display_key(snapshot: WorldSnapshot, entity_id: int) -> StringName:
 
 
 func _entity_position(snapshot: WorldSnapshot, entity_id: int) -> Vector2:
-	var unit := snapshot.get_unit(entity_id)
+	var unit := _indexed_unit(snapshot,entity_id)
 	if unit != null:
 		return unit.position
 	var building := snapshot.get_building(entity_id)
@@ -553,7 +571,7 @@ func _entity_position(snapshot: WorldSnapshot, entity_id: int) -> Vector2:
 
 
 func _entity_faction(snapshot: WorldSnapshot, entity_id: int) -> int:
-	var unit := snapshot.get_unit(entity_id)
+	var unit := _indexed_unit(snapshot,entity_id)
 	if unit != null:
 		return unit.faction_id
 	var building := snapshot.get_building(entity_id)
@@ -569,11 +587,7 @@ func _detail_float(detail: String, key: String) -> float:
 
 
 func _detail_string(detail: String, key: String) -> String:
-	var prefix := "%s=" % key
-	for part in detail.split(";"):
-		if part.begins_with(prefix):
-			return part.trim_prefix(prefix)
-	return ""
+	return EventDetailReader.first_value(detail,key)
 
 
 func _detail_vector2(detail: String, key: String) -> Vector2:
@@ -585,3 +599,49 @@ func _detail_vector2(detail: String, key: String) -> Vector2:
 
 func _region_display_key(region: StrategicRegionSnapshot) -> StringName:
 	return region.display_name_key if region != null else &"BATTLE_FEEDBACK_UNKNOWN_TARGET"
+
+
+func _card_feedback_key(card: UnitCardSnapshot, snapshot: WorldSnapshot) -> StringName:
+	if snapshot.growth_mode:
+		var commander := _indexed_commander(snapshot,card.commander_definition_id)
+		if commander != null:
+			if not _feedback_names.has(commander.definition_id):
+				_feedback_names[commander.definition_id] = StringName(GameText.t(&"GROWTH_LEGION_NAME") % GameText.t(commander.display_name_key))
+			return _feedback_names[commander.definition_id]
+	return card.display_name_key
+
+
+func _card_feedback_scope(card: UnitCardSnapshot, snapshot: WorldSnapshot) -> StringName:
+	return card.commander_definition_id if snapshot.growth_mode and not card.commander_definition_id.is_empty() else card.definition_id
+
+
+func _unit_feedback_scope(unit: UnitSnapshot, snapshot: WorldSnapshot) -> StringName:
+	var card := _indexed_card(snapshot,unit.unit_card_id)
+	return _card_feedback_scope(card, snapshot) if card != null else StringName("formation_%d" % unit.formation_id)
+
+
+func _indexed_unit(snapshot: WorldSnapshot, entity_id: int) -> UnitSnapshot:
+	if snapshot != _indexed_feedback_snapshot:
+		_indexed_feedback_snapshot = snapshot
+		_feedback_units.clear()
+		_feedback_cards.clear()
+		_feedback_commanders.clear()
+		_feedback_names.clear()
+		if snapshot != null:
+			for card in snapshot.unit_cards:
+				if not _feedback_cards.has(card.definition_id): _feedback_cards[card.definition_id] = card
+			for commander in snapshot.commanders:
+				if not _feedback_commanders.has(commander.definition_id): _feedback_commanders[commander.definition_id] = commander
+			for unit in snapshot.units:
+				if not _feedback_units.has(unit.entity_id): _feedback_units[unit.entity_id] = unit
+	return _feedback_units.get(entity_id) as UnitSnapshot
+
+
+func _indexed_card(snapshot: WorldSnapshot, card_id: StringName) -> UnitCardSnapshot:
+	if snapshot != _indexed_feedback_snapshot: _indexed_unit(snapshot,0)
+	return _feedback_cards.get(card_id) as UnitCardSnapshot
+
+
+func _indexed_commander(snapshot: WorldSnapshot, commander_id: StringName) -> CommanderSnapshot:
+	if snapshot != _indexed_feedback_snapshot: _indexed_unit(snapshot,0)
+	return _feedback_commanders.get(commander_id) as CommanderSnapshot

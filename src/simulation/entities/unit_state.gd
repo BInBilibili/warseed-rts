@@ -1,6 +1,18 @@
 class_name UnitState
 extends RefCounted
 
+# Transient authority-only coupling; never serialized or exposed to opponents.
+var legion_motion: LegionMotionConstraint
+var legion_slot: LegionSpatialOrder
+var reformation: LegionReformationState
+var free_legion_movement := false
+var free_march_intent := ""
+var free_march_destination := Vector2(INF,INF)
+var free_march_waypoints := PackedVector2Array()
+var free_march_waypoint_index := 0
+var free_march_revision := -1
+var flexible_legion_movement := false
+
 enum ControlState {
 	PLAYER_CONTROLLED,
 	AGENT_ASSIGNED,
@@ -40,6 +52,15 @@ enum WorkKind {
 	REPAIR,
 }
 
+var hero_commander_id: StringName
+var scout_capture_allowed := false
+var hero_lane_id: StringName
+var legion_returning: bool = false
+var local_engagement_active: bool = false
+var local_engagement_returning: bool = false
+var local_engagement_origin: Vector2
+var local_engagement_until_tick: int = -1
+var reinforced_until_tick: int = -1
 var entity_id: int
 var position: Vector2
 var move_target: Vector2
@@ -53,6 +74,8 @@ var formation_id: int = 0
 var formation_slot_id: int = -1
 var following_formation: bool = false
 var desired_position: Vector2
+var progress_window_tick: int = -1
+var progress_window_position: Vector2
 var ticks_without_progress: int = 0
 var recovery_attempts: int = 0
 var is_recovering: bool = false
@@ -121,6 +144,8 @@ var ammunition: int = 0
 var minimum_attack_range: float = 0.0
 var suppression_power: float = 0.0
 var pending_suppression: float = 0.0
+var pending_health_only_loss: float = 0.0
+var pending_health_only_death: bool = false
 var pending_suppression_events: Array[SimulationEvent] = []
 var identification_required: bool = false
 var weapon_preparation_ticks: int = 0
@@ -130,6 +155,14 @@ var weapon_action_ready: bool = true
 var weapon_reason_key: StringName = &"TACTICAL_READY"
 var card_weapon_initialized: bool = false
 var organization_attack_restricted: bool = false
+var fallback_weapon: CombatDefinition
+var primary_weapon: TacticalWeaponDefinition
+var using_fallback_weapon: bool = false
+var damage_multiplier_min: float = 1.0
+var damage_multiplier_max: float = 1.0
+var weapon_shots_fired: int = 0
+var primary_cooldown_ticks: int = 20
+var primary_projectile_speed: float = 420.0
 
 
 func _init(
@@ -150,6 +183,9 @@ func _init(
 
 
 func configure_tactical_weapon(weapon: TacticalWeaponDefinition) -> void:
+	primary_weapon = weapon
+	damage_multiplier_min = weapon.damage_multiplier_min
+	damage_multiplier_max = weapon.damage_multiplier_max
 	damage_tag = weapon.damage_tag
 	target_tag = weapon.target_tag
 	allowed_target_tags.assign(weapon.allowed_targets)
@@ -159,3 +195,7 @@ func configure_tactical_weapon(weapon: TacticalWeaponDefinition) -> void:
 	suppression_power = weapon.suppression
 	identification_required = weapon.identification_required
 	weapon_preparation_ticks = weapon.preparation_ticks
+
+var commander_attack_multiplier := 1.0
+
+var growth_loss_recorded := false

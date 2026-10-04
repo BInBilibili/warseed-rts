@@ -12,3 +12,6 @@ extends Resource
 @export var move_speed_multiplier: float = 1.0
 @export var health_restore: float = 0.0
 @export var organization_restore: float = 0.0
+@export var area_radius: float = 0.0
+@export var activation_delay_ticks: int = 0
+@export var pulse_interval_ticks: int = 10

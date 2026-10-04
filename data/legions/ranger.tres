@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="LegionTemplate" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/data/legion_template.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+profile_id = &"ranger"
+opening = PackedInt32Array(2, 7, 3, 0)
+full = PackedInt32Array(10, 35, 15, 0)
+growth_roles = PackedInt32Array(1, 2, 1, 2, 1, 0, 1, 2, 1, 1, 2, 1, 1, 2, 1, 0, 1, 2, 1, 1, 0, 2, 1, 1, 1, 2, 1, 0, 1, 2, 1, 1, 0, 2, 1, 1, 1, 0, 1, 2, 1, 0, 1, 1, 2, 1, 0, 1)
+recovery_roles = PackedInt32Array(1, 2, 0)
+recovery_minimums = PackedInt32Array(4, 2, 1)
+hero_health = 650
+hero_armor = 16
+hero_speed = 190
+hero_damage = 30
+hero_range = 200
+hero_cooldown = 6
+hero_sight = 950
+armed_recon = false

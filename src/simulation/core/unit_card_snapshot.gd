@@ -16,6 +16,13 @@ var rapid_mobility_ticks_remaining: int = 0
 var member_entity_ids: Array[int]
 var active_member_entity_ids: Array[int] = []
 var center_position: Vector2
+var temporary_micro: bool = false
+var authority_version: int
+var player_command_id: int
+var persistent_manual: bool
+var player_order_receipt: CommanderState.IntentReceipt
+var player_stopped := false
+var continuing_player_order := false
 var assigned_task_id: int = 0
 var is_player_overridden: bool = false
 var formation_id: int = 0
@@ -24,6 +31,9 @@ var deployment_ticks_remaining: int = 0
 var deployment_ticks: int = 0
 var deployment_position: Vector2
 var supply_cost: int = 0
+var recruitment_cost: int = 1
+var recruitment_weight: float = 1.0
+var last_damage_tick: int
 var fortified_ticks_remaining: int = 0
 var control_state: UnitCardState.ControlState = UnitCardState.ControlState.UNASSIGNED
 var assigned_agent_id: int = 0
@@ -52,9 +62,18 @@ var tactical_until_tick: int
 var tactical_status_key: StringName
 var ammunition: int = 0
 var ammunition_capacity: int = 0
+var can_fight_without_ammunition := false
 
 
 func _init(state: UnitCardState, units: Dictionary) -> void:
+	can_fight_without_ammunition = state.definition.fallback_weapon != null
+	temporary_micro = state.temporary_micro
+	authority_version = state.authority_version
+	player_command_id = state.player_command_id
+	persistent_manual = state.persistent_manual
+	player_order_receipt = state.player_order_receipt
+	player_stopped=state.player_stopped
+	continuing_player_order=state.continuing_player_order
 	definition_id = state.definition.definition_id
 	for entry in state.composition:
 		composition.append(UnitCardCompositionSnapshot.new(entry, units, state.deployment_state == UnitCardState.DeploymentState.WITHDRAWN))
@@ -74,6 +93,9 @@ func _init(state: UnitCardState, units: Dictionary) -> void:
 	deployment_ticks = state.definition.deployment_ticks
 	deployment_position = state.deployment_position
 	supply_cost = state.effective_supply_cost()
+	recruitment_cost = state.definition.recruitment_cost
+	recruitment_weight = state.definition.recruitment_weight
+	last_damage_tick = state.last_damage_tick
 	fortified_ticks_remaining = state.fortified_ticks_remaining
 	control_state = state.control_state
 	assigned_agent_id = state.assigned_agent_id

@@ -2,6 +2,7 @@ class_name StrategicRegionState
 extends RefCounted
 
 var region_id: StringName
+var supply_tier: MapSupplyPointDefinition.Tier = MapSupplyPointDefinition.Tier.GENERIC
 var display_name_key: StringName
 var terrain_key: StringName
 var position: Vector2
@@ -12,6 +13,8 @@ var support_cooldown_ticks: int = 300
 var capturable: bool = true
 var capture_required_ticks: int = 60
 var controller_faction_id: int = 0
+var previous_controller_faction_id: int = 0
+var controller_changed_tick: int = -1
 var contested: bool = false
 var capture_faction_id: int = 0
 var capture_progress_ticks: int = 0

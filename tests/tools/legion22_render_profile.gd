@@ -1,0 +1,85 @@
+extends SceneTree
+var failures: Array[String] = []
+var loading := true
+var frames: Array[float] = []
+var progress: Dictionary = {}
+var last_usec := 0
+func _initialize() -> void:
+	process_frame.connect(_sample)
+	call_deferred("run")
+func _sample() -> void:
+	var now := Time.get_ticks_usec()
+	if last_usec > 0: frames.append((now-last_usec)/1000.0)
+	last_usec = now
+	if loading:
+		for child in root.get_children():
+			if child is BattleLoadingScreen and child._bar != null: progress[roundi(child._bar.value)] = true
+func stats(values: Array[float]) -> Dictionary:
+	values.sort()
+	return {"frames":values.size(),"p95_ms":values[int(values.size()*0.95)],"max_ms":values.back()}
+func run() -> void:
+	root.size = Vector2i(1280,720)
+	root.content_scale_size = root.size
+	await BattleLoadingScreen.enter_final_battle(self,"res://scenes/game/final_decision.tscn")
+	var game := current_scene as GameRoot
+	await game.prebattle_planner._start_battle()
+	game.simulation_host.set_tactical_paused(true)
+	print("LEGION22_LOADING_FRAMES ",stats(frames)," progress=",progress.keys())
+	loading = false
+	var world := game.simulation_host.world
+	for commander: CommanderState in world.commanders.values(): commander.posture = CommanderState.Posture.HOLD
+	# Synthetic supply fixture reaches capacity without weakening the gameplay cap.
+	for tick in range(2500):
+		if tick % 100 == 0:
+			for faction: FactionState in world.factions.values(): faction.supply = 300
+		world.advance_tick()
+		if world.factions[1].population == 300 and world.factions[2].population == 300: break
+	world.command_queue.drain()
+	world.agents.clear()
+	for task: TaskState in world.tasks.values(): task.lifecycle = TaskState.Lifecycle.PAUSED
+	for card: UnitCardState in world.unit_cards.values():
+		card.control_state = UnitCardState.ControlState.PLAYER_CONTROLLED
+		card.persistent_manual = true
+	var origin := Vector2(16384,12288)
+	for formation: FormationState in world.formations.values():
+		formation.is_moving = false
+		formation.order_kind = FormationState.OrderKind.IDLE
+	var index := 0
+	for unit: UnitState in world.units.values():
+		if not unit.enabled: continue
+		var flank := -1 if unit.faction_id == 1 else 1
+		var distance := 210 if unit.tactical_role == UnitState.TacticalRole.FIREPOWER else 70
+		unit.position = origin + Vector2(flank * (distance + index % 6 * 8), (index % 50 - 25)*18)
+		unit.health = 100000
+		unit.max_health = 100000
+		unit.has_move_target = false
+		unit.following_formation = false
+		unit.control_state = UnitState.ControlState.PLAYER_CONTROLLED
+		unit.assigned_task_id = 0
+		index += 1
+	world._update_faction_knowledge()
+	game.camera_controller.center_on_world_position(origin)
+	game.camera_controller.zoom = Vector2(0.8,0.8)
+	game.simulation_host.current_snapshot = world.create_snapshot()
+	game.simulation_host.previous_snapshot = game.simulation_host.current_snapshot
+	for frame in range(15): await process_frame
+	frames.clear()
+	last_usec = 0
+	var tick_times: Array[float] = []
+	var start_tick := world.current_tick
+	game.simulation_host.set_tactical_paused(false)
+	while world.current_tick < start_tick + 150:
+		await process_frame
+		game.camera_controller.center_on_world_position(origin+Vector2(sin(world.current_tick*0.02)*200,0))
+		if world.current_tick in [start_tick+10,start_tick+30,start_tick+60]:
+			await RenderingServer.frame_post_draw
+			root.get_texture().get_image().save_png("res://artifacts/legion22-render-%d.png" % (world.current_tick-start_tick))
+		if game.simulation_host._last_tick_usec > 0: tick_times.append(game.simulation_host._last_tick_usec/1000.0)
+	game.simulation_host.set_tactical_paused(true)
+	var shots := 0
+	for event in world.events:
+		if event.tick >= start_tick and event.kind == SimulationEvent.Kind.PROJECTILE_FIRED: shots += 1
+	if world.factions[1].population != 300 or world.factions[2].population != 300: failures.append("capacity")
+	if shots == 0: failures.append("no combat")
+	print("LEGION22_RENDER600 ",stats(frames)," ticks=",stats(tick_times)," shots=",shots," failures=",failures)
+	quit(0 if failures.is_empty() else 1)

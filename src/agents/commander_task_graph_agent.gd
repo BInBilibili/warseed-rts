@@ -54,6 +54,14 @@ func expected_action(snapshot: WorldSnapshot, graph: CommanderTaskGraphSnapshot,
 	if card.deployment_state == UnitCardState.DeploymentState.DEPLOYED and card.current_strength == 0:
 		return Action.FAIL
 	if node.lifecycle == Life.WAITING:
+		if graph.approved_plan.coordination == StaffPlanRequest.Coordination.JOINT_ATTACK and node.phase == Phase.ENGAGE:
+			for assignment in graph.approved_plan.assignments:
+				var participant := snapshot.get_unit_card(assignment.card_id)
+				if participant == null or participant.current_strength == 0: return Action.FAIL
+				if participant.is_player_overridden or participant.control_state in [UnitCardState.ControlState.PLAYER_CONTROLLED, UnitCardState.ControlState.PLAYER_OVERRIDDEN, UnitCardState.ControlState.RETURNING]: return -1
+			var paused := graph.coordination_paused_ticks
+			if graph.coordination_paused_since_tick >= 0: paused += snapshot.tick - graph.coordination_paused_since_tick
+			if snapshot.tick - graph.created_tick - paused > node.timeout_ticks: return Action.FAIL
 		for id in node.prerequisite_ids:
 			var prerequisite := graph.get_node(id)
 			if prerequisite != null and prerequisite.lifecycle in [Life.FAILED, Life.CANCELLED]:
@@ -86,11 +94,14 @@ func expected_action(snapshot: WorldSnapshot, graph: CommanderTaskGraphSnapshot,
 	if node.phase in [Phase.ENGAGE, Phase.EXPLOIT]:
 		var objective := snapshot.get_strategic_region(graph.approved_plan.objective_region_id)
 		condition = arrived and objective != null and objective.controller_faction_id == graph.faction_id and not objective.contested
-	if node.phase in [Phase.RECON, Phase.EXPLOIT, Phase.RETREAT]:
+	if node.phase in [Phase.EXPLOIT, Phase.RETREAT]:
 		for unit in snapshot.units:
 			if unit.enabled and unit.faction_id != graph.faction_id and unit.is_visible_to_local_player \
 					and unit.position.distance_to(node.target_position) <= node.arrival_radius:
 				condition = false
+	if graph.approved_plan.coordination == StaffPlanRequest.Coordination.MUTUAL_SUPPORT and node.phase in [Phase.ENGAGE, Phase.EXPLOIT]:
+		for unit in snapshot.units:
+			if unit.enabled and unit.faction_id != graph.faction_id and unit.is_visible_to_local_player and unit.position.distance_to(node.target_position) <= 900.0: condition = false
 	if not condition:
 		return Action.RESET_PROGRESS if node.progress_ticks > 0 else -1
 	return Action.COMPLETE if node.progress_ticks + 1 >= node.dwell_ticks else Action.PROGRESS

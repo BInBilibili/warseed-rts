@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="LegionReformationPolicy" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/data/legion_reformation_policy.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+definition_id = &"rapid_reformation_v1"
+target_ticks = 30
+maximum_ticks = 60
+landing_ticks = 10
+budget_window_ticks = 100
+cooldown_ticks = 30
+damage_multiplier = 1.5
+spacings = PackedFloat32Array(48, 40, 32)
+body_separation = 24.0
+artillery_separation = 48.0
+ground_radius = 32.0

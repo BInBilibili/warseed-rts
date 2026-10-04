@@ -11,9 +11,9 @@ config_version=5
 [application]
 
 config/name="WARSEED"
-config/version="0.1.0-r5-fix.20260916"
+config/version="0.1.0-legion-movement.20260928"
 run/main_scene="res://scenes/game/battle_selector.tscn"
-config/features=PackedStringArray("4.6", "GL Compatibility")
+config/features=PackedStringArray("4.6", "C#", "GL Compatibility")
 run/max_fps=120
 
 [display]

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="LegionArtilleryPolicy" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/data/legion_artillery_policy.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+definition_id = &"gunner_artillery_groups_v1"
+profile_id = &"gunner"
+preferred_range_min = 320.0
+preferred_range_max = 400.0
+full_fraction = 0.6
+preparation_ticks = 20
+partial_after_ticks = 40
+relocation_interval_ticks = 20
+no_site_timeout_ticks = 60
+maximum_relocation_step = 96.0
+maximum_lateral_step = 64.0

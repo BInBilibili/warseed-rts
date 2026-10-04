@@ -5,9 +5,19 @@ const DEFAULT_CATALOG: StaffPlanCatalog = preload("res://data/ai/staff_plans.tre
 const ROUTE_THREAT_RADIUS := 400.0
 
 var last_rejection_reason: StringName
+var _navigator: GridPathfinder
+static var _navigation_cache: Dictionary[String, GridPathfinder] = {}
 
 
 func generate(snapshot: WorldSnapshot, observer: int, request: StaffPlanRequest, catalog: StaffPlanCatalog = DEFAULT_CATALOG) -> StaffPlanSet:
+	var started := RuntimeMeasurement.begin()
+	var result := _generate_measured(snapshot,observer,request,catalog)
+	RuntimeMeasurement.end(&"command.plan_generation_usec",started)
+	if RuntimeMeasurement.enabled: RuntimeMeasurement.count("plan.result:"+String(last_rejection_reason if result==null else &"accepted"))
+	return result
+
+
+func _generate_measured(snapshot: WorldSnapshot, observer: int, request: StaffPlanRequest, catalog: StaffPlanCatalog) -> StaffPlanSet:
 	last_rejection_reason = &""
 	var assessor := StaffSituationAssessor.new()
 	var board := assessor.assess(snapshot, observer)
@@ -22,11 +32,35 @@ func generate(snapshot: WorldSnapshot, observer: int, request: StaffPlanRequest,
 	var objective := snapshot.get_strategic_region(request.objective_region_id)
 	if objective == null or not objective.capturable:
 		return _reject(&"UNKNOWN_OBJECTIVE")
-	if objective.controller_faction_id == observer:
+	if request.coordination != StaffPlanRequest.Coordination.INDEPENDENT and snapshot.navigation_map_id.is_empty():
+		return _reject(&"INVALID_REQUEST")
+	if request.coordination == StaffPlanRequest.Coordination.MUTUAL_SUPPORT and objective.controller_faction_id != observer:
+		return _reject(&"SUPPORT_REQUIRES_FRIENDLY")
+	if objective.controller_faction_id == observer and request.coordination != StaffPlanRequest.Coordination.MUTUAL_SUPPORT:
 		return _reject(&"OBJECTIVE_ALREADY_HELD")
 	for id in request.allowed_card_ids:
 		if board.get_card(id) == null:
 			return _reject(&"INVALID_REQUEST")
+	if request.coordination != StaffPlanRequest.Coordination.INDEPENDENT:
+		var groups: Array[StringName] = []
+		for card in board.cards:
+			if request.allowed_card_ids.has(card.card_id):
+				if not card.can_allocate: return _reject(&"COOP_REQUIRES_READY_GROUPS")
+				if not groups.has(card.commander_id): groups.append(card.commander_id)
+		if groups.size() < 2: return _reject(&"COOP_REQUIRES_TWO_GROUPS")
+		for card in board.cards:
+			if groups.has(card.commander_id) and snapshot.get_unit_card(card.card_id).authorized_strength > 0 and not request.allowed_card_ids.has(card.card_id): return _reject(&"COOP_REQUIRES_READY_GROUPS")
+	for id in request.via_region_ids:
+		if snapshot.get_strategic_region(id) == null:
+			return _reject(&"INVALID_REQUEST")
+	_navigator = null
+	if not snapshot.navigation_map_id.is_empty():
+		var maps := load("res://data/maps/map_catalog.tres") as MapContentCatalog
+		var map := maps.get_map(snapshot.navigation_map_id)
+		if map == null:
+			return _reject(&"INVALID_REQUEST")
+		_navigator = navigation_for_snapshot(snapshot)
+
 	var result := StaffPlanSet.new()
 	result.source_tick = snapshot.tick
 	result.observer_faction_id = observer
@@ -87,6 +121,8 @@ func _generate_profile(snapshot: WorldSnapshot, board: StaffSituationSnapshot, r
 		if axis == null:
 			return null
 	var plan := StaffCourseOfAction.new()
+	plan.coordination = request.coordination
+	plan.formation = request.formation
 	plan.profile_id = profile.profile_id
 	plan.kind = profile.kind
 	plan.name_key = profile.name_key
@@ -95,10 +131,20 @@ func _generate_profile(snapshot: WorldSnapshot, board: StaffSituationSnapshot, r
 	plan.plan_id = StringName("coa:%s:%s:%d" % [objective.region_id, profile.profile_id, snapshot.tick])
 	plan.preparation_ticks = profile.preparation_ticks
 	var commit_count := maxi(1, ceili(available.size() * profile.force_percent / 100.0))
+	var group_ids: Array[StringName] = []
+	if _navigator != null:
+		for card in available:
+			if not group_ids.has(card.commander_id):
+				group_ids.append(card.commander_id)
+		group_ids.sort()
+	var group_count := maxi(1, ceili(group_ids.size() * profile.force_percent / 100.0))
+	if request.coordination != StaffPlanRequest.Coordination.INDEPENDENT: group_count = group_ids.size()
 	for index in range(available.size()):
 		var card := available[index]
-		if index < commit_count:
-			_add_assignment(plan, card, card.position, objective, axis, index == 0 and profile.kind == StaffPlanProfile.Kind.RECON_FIRST)
+		var commit := index < commit_count if _navigator == null else group_ids.find(card.commander_id) < group_count
+		if commit:
+			var scout := index == 0 and profile.kind == StaffPlanProfile.Kind.RECON_FIRST if _navigator == null else _is_scout(snapshot, card.card_id)
+			_add_assignment(plan, card, card.position, objective, axis, scout)
 		else:
 			plan.reserve_card_ids.append(card.card_id)
 			plan.reserve_strength += card.current_strength
@@ -112,7 +158,7 @@ func _generate_profile(snapshot: WorldSnapshot, board: StaffSituationSnapshot, r
 			plan.reserve_card_ids.append(card.card_id)
 			plan.reserve_strength += card.available_strength
 	plan.assignments.sort_custom(func(a: StaffPlanAssignment, b: StaffPlanAssignment) -> bool: return String(a.card_id) < String(b.card_id))
-	if axis != null:
+	if axis != null and _navigator == null:
 		# Stage along our own rear before crossing to the selected flank.
 		var rear := _reserve_origin(snapshot, board.observer_faction_id)
 		plan.route_distance = 0.0
@@ -121,6 +167,26 @@ func _generate_profile(snapshot: WorldSnapshot, board: StaffSituationSnapshot, r
 			assignment.route_points = PackedVector2Array([origin, Vector2(origin.x, rear.y), Vector2(axis.position.x, rear.y), axis.position, objective.position])
 			for route_index in range(1, assignment.route_points.size()):
 				plan.route_distance += assignment.route_points[route_index - 1].distance_to(assignment.route_points[route_index])
+	if _navigator != null:
+		plan.route_is_navigation_path = true
+		plan.route_distance = 0.0
+		for assignment in plan.assignments:
+			var stops := PackedVector2Array([assignment.route_points[0]])
+			for id in request.via_region_ids:
+				stops.append(snapshot.get_strategic_region(id).position)
+			if axis != null and not request.via_region_ids.has(axis.region_id):
+				stops.append(axis.position)
+			stops.append(objective.position)
+			assignment.route_points = PackedVector2Array([stops[0]])
+			for index in range(1, stops.size()):
+				if request.coordination != StaffPlanRequest.Coordination.INDEPENDENT and index == stops.size()-1: assignment.required_route_end_index = assignment.route_points.size()-1
+				var segment := _navigator.find_path(stops[index - 1], stops[index])
+				if segment.is_empty():
+					return null
+				for point_index in range(1, segment.size()):
+					assignment.route_points.append(segment[point_index])
+			for index in range(1, assignment.route_points.size()):
+				plan.route_distance += assignment.route_points[index - 1].distance_to(assignment.route_points[index])
 	plan.reserve_card_ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 	_score(plan, board, objective, profile, request)
 	return plan
@@ -237,3 +303,27 @@ func _assignment_signature(plan: StaffCourseOfAction) -> String:
 	for assignment in plan.assignments:
 		values.append(assignment.to_dictionary())
 	return JSON.stringify(values)
+
+
+static func navigation_for_snapshot(snapshot: WorldSnapshot) -> GridPathfinder:
+	# Callers supply an already validated faction snapshot. The key contains
+	# only public map identity and that observer's known building footprints.
+	if snapshot == null or snapshot.is_true_state or snapshot.knowledge == null or snapshot.knowledge.faction_id != snapshot.observer_faction_id:
+		return null
+	var maps := load("res://data/maps/map_catalog.tres") as MapContentCatalog
+	var map := maps.get_map(snapshot.navigation_map_id)
+	if map == null: return null
+	var occupied: Array[Vector2i] = []
+	for building in snapshot.buildings:
+		if building.enabled:
+			occupied.append_array(building.footprint_cells)
+	occupied.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.x < b.x if a.x != b.x else a.y < b.y)
+	var key := "%s:%s" % [snapshot.navigation_map_id, occupied]
+	if not _navigation_cache.has(key):
+		if _navigation_cache.size() >= 4:
+			_navigation_cache.clear()
+		var grid := LogicGrid.create_for_map(map)
+		for cell in occupied:
+			grid.set_blocked(cell, true)
+		_navigation_cache[key] = GridPathfinder.new(grid)
+	return _navigation_cache[key]

@@ -1,0 +1,59 @@
+extends SceneTree
+
+func _initialize() -> void:
+	var started := Time.get_ticks_msec()
+	var world := SimulationWorld.new(true, false, SimulationWorld.ScenarioKind.FINAL_DECISION)
+	var scripted_support := OS.get_cmdline_user_args().has("--blue-support-policy")
+	var player_supports := 0
+	if scripted_support:
+		world.submit_command(SupplyPriorityCommand.new(world.allocate_command_id(), 1, 0, &"di_tian"))
+	print("GROWTH_MATCH_POLICY blue=", "legal-support-and-mid-priority" if scripted_support else "passive-commanders")
+	var counts := {}
+	var cursor := 0
+	var peak := {1: 48, 2: 48}
+	var first_combat := -1
+	var trace := HashingContext.new()
+	trace.start(HashingContext.HASH_SHA256)
+	for tick in range(world.battle_definition.time_limit_ticks + 1):
+		if scripted_support and world.current_tick % 100 == 0:
+			# A scripted player policy, using only blue's legal view and the same
+			# purchase pipeline; no money grants or hidden state in this match.
+			var support := GrowthSupportAgent.new().propose(world.create_faction_snapshot(1), world.battle_definition, 0)
+			if support != null:
+				support.issuer_kind = GameCommand.IssuerKind.PLAYER
+				support.command_id = world.allocate_command_id()
+				if world.submit_command(support).is_accepted(): player_supports += 1
+		world.advance_tick()
+		while cursor < world.events.size():
+			var event := world.events[cursor]
+			var kind: String = SimulationEvent.Kind.keys()[event.kind]
+			counts[kind] = int(counts.get(kind, 0)) + 1
+			trace.update(("%d:%d:%d:%s\n" % [event.tick, event.kind, event.entity_id, event.detail]).to_utf8_buffer())
+			if kind == "PROJECTILE_FIRED" and first_combat < 0:
+				first_combat = world.current_tick
+			cursor += 1
+		for faction in [1, 2]:
+			peak[faction] = maxi(peak[faction], world.factions[faction].population)
+		if world.current_tick % 1000 == 0 or world.battle_outcome.is_terminal():
+			var owned := {1: 0, 2: 0}
+			for region in world.strategic_regions.values():
+				if region.capturable and owned.has(region.controller_faction_id):
+					owned[region.controller_faction_id] += 1
+			print("GROWTH_MATCH tick=%d population=%d/%d supply=%d/%d points=%s combat=%d reinforced=%d elapsed=%.2f" % [world.current_tick, world.factions[1].population, world.factions[2].population, world.factions[1].supply, world.factions[2].supply, owned, counts.get("PROJECTILE_FIRED", 0), counts.get("UNIT_CARD_REINFORCED", 0), (Time.get_ticks_msec() - started) / 1000.0])
+			for commander: CommanderState in world.commanders.values():
+				var detail: Array[String] = []
+				for id in commander.subordinate_unit_card_ids:
+					var card := world.unit_cards[id] as UnitCardState
+					var view := UnitCardSnapshot.new(card, world.units)
+					detail.append("%s=%d/%d@%s task=%d" % [card.definition.role_key, view.current_strength, view.organization, view.center_position, card.assigned_task_id])
+				print("GROUP %s target=%s recovering=%s %s" % [commander.definition.definition_id, commander.target_region_id, commander.growth_recovering, detail])
+		if world.battle_outcome.is_terminal():
+			break
+	var failures: Array[String] = []
+	if not world.battle_outcome.is_terminal(): failures.append("no outcome")
+	for kind in ["PROJECTILE_FIRED", "REGION_CONTROL_CHANGED", "UNIT_CARD_REINFORCED"]:
+		if counts.get(kind, 0) == 0: failures.append("missing " + kind)
+	print("GROWTH_MATCH_RESULT evidence=SIMULATED tick=%d game_seconds=%.1f wall_seconds=%.2f first_combat=%d peak=%s outcome=%s fingerprint=%s failures=%s" % [world.current_tick, world.current_tick / 10.0, (Time.get_ticks_msec() - started) / 1000.0, first_combat, peak, world.battle_outcome.result_key(), trace.finish().hex_encode(), failures])
+	print("GROWTH_MATCH_EVENTS ", counts)
+	print("GROWTH_MATCH_PLAYER_SUPPORTS ", player_supports)
+	quit(0 if failures.is_empty() else 1)

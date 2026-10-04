@@ -47,7 +47,7 @@ def request_once(payload, key):
         ENDPOINT, data=json.dumps(payload).encode("utf-8"), method="POST",
         headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
     )
-    with urllib.request.build_opener(NoRedirect()).open(request, timeout=60) as response:
+    with urllib.request.build_opener(NoRedirect()).open(request, timeout=120) as response:
         raw = response.read(1_048_577)
     if len(raw) > 1_048_576:
         raise ValueError("Response exceeds local size limit")
@@ -85,7 +85,24 @@ def run(args):
     started = time.monotonic()
     exit_code = 1
     try:
-        content, usage, finish = summarize(request_once(payload, key), key)
+        response = request_once(payload, key)
+        # Record only bounded structural diagnostics, never raw provider bodies.
+        if isinstance(response, dict):
+            choices = response.get("choices")
+            metadata["choice_count"] = len(choices) if isinstance(choices, list) else 0
+            if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+                choice = choices[0]
+                finish = choice.get("finish_reason")
+                metadata["finish_reason"] = finish if finish in ("stop", "length", "content_filter", "tool_calls") else "unknown"
+                message = choice.get("message") or {}
+                if isinstance(message, dict):
+                    for field in ("content", "reasoning_content", "refusal"):
+                        value = message.get(field)
+                        metadata[field + "_characters"] = len(value) if isinstance(value, str) else 0
+            usage = response.get("usage") or {}
+            if isinstance(usage, dict):
+                metadata["usage"] = {k: usage[k] for k in ("prompt_tokens", "completion_tokens", "total_tokens") if isinstance(usage.get(k), int)}
+        content, usage, finish = summarize(response, key)
         (output / "response.md").write_text(content, encoding="utf-8")
         metadata.update(status="received", usage=usage, finish_reason=finish)
         # A truncated or nonstandard completion is not an accepted deliverable.

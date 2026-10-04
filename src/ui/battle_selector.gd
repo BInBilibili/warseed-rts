@@ -25,9 +25,16 @@ var _battle_buttons: Array[Button] = []
 var _selected_index: int = -1
 var _black_well_continuity_confirmed := false
 var _roster_error := ""
+var _large_mode := true
+var _mode_buttons: Array[Button] = []
 
 
 func _ready() -> void:
+	# Export templates disable scene/script CLI overrides. This explicit headless
+	# debug check exercises the packaged native kernel without entering a match.
+	if OS.is_debug_build() and DisplayServer.get_name() == "headless" and OS.get_cmdline_user_args().has("--verify-art-kernel"):
+		get_tree().change_scene_to_file.call_deferred("res://scenes/diagnostics/art_kernel_verification.tscn")
+		return
 	var session_id := ArmyRosterStore.active_playtest_session_id()
 	var roster_path := ArmyRosterStore.campaign_record_path_for_session(session_id, &"black_well")
 	var loaded := ArmyRosterStore.load_record_result(roster_path, ArmyRosterStore.runtime_persistence_allowed())
@@ -44,8 +51,7 @@ func _ready() -> void:
 	if viewport != null and not viewport.size_changed.is_connected(_apply_responsive_layout):
 		viewport.size_changed.connect(_apply_responsive_layout)
 	refresh_locale()
-	if not _battles.is_empty():
-		_select_battle(0)
+	_select_mode(true)
 	_apply_responsive_layout()
 
 
@@ -55,6 +61,22 @@ func _load_battles() -> void:
 		deploy_button.disabled = true
 		return
 	_battles = resource.get_selectable_battles()
+	if _mode_buttons.is_empty():
+		var modes := HBoxContainer.new()
+		modes.name = "MatchModes"
+		battle_list.get_parent().add_child(modes)
+		# Keep the two-column dossier layout intact; place mode tabs above Body.
+		battle_list.get_parent().remove_child(modes)
+		var layout := $SafeArea/Layout
+		layout.add_child(modes)
+		layout.move_child(modes, $SafeArea/Layout/Body.get_index())
+		for large in [true, false]:
+			var mode_button := Button.new()
+			mode_button.toggle_mode = true
+			mode_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			mode_button.pressed.connect(_select_mode.bind(large))
+			modes.add_child(mode_button)
+			_mode_buttons.append(mode_button)
 	for child in battle_list.get_children():
 		child.queue_free()
 	_battle_buttons.clear()
@@ -84,9 +106,12 @@ func refresh_locale() -> void:
 	replay_tutorial_button.tooltip_text = GameText.t(&"BATTLE_SELECT_TUTORIAL_REPLAY_TOOLTIP")
 	language_button.text = GameText.t(&"BATTLE_SELECT_LANGUAGE")
 	exit_button.text = GameText.t(&"EXIT_GAME")
+	if _mode_buttons.size() == 2:
+		_mode_buttons[0].text = GameText.t(&"GROWTH_MODE")
+		_mode_buttons[1].text = GameText.t(&"TACTICAL_MODE")
 	for index in range(_battle_buttons.size()):
 		var battle := _battles[index]
-		_battle_buttons[index].text = GameText.t(&"BATTLE_SELECT_OPERATION_BUTTON") % [
+		_battle_buttons[index].text = GameText.t(battle.display_name_key) if battle.growth_mode else GameText.t(&"BATTLE_SELECT_OPERATION_BUTTON") % [
 			battle.operation_number,
 			GameText.t(battle.display_name_key),
 		]
@@ -98,6 +123,8 @@ func _select_battle(index: int) -> void:
 	if index < 0 or index >= _battles.size():
 		return
 	_selected_index = index
+	_large_mode = _battles[index].growth_mode
+	_refresh_mode_visibility()
 	for button_index in range(_battle_buttons.size()):
 		_battle_buttons[button_index].button_pressed = button_index == index
 	_refresh_dossier()
@@ -111,6 +138,16 @@ func _refresh_dossier() -> void:
 	if battle == null:
 		return
 	operation_label.text = GameText.t(&"BATTLE_SELECT_OPERATION") % battle.operation_number
+	persistence_label.text = GameText.t(&"GROWTH_MATCH_HELP" if battle.growth_mode else &"BATTLE_SELECT_PERSISTENCE")
+	if not battle.growth_mode:
+		if not _roster_error.is_empty():
+			persistence_label.text += "\n" + GameText.t(&"ROSTER_LOAD_FAILED")
+		if _black_well_continuity_confirmed:
+			persistence_label.text += "\n" + GameText.t(&"BLACK_WELL_CONTINUITY_CONFIRMED")
+	persistence_label.tooltip_text = _roster_error if not battle.growth_mode else ""
+	training_status_label.get_parent().visible = not battle.growth_mode
+	if battle.growth_mode:
+		operation_label.text = GameText.t(&"GROWTH_MODE")
 	battle_title_label.text = GameText.t(battle.display_name_key)
 	briefing_label.text = GameText.t(battle.selector_briefing_key)
 	mechanics_label.text = GameText.t(&"BATTLE_SELECT_MECHANICS") % GameText.t(battle.selector_mechanics_key)
@@ -125,6 +162,21 @@ func get_selected_battle() -> BattleDefinition:
 	if _selected_index < 0 or _selected_index >= _battles.size():
 		return null
 	return _battles[_selected_index]
+
+
+func _select_mode(large: bool) -> void:
+	_large_mode = large
+	for index in range(_battles.size()):
+		if _battles[index].growth_mode == large:
+			_select_battle(index)
+			return
+
+
+func _refresh_mode_visibility() -> void:
+	for index in range(_battle_buttons.size()):
+		_battle_buttons[index].visible = _battles[index].growth_mode == _large_mode
+	for index in range(_mode_buttons.size()):
+		_mode_buttons[index].set_pressed_no_signal(_large_mode == (index == 0))
 
 
 func get_selectable_battle_count() -> int:
@@ -152,7 +204,10 @@ func _deploy_selected() -> void:
 		return
 	battle_requested.emit(battle.scenario_id, battle.scene_path)
 	if scene_changes_enabled:
-		get_tree().change_scene_to_file(battle.scene_path)
+		if battle.scenario_id == &"final_decision":
+			BattleLoadingScreen.enter_final_battle(get_tree(), battle.scene_path)
+		else:
+			get_tree().change_scene_to_file(battle.scene_path)
 
 
 func _toggle_language() -> void:
@@ -170,6 +225,14 @@ func _apply_responsive_layout() -> void:
 	var body := $SafeArea/Layout/Body as GridContainer
 	var viewport_width := get_viewport_rect().size.x
 	var narrow := viewport_width < 820.0
+	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	battle_title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	battle_title_label.add_theme_font_size_override("font_size", 21 if narrow else 25)
+	$SafeArea/Layout.add_theme_constant_override("separation", 10 if narrow else 16)
+	$SafeArea/Layout/Body/Dossier/Content.add_theme_constant_override("separation", 8 if narrow else 12)
+	for button in _mode_buttons:
+		button.custom_minimum_size.y = 30
+		button.clip_text = true
 	body.columns = 1 if narrow else 2
 	battle_list.custom_minimum_size = Vector2(0.0 if narrow else 310.0, 156.0)
 	briefing_label.custom_minimum_size.y = 60.0 if narrow else 92.0

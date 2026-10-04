@@ -18,3 +18,10 @@ func _init(
 
 func get_supersession_key() -> String:
 	return "F%d" % formation_id if formation_id != 0 else super()
+
+
+func duplicate_value() -> StopCommand:
+	var result := StopCommand.new(command_id, issuer_id, issuer_kind, issued_tick, target_entity_id, formation_id)
+	result.agent_id = agent_id
+	result.task_id = task_id
+	return result

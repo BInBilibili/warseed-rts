@@ -1,6 +1,14 @@
 class_name WorldPresentation
 extends Node2D
 
+var _pose_cache: Dictionary = {}
+var _indexed_previous: WorldSnapshot
+var _indexed_current: WorldSnapshot
+var _current_units: Dictionary = {}
+var _current_buildings: Dictionary = {}
+var _previous_units: Dictionary = {}
+var _previous_buildings: Dictionary = {}
+
 var selected_entity_id: int = 0
 var selected_entity_ids: Array[int] = []
 var selected_building_id: int = 0
@@ -54,6 +62,38 @@ const IMPACT_FLASH_DURATION := 0.32
 const DESTRUCTION_EFFECT_DURATION := 0.72
 
 var _detailed_units_enabled: bool = true
+var _art_batch: WsArtBatch
+var _art_event_cursor: int = 0
+var _art_headings: Dictionary = {}
+var _strategic_units: StrategicUnitOverlay
+var _last_view_zoom := -1.0
+var _area_preview_active := false
+var _area_preview_position: Vector2
+var _area_preview_radius := 0.0
+var _area_preview_kind := 0
+var _deployment_overlays: Array[LegionDeploymentOverlay] = []
+
+func set_deployment_preview(plans: Array[LegionDeploymentPlan], unknown: bool) -> void:
+	while _deployment_overlays.size()<plans.size():
+		var overlay := LegionDeploymentOverlay.new()
+		add_child(overlay); _deployment_overlays.append(overlay)
+	for index in range(_deployment_overlays.size()):
+		if index>=plans.size(): _deployment_overlays[index].clear_preview(); continue
+		var plan := plans[index]
+		var markers := PackedInt32Array()
+		var commander := current_snapshot.get_commander(plan.commander_id) if current_snapshot!=null else null
+		var template := LegionTemplate.find(commander.profile_id) if commander!=null else null
+		var roles := template.slot_roles() if template!=null else PackedInt32Array()
+		for identity in plan.identities:
+			var marker := LegionDeploymentOverlay.Marker.SOLDIER
+			if identity==60: marker=LegionDeploymentOverlay.Marker.COMMANDER
+			elif identity>=0 and identity<roles.size() and roles[identity]==3: marker=LegionDeploymentOverlay.Marker.FIREPOWER
+			markers.append(marker)
+		_deployment_overlays[index].set_preview(plan.standard_points,plan.points,plan.anchor,plan.facing,plan.status,plan.spacing,unknown,markers)
+
+func clear_deployment_preview() -> void:
+	for overlay in _deployment_overlays: overlay.clear_preview()
+
 
 @onready var units_root: Node2D = $Units
 @onready var buildings_root: Node2D = $Buildings
@@ -80,18 +120,61 @@ func set_unit_labels_visible(labels_visible: bool) -> void:
 
 
 func set_snapshots(previous: WorldSnapshot, current: WorldSnapshot, alpha: float) -> void:
+	var measure_start := RuntimeMeasurement.begin()
+	_set_snapshots_measured(previous,current,alpha)
+	RuntimeMeasurement.end(&"frame.snapshot_sync_usec",measure_start)
+
+
+func _set_snapshots_measured(previous: WorldSnapshot, current: WorldSnapshot, alpha: float) -> void:
 	previous_snapshot = previous
 	current_snapshot = current
 	interpolation_alpha = clampf(alpha, 0.0, 1.0)
-	if current_snapshot == null or current_snapshot.tick == _synced_snapshot_tick:
+	if current_snapshot == null:
+		_indexed_current = null
+		_indexed_previous = null
+		_current_units.clear()
+		_current_buildings.clear()
+		_previous_units.clear()
+		_previous_buildings.clear()
+		_cache_previous_interpolation_state()
 		return
+	var previous_changed := previous_snapshot != _indexed_previous
+	if previous_changed:
+		_indexed_previous = previous_snapshot
+		_previous_units.clear()
+		_previous_buildings.clear()
+		if previous_snapshot != null:
+			for unit in previous_snapshot.units:
+				if not _previous_units.has(unit.entity_id): _previous_units[unit.entity_id] = unit
+			for building in previous_snapshot.buildings:
+				if not _previous_buildings.has(building.entity_id): _previous_buildings[building.entity_id] = building
+	if current_snapshot == _indexed_current:
+		if previous_changed: _cache_previous_interpolation_state()
+		return
+	_indexed_current = current_snapshot
+	_current_units.clear()
+	_current_buildings.clear()
+	for unit in current_snapshot.units:
+		if not _current_units.has(unit.entity_id): _current_units[unit.entity_id] = unit
+	for building in current_snapshot.buildings:
+		if not _current_buildings.has(building.entity_id): _current_buildings[building.entity_id] = building
 	_synced_snapshot_tick = current_snapshot.tick
 	_full_sync_count += 1
 	_cache_previous_interpolation_state()
+	var sync_started := RuntimeMeasurement.begin()
 	_sync_proxies()
+	RuntimeMeasurement.end(&"sync.units_usec",sync_started)
+	sync_started = RuntimeMeasurement.begin()
 	_sync_building_proxies()
 	_sync_ore_field_proxies()
-	_sync_combat_feedback()
+	RuntimeMeasurement.end(&"sync.buildings_usec",sync_started)
+	sync_started = RuntimeMeasurement.begin()
+	if _strategic_units == null:
+		_strategic_units = StrategicUnitOverlay.new()
+		_strategic_units.z_index = 15
+		add_child(_strategic_units)
+	_strategic_units.set_snapshot(current_snapshot, selected_entity_ids)
+	RuntimeMeasurement.end(&"sync.strategic_usec",sync_started)
 	queue_redraw()
 
 
@@ -121,12 +204,14 @@ func set_selected_entities(entity_ids: Array[int], primary_entity_id: int, build
 	selected_entity_ids = entity_ids.duplicate()
 	selected_entity_id = primary_entity_id
 	selected_building_id = building_id
+	if _strategic_units != null:
+		_strategic_units.set_snapshot(current_snapshot, selected_entity_ids)
 	var selected_lookup: Dictionary = {}
 	for entity_id in selected_entity_ids:
 		selected_lookup[entity_id] = true
 	var selected_formation_id := 0
 	if current_snapshot != null:
-		var selected_unit := current_snapshot.get_unit(selected_entity_id)
+		var selected_unit := _lookup_unit(current_snapshot, selected_entity_id)
 		if selected_unit != null:
 			selected_formation_id = selected_unit.formation_id
 	for proxy_variant in _proxies.values():
@@ -135,7 +220,7 @@ func set_selected_entities(entity_ids: Array[int], primary_entity_id: int, build
 		if selected_formation_id == 0:
 			proxy.formation_member = false
 		else:
-			var unit := current_snapshot.get_unit(proxy.entity_id) if current_snapshot != null else null
+			var unit := _lookup_unit(current_snapshot, proxy.entity_id) if current_snapshot != null else null
 			proxy.formation_member = unit != null and unit.formation_id == selected_formation_id
 	for proxy_variant in _building_proxies.values():
 		var building_proxy := proxy_variant as BuildingProxy
@@ -235,8 +320,20 @@ func clear_commander_plan_preview() -> void:
 
 
 func _process(_delta: float) -> void:
+	var measure_start := RuntimeMeasurement.begin()
+	_process_measured(_delta)
+	RuntimeMeasurement.end(&"frame.presentation_usec", measure_start)
+
+
+func _process_measured(_delta: float) -> void:
 	if current_snapshot == null:
 		return
+	var view_zoom := get_canvas_transform().get_scale().x
+	if not is_equal_approx(view_zoom, _last_view_zoom):
+		_last_view_zoom = view_zoom
+		queue_redraw()
+	if _art_batch != null:
+		_art_batch.advance(_delta)
 	_update_proxy_positions(false)
 	_update_combat_effects(_delta)
 	if not current_snapshot.projectiles.is_empty() or not _combat_effects.is_empty() or _selected_overlay_needs_interpolation():
@@ -339,35 +436,35 @@ func _map_effect_label_key(kind: StringName) -> StringName:
 
 
 func _snapshot_entity_position(snapshot: WorldSnapshot, entity_id: int, fallback: Vector2) -> Vector2:
-	var unit := snapshot.get_unit(entity_id)
+	var unit := _lookup_unit(snapshot, entity_id)
 	if unit != null:
 		return unit.position
-	var building := snapshot.get_building(entity_id)
+	var building := _lookup_building(snapshot, entity_id)
 	return building.position if building != null else fallback
 
 
 func _snapshot_entity_enabled(snapshot: WorldSnapshot, entity_id: int) -> bool:
-	var unit := snapshot.get_unit(entity_id)
+	var unit := _lookup_unit(snapshot, entity_id)
 	if unit != null:
 		return unit.enabled
-	var building := snapshot.get_building(entity_id)
+	var building := _lookup_building(snapshot, entity_id)
 	return building != null and building.enabled
 
 
 func _snapshot_entity_took_damage(entity_id: int) -> bool:
-	var previous_unit := previous_snapshot.get_unit(entity_id)
-	var current_unit := current_snapshot.get_unit(entity_id)
+	var previous_unit := _lookup_unit(previous_snapshot, entity_id)
+	var current_unit := _lookup_unit(current_snapshot, entity_id)
 	if previous_unit != null and current_unit != null:
 		return current_unit.health < previous_unit.health
-	var previous_building := previous_snapshot.get_building(entity_id)
-	var current_building := current_snapshot.get_building(entity_id)
+	var previous_building := _lookup_building(previous_snapshot, entity_id)
+	var current_building := _lookup_building(current_snapshot, entity_id)
 	return previous_building != null and current_building != null and current_building.health < previous_building.health
 
 
 func _selected_overlay_needs_interpolation() -> bool:
 	if selected_entity_id == 0:
 		return false
-	var unit := current_snapshot.get_unit(selected_entity_id)
+	var unit := _lookup_unit(current_snapshot, selected_entity_id)
 	if unit == null:
 		return false
 	if unit.is_moving or unit.attack_target_entity_id != 0:
@@ -453,14 +550,22 @@ func _update_proxy_positions(apply_snapshot_data: bool) -> void:
 		if proxy_needs_detail:
 			if unit.is_visible_to_local_player and _previous_visible_unit_ids.has(unit.entity_id):
 				from_position = _previous_unit_positions.get(unit.entity_id, unit.position) as Vector2
+			var art_heading := _art_heading(unit)
+			if not is_equal_approx(proxy.art_heading, art_heading):
+				proxy.art_heading = art_heading
+				proxy.queue_redraw()
 			proxy.position = from_position.lerp(
 				unit.position,
 				interpolation_alpha
 			)
 	var process_frame := Engine.get_process_frames()
 	if apply_snapshot_data or process_frame != _last_batch_update_frame:
+		var batch_started := RuntimeMeasurement.begin()
 		_update_unit_batches()
+		RuntimeMeasurement.end(&"render.unit_batches_usec",batch_started)
+		batch_started = RuntimeMeasurement.begin()
 		_update_projectile_batch()
+		RuntimeMeasurement.end(&"render.projectile_batch_usec",batch_started)
 		_last_batch_update_frame = process_frame
 
 
@@ -485,49 +590,134 @@ func _create_batch(size: Vector2, layer: int) -> MultiMeshInstance2D:
 	return instance
 
 
+func _ensure_art_batch() -> void:
+	if _art_batch != null:
+		return
+	_art_batch = WsArtBatch.new()
+	_art_batch.z_index = 2
+	add_child(_art_batch)
+
+
+func _art_heading(unit: UnitSnapshot) -> float:
+	# Only visible positions are used to update facing. Stored contacts never turn.
+	var heading: float = _art_headings.get(unit.entity_id, 0.0 if unit.faction_id == SimulationWorld.LOCAL_PLAYER_ID else PI)
+	if unit.is_visible_to_local_player and _previous_visible_unit_ids.has(unit.entity_id):
+		var previous: Vector2 = _previous_unit_positions.get(unit.entity_id, unit.position)
+		var movement := unit.position - previous
+		if movement.length_squared() > 0.01:
+			heading = movement.angle()
+	_art_headings[unit.entity_id] = heading
+	return heading
+
+
+var _batch_snapshot: WorldSnapshot
+var _batch_poses: Array[WsArtPose] = []
+
 func _update_unit_batches() -> void:
 	if current_snapshot == null:
 		return
 	_ensure_unit_batches()
-	_unit_bodies_batch.visible = not _detailed_units_enabled
-	var count := current_snapshot.units.size()
-	_resize_batch(_unit_bodies_batch, count)
-	var required_buffer_size := count * MULTIMESH_TRANSFORM_COLOR_STRIDE
-	if _unit_body_buffer.size() != required_buffer_size:
-		_unit_body_buffer.resize(required_buffer_size)
-	for index in range(count):
+	_ensure_art_batch()
+	_unit_bodies_batch.visible = false
+	_art_batch.visible = not _detailed_units_enabled
+	var refresh_membership := _batch_snapshot != current_snapshot
+	if refresh_membership:
+		_batch_snapshot = current_snapshot
+		_batch_poses.clear()
+		var active: Dictionary = {}
+		for unit in current_snapshot.units:
+			var pose: WsArtPose = _pose_cache.get(unit.entity_id)
+			if pose == null:
+				pose = WsArtPose.new()
+				_pose_cache[unit.entity_id] = pose
+			pose.entity_id = unit.entity_id
+			active[unit.entity_id] = true
+			pose.definition_id = unit.definition_id
+			pose.blue = unit.faction_id == SimulationWorld.LOCAL_PLAYER_ID
+			pose.enabled = unit.enabled
+			pose.contact_only = not pose.blue and not unit.is_visible_to_local_player
+			pose.intel_freshness = unit.intel_freshness
+			_batch_poses.append(pose)
+		for id in _art_headings.keys():
+			if not active.has(id): _art_headings.erase(id)
+		for id in _pose_cache.keys():
+			if not active.has(id): _pose_cache.erase(id)
+	for index in current_snapshot.units.size():
 		var unit := current_snapshot.units[index]
-		var from_position := unit.position
+		var pose := _batch_poses[index]
+		pose.deployment_progress = lerpf(pose.deployment_progress, unit.deployment_progress, 0.25)
+		pose.position = unit.position
 		if unit.is_visible_to_local_player and _previous_visible_unit_ids.has(unit.entity_id):
-			from_position = _previous_unit_positions.get(unit.entity_id, unit.position) as Vector2
-		var position := from_position.lerp(unit.position, interpolation_alpha)
-		var remembered := unit.faction_id != SimulationWorld.LOCAL_PLAYER_ID and not unit.is_visible_to_local_player
-		var body_color := UnitProxy.BODY_COLOR if unit.faction_id == SimulationWorld.LOCAL_PLAYER_ID else UnitProxy.ENEMY_COLOR
-		var body_scale := Vector2.ONE
-		match unit.tactical_role:
-			UnitState.TacticalRole.SCOUT:
-				body_scale = Vector2(0.72, 0.65)
-			UnitState.TacticalRole.FIREPOWER:
-				body_scale = Vector2(1.12, 0.62)
-			UnitState.TacticalRole.ARMOR:
-				body_scale = Vector2(1.16, 0.94)
-			UnitState.TacticalRole.ASSAULT:
-				body_scale = Vector2(0.92, 0.88)
-		if not unit.enabled:
-			body_color = UnitProxy.WRECK_COLOR
-		elif remembered:
-			body_color = Color(UnitProxy.LAST_SEEN_COLOR, 0.22)
-		elif unit.max_health > 0.0:
-			var health_ratio := clampf(unit.health / unit.max_health, 0.0, 1.0)
-			body_color = body_color.darkened((1.0 - health_ratio) * 0.55)
-			if unit.terrain_kind == UnitState.TerrainKind.OPEN:
-				body_color = body_color.lerp(Color("d7b34c"), 0.12)
-			elif unit.terrain_kind == UnitState.TerrainKind.RUINS:
-				body_color = body_color.lerp(Color("9aa6a6"), 0.12)
-			elif unit.terrain_kind == UnitState.TerrainKind.FOREST:
-				body_color = body_color.lerp(Color("5fa36f"), 0.14)
-		_write_batch_instance(_unit_body_buffer, index, position, body_scale, body_color)
-	_unit_bodies_batch.multimesh.set_buffer(_unit_body_buffer)
+			var previous: Vector2 = _previous_unit_positions.get(unit.entity_id, unit.position)
+			pose.position = previous.lerp(unit.position, interpolation_alpha)
+		pose.heading = _art_heading(unit)
+	_art_batch.submit(_batch_poses, refresh_membership)
+
+
+func reset_art_feedback(event_count: int = 0) -> void:
+	_batch_snapshot = null
+	_art_event_cursor = event_count
+	_art_headings.clear()
+	_pose_cache.clear()
+	_combat_effects.clear()
+	if _art_batch != null:
+		_art_batch.reset()
+	for proxy: UnitProxy in _proxies.values():
+		proxy.fire_remaining = 0.0
+		proxy.hit_flash_remaining = 0.0
+		proxy.destruction_flash_remaining = 0.0
+		proxy.queue_redraw()
+	for proxy: BuildingProxy in _building_proxies.values():
+		proxy.hit_flash_remaining = 0.0
+		proxy.destruction_flash_remaining = 0.0
+		proxy.queue_redraw()
+
+
+func consume_art_events(events: Array[SimulationEvent], snapshot: WorldSnapshot) -> void:
+	if snapshot == null:
+		return
+	_ensure_art_batch()
+	if events.size() < _art_event_cursor:
+		reset_art_feedback()
+	while _art_event_cursor < events.size():
+		var event := events[_art_event_cursor]
+		_art_event_cursor += 1
+		# Never replay historical hidden events when a contact becomes visible.
+		if event.tick < snapshot.tick - 1 or event.tick > snapshot.tick:
+			continue
+		if event.kind == SimulationEvent.Kind.PROJECTILE_FIRED:
+			var unit := _lookup_unit(snapshot, event.entity_id)
+			if unit == null or not unit.enabled or (unit.faction_id != SimulationWorld.LOCAL_PLAYER_ID and not unit.is_visible_to_local_player):
+				continue
+			var heading := _art_heading(unit)
+			_art_batch.fire(unit.entity_id)
+			var proxy := _proxies.get(unit.entity_id) as UnitProxy
+			if proxy != null:
+				proxy.play_fire_feedback(heading)
+		elif event.kind == SimulationEvent.Kind.DAMAGE_APPLIED:
+			var target_id := _art_event_target(event.detail)
+			var unit := _lookup_unit(snapshot, target_id)
+			var building := _lookup_building(snapshot, target_id)
+			var unit_visible := unit != null and (unit.faction_id == SimulationWorld.LOCAL_PLAYER_ID or unit.is_visible_to_local_player)
+			var building_visible := building != null and (building.faction_id == SimulationWorld.LOCAL_PLAYER_ID or building.is_visible)
+			if not unit_visible and not building_visible:
+				continue
+			var at := unit.position if unit_visible else building.position
+			var destroyed := not unit.enabled if unit_visible else not building.enabled
+			var faction := unit.faction_id if unit_visible else building.faction_id
+			_spawn_combat_effect(&"destroyed" if destroyed else &"impact", at, Vector2.ZERO, DESTRUCTION_EFFECT_DURATION if destroyed else IMPACT_FLASH_DURATION, faction, target_id)
+			_art_batch.hit(target_id)
+			var proxy := _proxies.get(target_id) as UnitProxy
+			if proxy != null:
+				proxy.play_hit_feedback(destroyed)
+			var building_proxy := _building_proxies.get(target_id) as BuildingProxy
+			if building_proxy != null:
+				building_proxy.play_hit_feedback(destroyed)
+	queue_redraw()
+
+
+func _art_event_target(detail: String) -> int:
+	return int(EventDetailReader.first_value(detail,"target"))
 
 
 func _update_projectile_batch() -> void:
@@ -546,7 +736,7 @@ func _update_projectile_batch() -> void:
 			var previous_position := _previous_projectile_positions[projectile.projectile_id] as Vector2
 			position = previous_position.lerp(projectile.position, interpolation_alpha)
 		var color := Color("fff0a1") if projectile.faction_id == SimulationWorld.LOCAL_PLAYER_ID else Color("ff8a75")
-		var visual_scale := 1.0
+		var visual_scale := 1.8 if projectile.weapon_mode == 1 else 1.0
 		_write_batch_instance(_projectile_buffer, index, position, Vector2.ONE * visual_scale, color)
 	_projectile_batch.multimesh.set_buffer(_projectile_buffer)
 
@@ -579,9 +769,25 @@ func _write_batch_instance(
 
 
 func _draw() -> void:
+	var measure_start := RuntimeMeasurement.begin()
+	_draw_measured()
+	RuntimeMeasurement.end(&"frame.draw_usec", measure_start)
+
+
+func _draw_measured() -> void:
 	_draw_projectile_trails()
+	var draw_strategic_region_control := RuntimeMeasurement.begin()
 	_draw_strategic_region_control()
+	RuntimeMeasurement.end(&"draw.strategic_region_control_usec", draw_strategic_region_control)
+	var draw_area_supports := RuntimeMeasurement.begin()
+	_draw_area_supports()
+	RuntimeMeasurement.end(&"draw.area_supports_usec", draw_area_supports)
+	var draw_recruitment_halos := RuntimeMeasurement.begin()
+	_draw_recruitment_halos()
+	RuntimeMeasurement.end(&"draw.recruitment_halos_usec", draw_recruitment_halos)
+	var draw_combat_effects := RuntimeMeasurement.begin()
 	_draw_combat_effects()
+	RuntimeMeasurement.end(&"draw.combat_effects_usec", draw_combat_effects)
 	if build_preview_active:
 		_draw_build_preview()
 	if attack_targeting_active:
@@ -591,7 +797,11 @@ func _draw() -> void:
 	if current_snapshot != null:
 		_draw_commander_task_arrows()
 		_draw_unit_selection_overlays()
+		var selected := _lookup_unit(current_snapshot, selected_entity_id)
 		for task in current_snapshot.tasks:
+			if not current_snapshot.navigation_map_id.is_empty():
+				if selected == null or selected.assigned_task_id != task.task_id:
+					continue
 			if task.kind == TaskState.Kind.FORMATION_MOVE_TEST or task.lifecycle in [TaskState.Lifecycle.COMPLETED, TaskState.Lifecycle.FAILED, TaskState.Lifecycle.CANCELLED]:
 				continue
 			var task_color := Color("58c6d0")
@@ -614,14 +824,14 @@ func _draw() -> void:
 		draw_arc(pending_move_target, 12.0, 0.0, TAU, 24, Color("f2c94c"), 2.0)
 	if current_snapshot == null or selected_entity_id == 0:
 		return
-	var unit := current_snapshot.get_unit(selected_entity_id)
+	var unit := _lookup_unit(current_snapshot, selected_entity_id)
 	if unit == null:
 		return
 	if unit.attack_target_entity_id != 0:
-		var attack_target := current_snapshot.get_unit(unit.attack_target_entity_id)
+		var attack_target := _lookup_unit(current_snapshot, unit.attack_target_entity_id)
 		var target_position := attack_target.position if attack_target != null else Vector2.ZERO
 		if attack_target == null:
-			var target_building := current_snapshot.get_building(unit.attack_target_entity_id)
+			var target_building := _lookup_building(current_snapshot, unit.attack_target_entity_id)
 			if target_building != null:
 				target_position = target_building.position
 		if target_position != Vector2.ZERO:
@@ -635,7 +845,7 @@ func _draw() -> void:
 				if formation.path.size() >= 2:
 					draw_polyline(formation.path, route_color, 2.0)
 				for member_id in formation.member_entity_ids:
-					var member := current_snapshot.get_unit(member_id)
+					var member := _lookup_unit(current_snapshot, member_id)
 					if member != null:
 						draw_circle(member.desired_position, 5.0, Color(0.41, 0.72, 0.77, 0.45))
 				draw_arc(formation.target_position, 10.0, 0.0, TAU, 24, Color("f2c94c"), 2.0)
@@ -661,7 +871,11 @@ func _draw() -> void:
 func _draw_projectile_trails() -> void:
 	if current_snapshot == null:
 		return
-	var trail_scale := 1.0
+	var measure_start := RuntimeMeasurement.begin()
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	var outer_colors := PackedColorArray()
+	var inner_colors := PackedColorArray()
 	for projectile in current_snapshot.projectiles:
 		var head := projectile.position
 		var previous_position := _previous_projectile_positions.get(projectile.projectile_id, head) as Vector2
@@ -671,8 +885,33 @@ func _draw_projectile_trails() -> void:
 			var target_position := _snapshot_entity_position(current_snapshot, projectile.target_entity_id, head)
 			travel_direction = (target_position - head).normalized()
 		var color := Color("ffd75e") if projectile.faction_id == SimulationWorld.LOCAL_PLAYER_ID else Color("ff6b55")
-		draw_line(head - travel_direction * 24.0 * trail_scale, head, Color(color, 0.26), 7.0 * trail_scale)
-		draw_line(head - travel_direction * 18.0 * trail_scale, head, Color(color, 0.92), 2.2 * trail_scale)
+		outer.append(head - travel_direction * 24.0)
+		outer.append(head)
+		inner.append(head - travel_direction * 18.0)
+		inner.append(head)
+		outer_colors.append(Color(color,0.26))
+		inner_colors.append(Color(color,0.92))
+	if not outer.is_empty():
+		# Keep every trail and both layers; submit each layer in one draw call.
+		draw_multiline_colors(outer,outer_colors,7.0)
+		draw_multiline_colors(inner,inner_colors,2.2)
+	RuntimeMeasurement.end(&"frame.projectile_trails_usec",measure_start)
+
+
+var _effect_label_sizes: Dictionary = {}
+var _effect_label_font: Font
+var _effect_label_locale := ""
+var _effect_rays: Dictionary[int, PackedVector2Array] = {}
+
+func _effect_directions(count: int, seed_id: int = -1) -> PackedVector2Array:
+	var key := count if seed_id < 0 else 100 + seed_id % 17
+	if not _effect_rays.has(key):
+		var points := PackedVector2Array()
+		var angle := 0.0 if seed_id < 0 else float(seed_id % 17) * 0.19
+		for index in count:
+			points.append(Vector2.RIGHT.rotated(angle + float(index) * TAU / float(count)))
+		_effect_rays[key] = points
+	return _effect_rays[key]
 
 
 func _draw_combat_effects() -> void:
@@ -682,6 +921,14 @@ func _draw_combat_effects() -> void:
 		var progress := clampf(float(effect["elapsed"]) / duration, 0.0, 1.0)
 		var position_value := effect["position"] as Vector2
 		var kind := effect["kind"] as StringName
+		if kind in [&"impact", &"destroyed", &"muzzle"] and current_snapshot != null:
+			var effect_id := int(effect["entity_id"])
+			var effect_unit := _lookup_unit(current_snapshot, effect_id)
+			var effect_building := _lookup_building(current_snapshot, effect_id)
+			var legal_unit := effect_unit != null and (effect_unit.faction_id == SimulationWorld.LOCAL_PLAYER_ID or effect_unit.is_visible_to_local_player)
+			var legal_building := effect_building != null and (effect_building.faction_id == SimulationWorld.LOCAL_PLAYER_ID or effect_building.is_visible)
+			if not legal_unit and not legal_building:
+				continue
 		var faction_id := int(effect["faction_id"])
 		var color := Color("ffd75e") if faction_id == SimulationWorld.LOCAL_PLAYER_ID else Color("ff725f")
 		if kind == &"muzzle":
@@ -700,21 +947,18 @@ func _draw_combat_effects() -> void:
 			var fade := 1.0 - progress
 			draw_circle(position_value, (7.0 + progress * 14.0) * visual_scale, Color(1.0, 0.88, 0.58, fade * 0.65))
 			draw_arc(position_value, (10.0 + progress * 24.0) * visual_scale, 0.0, TAU, 28, Color(color, fade), 3.0 * visual_scale)
-			for ray_index in range(6):
-				var ray := Vector2.RIGHT.rotated(float(ray_index) * TAU / 6.0)
+			for ray in _effect_directions(6):
 				draw_line(position_value + ray * 8.0 * visual_scale, position_value + ray * (18.0 + progress * 18.0) * visual_scale, Color(color, fade), 2.0 * visual_scale)
 		elif kind == &"engagement":
 			var fade := 1.0 - progress
 			var radius := (20.0 + progress * 44.0) * visual_scale
 			draw_arc(position_value, radius, 0.0, TAU, 36, Color(0.35, 0.95, 0.86, fade), 4.0 * visual_scale)
-			for marker_index in range(4):
-				var direction := Vector2.RIGHT.rotated(float(marker_index) * TAU / 4.0)
+			for direction in _effect_directions(4):
 				draw_line(position_value + direction * (radius - 10.0 * visual_scale), position_value + direction * (radius + 8.0 * visual_scale), Color(0.7, 1.0, 0.94, fade), 4.0 * visual_scale)
 		elif kind == &"focus":
 			var fade := 1.0 - progress
 			draw_arc(position_value, (34.0 - progress * 16.0) * visual_scale, 0.0, TAU, 36, Color(1.0, 0.82, 0.28, fade), 3.0 * visual_scale)
-			for arrow_index in range(3):
-				var direction := Vector2.RIGHT.rotated(float(arrow_index) * TAU / 3.0)
+			for direction in _effect_directions(3):
 				var outer := position_value + direction * (54.0 - progress * 26.0) * visual_scale
 				var inner := position_value + direction * 18.0 * visual_scale
 				draw_line(outer, inner, Color(1.0, 0.82, 0.28, fade), 4.0 * visual_scale)
@@ -764,9 +1008,7 @@ func _draw_combat_effects() -> void:
 			var fade := 1.0 - progress
 			draw_circle(position_value, (12.0 + progress * 30.0) * visual_scale, Color(1.0, 0.42, 0.12, fade * 0.42))
 			draw_arc(position_value, (18.0 + progress * 46.0) * visual_scale, 0.0, TAU, 36, Color(1.0, 0.72, 0.2, fade), 4.0 * visual_scale)
-			var seed_angle := float(int(effect["entity_id"]) % 17) * 0.19
-			for shard_index in range(8):
-				var shard := Vector2.RIGHT.rotated(seed_angle + float(shard_index) * TAU / 8.0)
+			for shard in _effect_directions(8, int(effect["entity_id"])):
 				draw_line(position_value + shard * 10.0 * visual_scale, position_value + shard * (24.0 + progress * 48.0) * visual_scale, Color(color, fade), 3.0 * visual_scale)
 		_draw_effect_label(effect, position_value, progress, visual_scale)
 
@@ -778,7 +1020,15 @@ func _draw_effect_label(effect: Dictionary, position_value: Vector2, progress: f
 	var text_value := GameText.t(label_key)
 	var font := ThemeDB.fallback_font
 	var font_size := maxi(18, roundi(18.0 * visual_scale))
-	var text_size := font.get_string_size(text_value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	var locale := TranslationServer.get_locale()
+	if font != _effect_label_font or locale != _effect_label_locale:
+		_effect_label_sizes.clear()
+		_effect_label_font = font
+		_effect_label_locale = locale
+	var size_key := [text_value, font_size]
+	if not _effect_label_sizes.has(size_key):
+		_effect_label_sizes[size_key] = font.get_string_size(text_value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	var text_size: Vector2 = _effect_label_sizes[size_key]
 	var label_center := position_value + Vector2(0.0, -78.0 * visual_scale)
 	var padding := Vector2(12.0, 7.0) * visual_scale
 	var label_rect := Rect2(label_center - Vector2(text_size.x * 0.5, text_size.y) - padding, text_size + padding * 2.0)
@@ -788,19 +1038,86 @@ func _draw_effect_label(effect: Dictionary, position_value: Vector2, progress: f
 	draw_string(font, Vector2(label_rect.position.x + padding.x, label_rect.end.y - padding.y), text_value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.93, 1.0, 0.96, fade))
 
 
+func set_area_support_preview(at: Vector2, radius: float, kind: int) -> void:
+	_area_preview_active = true
+	_area_preview_position = at
+	_area_preview_radius = radius
+	_area_preview_kind = kind
+	queue_redraw()
+
+
+func clear_area_support_preview() -> void:
+	_area_preview_active = false
+	queue_redraw()
+
+
+func _draw_area_supports() -> void:
+	if current_snapshot == null:
+		return
+	var view_zoom := maxf(0.001, get_canvas_transform().get_scale().x)
+	var line_width := 2.0 / view_zoom
+	if _area_preview_active:
+		var tint := Color("f38c53") if _area_preview_kind == SupportOrderCommand.SupportKind.MISSILE_BARRAGE else Color("64d8ca")
+		draw_circle(_area_preview_position, _area_preview_radius, Color(tint, 0.12))
+		draw_arc(_area_preview_position, _area_preview_radius, 0, TAU, 64, tint, line_width)
+	for effect in current_snapshot.area_support_effects:
+		var friendly := effect.faction_id == current_snapshot.observer_faction_id
+		var color := Color("66d5ff") if friendly else Color("ff756e")
+		var text := ""
+		match effect.support_kind:
+			SupportOrderCommand.SupportKind.AIR_RECON:
+				text = GameText.t(&"AREA_RECON_ACTIVE")
+				draw_arc(effect.position, effect.radius * fmod(float(current_snapshot.tick - effect.active_tick) / 40.0, 1.0), 0, TAU, 64, Color(color, 0.5), line_width)
+			SupportOrderCommand.SupportKind.FIELD_HOSPITAL:
+				color = Color("73dbff") if friendly else Color("ff8074")
+				text = GameText.t(&"AREA_HOSPITAL_ACTIVE")
+				# World-sized medical shelter; screen icon remains legible at distance.
+				draw_rect(Rect2(effect.position - Vector2(96, 72), Vector2(192, 144)), Color("203d58") if friendly else Color("572a30"))
+				draw_line(effect.position - Vector2(48, 0), effect.position + Vector2(48, 0), color, 20.0)
+				draw_line(effect.position - Vector2(0, 48), effect.position + Vector2(0, 48), color, 20.0)
+			SupportOrderCommand.SupportKind.MISSILE_BARRAGE:
+				color = Color("66cfff") if friendly else Color("ff794e")
+				text = GameText.t(&"AREA_MISSILE_WARNING")
+				if effect.executed:
+					var age := float(current_snapshot.tick - effect.active_tick) / 10.0
+					text = GameText.t(&"AREA_MISSILE_IMPACT")
+					draw_circle(effect.position, effect.radius * minf(1.0, age * 2.0 + 0.1), Color("ffdb88", maxf(0.0, 0.7 - age)))
+					draw_arc(effect.position, effect.radius * minf(1.2, age * 0.65 + 0.1), 0, TAU, 64, Color(color, maxf(0.0, 1.0 - age / 3.0)), line_width * 5)
+					for spark in range(12):
+						var direction := Vector2.from_angle(float(spark) * TAU / 12.0)
+						draw_line(effect.position + direction * effect.radius * 0.2, effect.position + direction * effect.radius * minf(0.9, age * 0.5 + 0.3), Color(color, maxf(0.0, 0.8 - age / 3.0)), line_width * 2)
+				else:
+					var progress := clampf(float(current_snapshot.tick - effect.started_tick) / maxf(1.0, effect.active_tick - effect.started_tick), 0.0, 1.0)
+					var missile_at := effect.position + Vector2(350, -1400) * (1.0 - progress)
+					draw_line(missile_at, missile_at + Vector2(100, -400), Color("ffe3a1"), line_width * 4)
+					draw_circle(missile_at, 8.0 / view_zoom, Color("fff1bd"))
+					draw_arc(effect.position, effect.radius, -PI / 2, -PI / 2 + TAU * progress, 64, color, line_width * 3)
+		text = GameText.t(&"EFFECT_FRIENDLY" if friendly else &"EFFECT_HOSTILE") + " " + text
+		if friendly:
+			draw_arc(effect.position, effect.radius, 0, TAU, 64, Color(color, 0.65), line_width)
+		else:
+			for segment in range(16):
+				draw_arc(effect.position, effect.radius, segment * TAU / 16, (segment + 0.6) * TAU / 16, 5, Color(color, 0.9), line_width * 2)
+			draw_colored_polygon(PackedVector2Array([effect.position + Vector2(0,-140), effect.position + Vector2(-32,-88), effect.position + Vector2(32,-88)]), color)
+		var remaining := maxi(0, (effect.active_tick if not effect.executed and effect.support_kind == SupportOrderCommand.SupportKind.MISSILE_BARRAGE else effect.expires_tick) - current_snapshot.tick)
+		draw_set_transform(effect.position, 0, Vector2.ONE / view_zoom)
+		draw_rect(Rect2(-72, -30, 144, 20), Color(0.02, 0.03, 0.035, 0.88))
+		draw_string(ThemeDB.fallback_font, Vector2(-68, -15), "%s %ds" % [text, ceili(remaining / 10.0)], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+		draw_set_transform(Vector2.ZERO)
+
+
 func _draw_strategic_region_control() -> void:
 	if current_snapshot == null:
 		return
-	var visual_scale := 1.0
+	var view_zoom := maxf(0.001, get_canvas_transform().get_scale().x)
+	var visual_scale := maxf(1.0, 0.15 / view_zoom) if not current_snapshot.navigation_map_id.is_empty() else 1.0
 	for region in current_snapshot.strategic_regions:
 		if not region.capturable:
 			continue
 		var owner_color := _region_faction_color(region.controller_faction_id)
 		var center := region.position
 		var point_radius := 52.0 * visual_scale
-		draw_circle(center, point_radius, Color(owner_color, 0.28))
-		draw_arc(center, point_radius, 0.0, TAU, 48, Color(owner_color, 0.96), 7.0 * visual_scale)
-		draw_circle(center, 14.0 * visual_scale, Color(owner_color, 0.9))
+		SupplyPointSymbol.draw_on(self, center, region.supply_tier, point_radius, owner_color, 7.0 * visual_scale)
 		if region.contested:
 			for segment in range(8):
 				var start := float(segment) * TAU / 8.0
@@ -814,7 +1131,13 @@ func _draw_strategic_region_control() -> void:
 		if bar_ratio > 0.0:
 			draw_rect(Rect2(bar_position + Vector2.ONE * 3.0 * visual_scale, Vector2((bar_size.x - 6.0 * visual_scale) * bar_ratio, bar_size.y - 6.0 * visual_scale)), bar_color, true)
 		draw_rect(Rect2(bar_position, bar_size), Color("f3c44e") if region.contested else Color(0.72, 0.79, 0.8, 0.9), false, 3.0 * visual_scale)
+		if not current_snapshot.navigation_map_id.is_empty() and view_zoom < 0.12:
+			continue
 		var status_text := _region_status_text(region)
+		if current_snapshot.growth_mode:
+			status_text += " · +%d/20s (%.2f/s)" % [region.supply_per_settlement, region.supply_per_settlement / 20.0]
+		if region.supply_tier != MapSupplyPointDefinition.Tier.GENERIC:
+			status_text = "%s · %s" % [GameText.t(region.display_name_key), status_text]
 		var font := ThemeDB.fallback_font
 		var font_size := maxi(18, roundi(18.0 * visual_scale))
 		var text_size := font.get_string_size(status_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
@@ -939,6 +1262,8 @@ func _commander_intent_origin(commander_id: StringName, fallback: Vector2) -> Ve
 	var commander := current_snapshot.get_commander(commander_id)
 	if commander == null:
 		return fallback
+	var hero := current_snapshot.get_unit(commander.hero_entity_id)
+	if hero != null and hero.enabled: return hero.position
 	var origin := Vector2.ZERO
 	var formation_count := 0
 	for unit_card_id in commander.subordinate_unit_card_ids:
@@ -951,14 +1276,14 @@ func _commander_intent_origin(commander_id: StringName, fallback: Vector2) -> Ve
 			formation_count += 1
 	if formation_count > 0:
 		return origin / float(formation_count)
-	var headquarters := current_snapshot.get_building(SimulationWorld.PLAYER_COMMAND_CENTER_ID)
+	var headquarters := _lookup_building(current_snapshot, SimulationWorld.PLAYER_COMMAND_CENTER_ID)
 	return headquarters.position if headquarters != null else fallback
 
 
 func _draw_formation_plan() -> void:
 	var points := PackedVector2Array()
 	if current_snapshot != null and selected_entity_id != 0:
-		var unit := current_snapshot.get_unit(selected_entity_id)
+		var unit := _lookup_unit(current_snapshot, selected_entity_id)
 		var formation := current_snapshot.get_formation(unit.formation_id) if unit != null and unit.formation_id != 0 else null
 		if formation != null:
 			points.append(formation.anchor_position)
@@ -987,7 +1312,7 @@ func _draw_formation_plan() -> void:
 func _selected_formation_anchor(fallback: Vector2) -> Vector2:
 	if current_snapshot == null or selected_entity_id == 0:
 		return fallback
-	var selected := current_snapshot.get_unit(selected_entity_id)
+	var selected := _lookup_unit(current_snapshot, selected_entity_id)
 	var formation := current_snapshot.get_formation(selected.formation_id) if selected != null and selected.formation_id != 0 else null
 	return formation.anchor_position if formation != null else fallback
 
@@ -997,7 +1322,7 @@ func _selected_formation_attack_range() -> float:
 		return 0.0
 	var maximum_range := 0.0
 	for entity_id in selected_entity_ids:
-		var member := current_snapshot.get_unit(entity_id)
+		var member := _lookup_unit(current_snapshot, entity_id)
 		if member != null and member.enabled and member.can_attack:
 			maximum_range = maxf(maximum_range, member.attack_range)
 	return maximum_range
@@ -1063,7 +1388,7 @@ func _draw_attack_targeting() -> void:
 		return
 	var combat_units: Array[UnitSnapshot] = []
 	for entity_id in selected_entity_ids:
-		var unit := current_snapshot.get_unit(entity_id)
+		var unit := _lookup_unit(current_snapshot, entity_id)
 		if unit == null or not unit.enabled or not unit.can_attack or not unit.can_accept_attack_orders:
 			continue
 		combat_units.append(unit)
@@ -1079,3 +1404,25 @@ func _draw_attack_targeting() -> void:
 	draw_arc(attack_preview_position, marker_radius, 0.0, TAU, 40, marker_color, 2.5)
 	draw_line(attack_preview_position + Vector2(-8.0, 0.0), attack_preview_position + Vector2(8.0, 0.0), marker_color, 2.0)
 	draw_line(attack_preview_position + Vector2(0.0, -8.0), attack_preview_position + Vector2(0.0, 8.0), marker_color, 2.0)
+
+func _draw_recruitment_halos() -> void:
+	if current_snapshot == null or not current_snapshot.growth_mode: return
+	var zoom := maxf(0.001, get_canvas_transform().get_scale().x)
+	for unit in current_snapshot.units:
+		if not unit.enabled or unit.faction_id != current_snapshot.observer_faction_id or unit.reinforced_until_tick <= current_snapshot.tick: continue
+		var pulse := 0.75 + 0.25 * sin(float(current_snapshot.tick) * 0.65)
+		draw_arc(unit.position, maxf(30.0, 7.0 / zoom), 0, TAU, 24, Color(0.25, 1.0, 0.48, pulse), 2.0 / zoom)
+
+
+func _lookup_unit(snapshot: WorldSnapshot, id: int) -> UnitSnapshot:
+	if snapshot == null: return null
+	if snapshot == _indexed_current: return _current_units.get(id) as UnitSnapshot
+	if snapshot == _indexed_previous: return _previous_units.get(id) as UnitSnapshot
+	return snapshot.get_unit(id) if snapshot != null else null
+
+
+func _lookup_building(snapshot: WorldSnapshot, id: int) -> BuildingSnapshot:
+	if snapshot == null: return null
+	if snapshot == _indexed_current: return _current_buildings.get(id) as BuildingSnapshot
+	if snapshot == _indexed_previous: return _previous_buildings.get(id) as BuildingSnapshot
+	return snapshot.get_building(id) if snapshot != null else null

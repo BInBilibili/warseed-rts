@@ -10,6 +10,8 @@ const ENEMY_COLOR := Color("d95c5c")
 const WRECK_COLOR := Color("4a5558")
 const LAST_SEEN_COLOR := Color(0.95, 0.68, 0.28, 0.62)
 
+var deployment_progress := 0.0
+
 var entity_id: int
 var faction_id: int = SimulationWorld.LOCAL_PLAYER_ID
 var health_ratio: float = 1.0
@@ -21,6 +23,8 @@ var work_kind: UnitState.WorkKind = UnitState.WorkKind.NONE
 var currently_visible: bool = true
 var terrain_kind: UnitState.TerrainKind = UnitState.TerrainKind.NONE
 var intel_freshness: float = 1.0
+var art_heading: float = 0.0
+var fire_remaining: float = 0.0
 var hit_flash_remaining: float = 0.0
 var destruction_flash_remaining: float = 0.0
 var selected: bool = false:
@@ -67,10 +71,25 @@ func apply_snapshot(unit: UnitSnapshot) -> void:
 	cargo_ore = unit.cargo_ore
 	work_kind = unit.work_kind
 	currently_visible = unit.faction_id == SimulationWorld.LOCAL_PLAYER_ID or unit.is_visible_to_local_player
+	if not currently_visible:
+		fire_remaining = 0.0
+		hit_flash_remaining = 0.0
+		destruction_flash_remaining = 0.0
+	if not is_equal_approx(deployment_progress, unit.deployment_progress): redraw_needed = true
+	deployment_progress = unit.deployment_progress
 	terrain_kind = unit.terrain_kind
 	intel_freshness = unit.intel_freshness
 	if redraw_needed:
 		queue_redraw()
+
+
+func play_fire_feedback(heading: float) -> void:
+	if is_last_seen_contact() or not enabled:
+		return
+	art_heading = heading
+	fire_remaining = WsArtLibrary.FIRE_SECONDS
+	set_process(true)
+	queue_redraw()
 
 
 func play_hit_feedback(destroyed: bool = false) -> void:
@@ -82,9 +101,10 @@ func play_hit_feedback(destroyed: bool = false) -> void:
 
 
 func _process(delta: float) -> void:
-	if hit_flash_remaining <= 0.0 and destruction_flash_remaining <= 0.0:
+	if fire_remaining <= 0.0 and hit_flash_remaining <= 0.0 and destruction_flash_remaining <= 0.0:
 		set_process(false)
 		return
+	fire_remaining = maxf(0.0, fire_remaining - delta)
 	hit_flash_remaining = maxf(0.0, hit_flash_remaining - delta)
 	destruction_flash_remaining = maxf(0.0, destruction_flash_remaining - delta)
 	queue_redraw()
@@ -104,40 +124,45 @@ func _draw() -> void:
 		draw_line(Vector2(-16.0, -9.0), Vector2(16.0, 9.0), TRACK_COLOR, 4.0)
 		draw_line(Vector2(-16.0, 9.0), Vector2(16.0, -9.0), TRACK_COLOR, 4.0)
 	else:
-		draw_rect(Rect2(-24.0, -18.0, 48.0, 8.0), TRACK_COLOR, true)
-		draw_rect(Rect2(-24.0, 10.0, 48.0, 8.0), TRACK_COLOR, true)
-		var body_color := BODY_COLOR if faction_id == SimulationWorld.LOCAL_PLAYER_ID else ENEMY_COLOR
-		draw_colored_polygon(
-			PackedVector2Array([
-				Vector2(-20.0, -13.0),
-				Vector2(14.0, -13.0),
-				Vector2(23.0, 0.0),
-				Vector2(14.0, 13.0),
-				Vector2(-20.0, 13.0),
-			]),
-			body_color
-		)
-		_draw_faction_marker()
-		if definition_id == &"missile_vehicle":
-			draw_line(Vector2(-8.0, -6.0), Vector2(25.0, -10.0), Color("f2c94c"), 5.0)
-			draw_line(Vector2(-8.0, 6.0), Vector2(25.0, 10.0), Color("f2c94c"), 5.0)
-		elif definition_id == &"scout_vehicle":
-			draw_line(Vector2(-4.0, 0.0), Vector2(22.0, 0.0), Color("7fd5cc"), 3.0)
-			draw_arc(Vector2(5.0, 0.0), 13.0, -0.8, 0.8, 12, Color("7fd5cc"), 3.0)
-		elif definition_id == &"harvester":
-			draw_rect(Rect2(-18.0, -10.0, 18.0, 20.0), Color("d8a83e"), true)
-			if cargo_ore > 0:
-				draw_circle(Vector2(-9.0, 0.0), 6.0, Color("f2c94c"))
-		elif definition_id == &"engineer_vehicle":
-			draw_line(Vector2(-6.0, 10.0), Vector2(18.0, -12.0), Color("7fd5cc"), 5.0)
-			if work_kind != UnitState.WorkKind.NONE:
+		if definition_id in WsArtLibrary.IDS:
+			WsArtLibrary.draw_unit(self, definition_id, faction_id == SimulationWorld.LOCAL_PLAYER_ID, fire_remaining, art_heading, deployment_progress)
+			if definition_id == &"engineer_vehicle" and work_kind != UnitState.WorkKind.NONE:
 				draw_arc(Vector2.ZERO, 20.0, 0.0, TAU, 28, Color("f2c94c"), 2.0)
-		elif definition_id == &"supply_truck":
-			draw_rect(Rect2(-16.0, -10.0, 27.0, 20.0), Color("d6b74c"), true)
-			draw_line(Vector2(-11.0, -5.0), Vector2(6.0, -5.0), Color("f3e7a2"), 3.0)
-			draw_line(Vector2(-11.0, 5.0), Vector2(6.0, 5.0), Color("f3e7a2"), 3.0)
 		else:
-			draw_line(Vector2.ZERO, Vector2(23.0, 0.0), ACCENT_COLOR, 4.0)
+			draw_rect(Rect2(-24.0, -18.0, 48.0, 8.0), TRACK_COLOR, true)
+			draw_rect(Rect2(-24.0, 10.0, 48.0, 8.0), TRACK_COLOR, true)
+			var body_color := BODY_COLOR if faction_id == SimulationWorld.LOCAL_PLAYER_ID else ENEMY_COLOR
+			draw_colored_polygon(
+				PackedVector2Array([
+					Vector2(-20.0, -13.0),
+					Vector2(14.0, -13.0),
+					Vector2(23.0, 0.0),
+					Vector2(14.0, 13.0),
+					Vector2(-20.0, 13.0),
+				]),
+				body_color
+			)
+			_draw_faction_marker()
+			if definition_id == &"missile_vehicle":
+				draw_line(Vector2(-8.0, -6.0), Vector2(25.0, -10.0), Color("f2c94c"), 5.0)
+				draw_line(Vector2(-8.0, 6.0), Vector2(25.0, 10.0), Color("f2c94c"), 5.0)
+			elif definition_id == &"scout_vehicle":
+				draw_line(Vector2(-4.0, 0.0), Vector2(22.0, 0.0), Color("7fd5cc"), 3.0)
+				draw_arc(Vector2(5.0, 0.0), 13.0, -0.8, 0.8, 12, Color("7fd5cc"), 3.0)
+			elif definition_id == &"harvester":
+				draw_rect(Rect2(-18.0, -10.0, 18.0, 20.0), Color("d8a83e"), true)
+				if cargo_ore > 0:
+					draw_circle(Vector2(-9.0, 0.0), 6.0, Color("f2c94c"))
+			elif definition_id == &"engineer_vehicle":
+				draw_line(Vector2(-6.0, 10.0), Vector2(18.0, -12.0), Color("7fd5cc"), 5.0)
+				if work_kind != UnitState.WorkKind.NONE:
+					draw_arc(Vector2.ZERO, 20.0, 0.0, TAU, 28, Color("f2c94c"), 2.0)
+			elif definition_id == &"supply_truck":
+				draw_rect(Rect2(-16.0, -10.0, 27.0, 20.0), Color("d6b74c"), true)
+				draw_line(Vector2(-11.0, -5.0), Vector2(6.0, -5.0), Color("f3e7a2"), 3.0)
+				draw_line(Vector2(-11.0, 5.0), Vector2(6.0, 5.0), Color("f3e7a2"), 3.0)
+			else:
+				draw_line(Vector2.ZERO, Vector2(23.0, 0.0), ACCENT_COLOR, 4.0)
 		draw_rect(Rect2(-24.0, -28.0, 48.0, 5.0), Color("172126"), true)
 		draw_rect(Rect2(-23.0, -27.0, 46.0 * health_ratio, 3.0), Color("65c466") if health_ratio > 0.35 else Color("e35d5d"), true)
 		if terrain_kind != UnitState.TerrainKind.NONE:
@@ -147,7 +172,7 @@ func _draw() -> void:
 			elif terrain_kind == UnitState.TerrainKind.FOREST:
 				terrain_color = Color("5fa36f")
 			draw_rect(Rect2(17.0, -28.0, 7.0, 7.0), terrain_color, true)
-	if show_labels or selected:
+	if show_labels:
 		draw_string(
 			ThemeDB.fallback_font,
 			Vector2(-13.0, 43.0),

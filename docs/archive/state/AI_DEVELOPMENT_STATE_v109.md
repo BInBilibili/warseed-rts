@@ -1,0 +1,892 @@
+# WARSEED AI 开发状态与任务队列
+
+> 历史归档：正文只描述当时版本，旧“当前/下一步/待验证”不再授权执行。现行规则与进展从[文档入口](../../README.md)读取。
+
+> 状态版本：109
+> 更新时间：2026-09-21
+> 更新规则：每个完成、阻塞或重新规划的工作项都必须更新本文件
+> 执行规则：[`AI_DEVELOPMENT_WORKFLOW.md`](../../AI_DEVELOPMENT_WORKFLOW.md)
+> 目标命令：[`AI_GOAL_COMMANDS.md`](../../AI_GOAL_COMMANDS.md)
+
+## 1. 机器可读控制块
+
+```yaml
+workflow_version: 1.2
+state_version: 109
+updated_at: 2026-09-21
+project: WARSEED
+current_phase: R5
+current_gate: R5_EXIT_ACCEPTED
+phase_status: COMPLETE_SIMULATED
+release_candidate: R1-FEEDBACK-RC2
+release_candidate_status: ENGINEERING_BASELINE_ARCHIVED
+release_candidate_package: build/playtest-kits/WARSEED-R1-Feedback-RC2-20260901.zip
+release_candidate_sha256: 730B7F496F8871D62CA887F5B955974CF540014F3B5EA9307E6F5D4070C10A08
+working_build_id: 0.1.0-r5-fix.20260916
+latest_maintenance_work_item: WS-MAINT-20260919-005
+latest_maintenance_status: DONE
+active_maintenance_work_item: WS-MAINT-20260920-001
+active_maintenance_status: REWORK
+final_decision_status: PERFORMANCE_SLICE_VERIFIED_GOAL_INCOMPLETE
+final_decision_package: build/playable/WARSEED-Movement-Escort-20260921.zip
+final_decision_package_sha256: B0D00A1914737D203015DB6A04DAC05D48F9F4B738342679D97E9FCA114DCDD6
+feedback_build_id: 0.1.0-r1-feedback.2
+feedback_schema_version: 1
+feedback_collection_status: COMPLETE_SIMULATED
+feedback_human_validation_status: OPTIONAL_NOT_RUN
+feedback_server_guide: docs/FEEDBACK_SERVER_GUIDE.md
+feedback_focus_guide: docs/CURRENT_PLAYTEST_FEEDBACK_FOCUS.md
+feedback_release_gate_duration_seconds: 489.325
+field_execution_guide: docs/P6_7_FIELD_EXECUTION_CHECKLIST.md
+human_evidence_checked_at: 2026-08-20
+human_assessment_count: 0
+cohort_summary_count: 0
+countable_human_session_count: 0
+unassigned_raw_session_count: 1
+human_validation_policy: OPTIONAL_RESEARCH
+human_evidence_required: false
+release_human_evidence_required: false
+human_validation_debt: CLOSED_BY_D026
+human_validation_test_plan: docs/HUMAN_VALIDATION_TEST_PLAN.md
+simulated_gate_authorized_at: 2026-08-21
+simulated_gate_authority: product_owner_user_message
+next_work_item: none
+next_work_item_status: none
+next_work_item_blocker_kind: none
+next_work_item_blocker: none
+machine_ready_work_item: none
+active_work_item: none
+queued_maintenance_work_item: none
+queued_maintenance_status: none
+expansion_implementation_allowed: false
+agent_playbook: docs/AI_AGENT_PLAYBOOK.md
+delegation_template: docs/AI_DELEGATION_TEMPLATE.md
+low_cost_provider_guide: docs/AI_LOW_COST_PROVIDER.md
+preferred_external_text_model: Agents-A1
+external_model_qualification: NO_USABLE_FINAL_TEXT_WITHIN_4096_TOKENS
+primary_model_budget_usd: 1000
+primary_model_billing_source: USER_CONFIRMED_INPUT_10_OUTPUT_50_USD_PER_MILLION
+primary_model_budget_enforcement: LOCAL_TOKEN_RECORD_CONSERVATIVE_ESTIMATE
+primary_model_implementation_stop_usd: 970
+performance_gate_policy: DEFERRED_BY_D028
+external_luna_cost_in_budget: false
+phase_exit_requires_product_owner: true
+r1_engineering_status: COMPLETE
+r1_exit_status: ACCEPTED
+r1_exit_authorized_at: 2026-09-07
+r1_exit_authority: product_owner_user_message
+r1_simulated_full_gate: PASS
+r1_simulated_full_gate_duration_seconds: 651.775
+r1_simulated_verified_at: 2026-08-21
+r2_engineering_status: COMPLETE_SIMULATED
+r2_exit_status: ACCEPTED
+r2_exit_authorized_at: 2026-09-10
+r2_exit_authority: product_owner_goal_maintenance_then_R3_R4_R5
+r2_simulated_full_gate: PASS
+r2_simulated_full_gate_duration_seconds: 1426.714
+r2_simulated_verified_at: 2026-09-07
+r3_engineering_status: COMPLETE_SIMULATED
+r3_exit_status: ACCEPTED
+r3_exit_authorized_at: 2026-09-13
+r3_exit_authority: product_owner_goal_maintenance_then_R3_R4_R5
+r3_simulated_full_gate: PASS
+r3_simulated_full_gate_duration_seconds: 686.300
+r3_simulated_verified_at: 2026-09-13
+r4_engineering_status: COMPLETE_SIMULATED
+r4_exit_status: ACCEPTED
+r4_exit_authority: USER_CONTINUATION_AND_D029
+r4_simulated_full_gate_duration_seconds: 819.106
+r4_simulated_verified_at: 2026-09-16
+r5_engineering_status: COMPLETE_SIMULATED
+r5_exit_status: ACCEPTED
+r5_exit_authority: USER_CONTINUATION_R4_R5
+r5_simulated_full_gate_duration_seconds: 960.707
+r5_simulated_verified_at: 2026-09-16
+r5_playable_package: build/playtest-kits/WARSEED-R5-Fix-20260916.zip
+r5_playable_package_sha256: 157E561CFD980793F052F730766F2C978EA764A1C6D622EDA103B08ED36D798F
+
+goal_protocol_version: 1.1
+gameplay_rework_roadmap: docs/GAMEPLAY_REWORK_ROADMAP.md
+recommended_goal_command: "/goal continue"
+full_gate_command: >-
+  powershell -ExecutionPolicy Bypass -File
+  .\tools\verify_grey_ridge_release.ps1
+  -GodotConsolePath <godot-console>
+```
+
+解释：产品负责人于 2026-09-07 接受 R1 工程出口并通过 D-026 取消真人证据硬门，同时通过 D-027 将 R2-R7 重排为玩法优先路线。2026-09-10 用户明确要求战术规划维护自检后完成 R3、R4、R5；维护现已通过完整发布门，以该授权接受已审查的 R2 工程出口并进入 R3。R3-001/002 已逐项完成，D-021 已按用户明确授权接受；控制交接与军团总览维护 `WS-MAINT-20260910-003` 已通过 1487.349 秒完整门并 DONE；R3-003 已按 D-021 实施并通过1745.289秒完整门；D-022 已于2026-09-11由用户明确接受；左侧冷却显示维护已完成，R3-004 已通过 1575.107 秒完整门并 DONE，R3-005已通过最终686.300秒完整门；R3-006出口审查完成，R4-001/002/003已完成，唯一下一项R4-004。001 临时文档已按用户要求删除，契约和验收归档在第 12 节；002 完成记录见第 13 节。自动化仍只能标记为 `SIMULATED`，不得宣称已经证明真人理解或主观乐趣。D-021/D-022 均已接受；完整 R3/R4/R5 goal 已完成（见当前控制块及出口证据）；当前维护不重开 R6/R7。
+
+2026-09-07 已完成开发标准与路线重排：新建 `GAMEPLAY_REWORK_ROADMAP.md`，R2 从正式地图管线改为灰脊乐趣基准，后续依次处理卡牌战术语法、我方分层 AI、敌方行动 AI、第一章行动层与内容生产。旧扩充路线保留为架构和迁移参考，不再决定任务领取。
+
+以下 2026-08-25 至 2026-09-03 条目是历史记录，其中关于真人债务、R1 阶段门和 R2 禁令的措辞均已由 D-026、D-027 取代。
+
+2026-08-25 已完成维护项 WS-MAINT-20260825-001：战后匿名反馈、本地不可丢失队列、本机/局域网临时收集服务、看板与 CSV 已形成工程闭环，并生成 R1-FEEDBACK-RC1。该候选包可用于收集真人意见，但反馈功能本身的真人可用性仍为 `NOT_RUN`，不改变 R1 阶段门或 R2 禁令。
+
+2026-09-01 已完成维护项 WS-MAINT-20260901-001：灰脊教程改为带预期和通过标准的试玩验证目标；编成性格、姿态和战法补齐悬停解释；卡牌会战移除无效的旧 RTS 全面接管入口；预备卡部署通过权威校验解析到整卡安全锚点。R1-FEEDBACK-RC2 已通过完整工程门，但 `HV-MAINT-001` 至 `HV-MAINT-004` 仍为 `NOT_RUN (HUMAN)`。
+
+2026-09-01 已完成维护项 WS-MAINT-20260901-002：卡牌会战单位主体、标签、选择覆盖物和批量渲染统一采用完整镜头反向补偿，屏幕尺寸不再随地图缩放改变。本地工作版本为 `0.1.0-r1-feedback.3-dev`，未生成新试玩包；人工视觉检查 `HV-MAINT-005` 仍为 `NOT_RUN (HUMAN)`。
+
+2026-09-03 根据用户复测将 WS-MAINT-20260901-002 返回 `REWORK` 并完成二次修复：确认 `.3-dev` 漏掉了直接运行 `game_root.tscn` 的 `LEGACY_RTS` 分支；`.4-dev` 已将单位固定屏幕尺寸作为所有场景的通用表现规则，并由旧 RTS 与卡牌会战两条真实窗口路径分别验证。`HV-MAINT-005` 仍为 `NOT_RUN (HUMAN)`。
+
+2026-09-03 根据用户再次复测将 WS-MAINT-20260901-002 第三次返回 `REWORK`：确认前两次把“固定体积”错误解释为“固定屏幕像素尺寸”，镜头反向补偿会改变坦克相对地图参照物的世界比例。`.5-dev` 已完全删除单位镜头反向补偿；详细代理固定为 `scale=1.0`，批量单位只保留兵种固定比例，屏幕投影正常随镜头变化。14 套测试、旧 RTS 真实窗口和卡牌会战五档窗口矩阵通过；`HV-MAINT-005` 仍为 `NOT_RUN (HUMAN)`。
+
+2026-09-03 已完成维护项 WS-MAINT-20260903-001：编成页为战法和姿态补充明确字段标题，每张将领卡增加常驻影响说明区；悬停性格、战法或姿态控件时即时切换对应说明，展开候选项保留逐项中英文 tooltip，键盘焦点同样可更新说明。`.6-dev` 已通过 14 套测试与五档真实窗口矩阵；`HV-MAINT-006` 仍为 `NOT_RUN (HUMAN)`。
+
+## 2. 当前基线
+
+| 维度 | 当前事实 |
+|---|---|
+| 正式会战 | 灰脊矿区、断桥回声、雾林输线、黑井反击，共 4 场 |
+| 内容 | 5 名将领、12 张部队卡、12 张战法、12 项成长、7 类支援行为 |
+| 底层卡牌单位 | 侦察、突击、导弹、工程、运输，共 5 种有效战术类型 |
+| 胜负 | 卡牌会战已由类型化目标系统结算；四关保持总部/超时等价行为，护送胜利与有序撤离由测试资源证明可达 |
+| 地图 | 3 张 6144x4096、1 张 7168x4608；正式地图管线尚未完成 |
+| 存档 | 军团 v4（v1/v2/v3 保守迁移、备份及原子写入已验证）、教程 v2、试玩记录 v3；尚无战役行动图状态 |
+| 自动化 | 18 套 headless 测试、四关 smoke、逐关矩阵、72 案例早期窗口审计、灰脊 15 案例完整对局基线、五档分辨率矩阵 |
+| 反馈 | 战后双语问卷、本地 pending/sent、HTTP 临时收集服务、HTML/JSON/CSV 汇总；真人可用性未运行 |
+| 性能 | 2026-09-13 R3最终门：80实体模拟P95 6.037ms；正式80实渲帧13.743ms、输入呈现107.407ms；120仅压力测量 |
+| 可选产品研究 | P6.7 与集中真人用例尚未执行；D-026 后不参与工程、阶段或发布门 |
+
+## 3. 当前阶段目标
+
+2026-09-16当前结论：R3/R4/R5授权目标已完成，R5工程出口接受，最终证据见R5_EXIT_EVIDENCE.md。以下带较早日期的暂停与下一项描述均为历史，不覆盖控制块；R6/R7未开始。
+
+2026-09-14最新用户指示覆盖下述继续授权：`WS-MAINT-20260914-001` 的手控战斗可靠性、单位批量可见性、已知总部进攻和补给数值显示已完成，可直接运行的Windows最终包已交付，开发现已暂停。R4-004现有实现保留并随包回归，但工作项保持用户暂停的BLOCKED；不领取R4-005或R5，不宣称R4/R5完整目标完成。当前维护DONE，最终证据见第20节。
+
+2026-09-13 状态复核：共享增援冷却维护及R3-001至R3-006已完成。最终686.300秒发布门、双语五档、四关存档链和正式60/80实渲通过；606文件哈希复核变化0。R3工程出口已按用户R3/R4/R5继续授权接受，R4-001公平态势黑板与R4-002行动方案生成也已完成，R4-003方案比较与玩家确认也已完成，唯一下一项WS-R4-004（将领阶段任务图）。R4/R5尚未实现完成，完整目标继续。下文带日期的中途返工和旧阻塞仅作历史，当前结论以本段、控制块及第19节为准。
+
+2026-09-10 活动目标：`WS-MAINT-20260910-002` 已完成战术暂停中的规划、右侧决策/底部军团与选项说明并通过完整自检；现在按独立工作项顺序推进 R3、R4、R5。本目标覆盖上述完整范围，不以 HUD 完成替代阶段完成。维护契约见 `../work_items/WS-MAINT-20260910-002.md`，完整门 `1884.207s` PASS (`SIMULATED`)。R3-001/002 现已完成，R3-002 完整门 `1930.230s` PASS；旧记录中的“唯一 R2 审查入口”均为当时历史状态。D-021 已由用户接受，维护 003 已完整验证并 DONE，R3-003 已完成；D-022已接受，R3-004依赖满足，先处理新增的左侧冷却显示。
+
+R1 的类型化目标与结果系统已经完成并由产品负责人接受。R2 已把《灰脊矿区》建立为可重复比较的玩法基准：完整对局观测、战线/威胁提示、异常驱动指挥、因果复盘和策略质量审计均通过工程出口，现已按用户继续授权进入 R3。固定路线过拟合、玩家发现性和主观乐趣未知仍是保留风险，不能据阶段推进声称已经验证。
+
+R1 已具备的 `SIMULATED` 出口证据：
+
+- 目标定义、稳定 ID、受限 kind、两层 `ALL/ANY` 与数据校验；
+- 目标状态、值拷贝快照、结构化事件和确定性同 tick 结算；
+- 四关总部/超时等价迁移，Legacy RTS 保留旧胜利链；
+- `BattleOutcome`、结束后命令拒绝、tick 冻结和一次性结算/存档保护；
+- 护送胜利与有序撤离的权威测试场景；
+- 14 套测试、四关 smoke/矩阵、72 案例、80 实体、五档分辨率和 Windows 发布门通过。
+
+未执行的真人用例见 `HUMAN_VALIDATION_TEST_PLAN.md`，其状态为可选研究，不阻塞当前队列。新的阶段和工作项顺序以 `GAMEPLAY_REWORK_ROADMAP.md` 为准。
+
+## 4. 产品决策状态
+
+| ID | 决策 | 推荐值 | 当前状态 | 解除条件 |
+|---|---|---|---|---|
+| D-018 | 战役形态 | 轻量行动图 | DEFERRED | R6 冻结 |
+| D-019 | 胜负框架 | 类型化目标 + 两层 ALL/ANY | ACCEPTED | R1 实施 |
+| D-020 | 战中经济 | Supply 为唯一可消费资源 | DEFERRED | R6 冻结 |
+| D-021 | 部队卡编制 | 稳定 entry ID 的混成编制与安全 v4 迁移 | ACCEPTED | 2026-09-10 用户要求按文档实施 |
+| D-022 | 战斗复杂度 | 先传感器/压制/专业火力弹药/受限伤害标签 | ACCEPTED | 2026-09-11 用户明确通过方案 |
+| D-023 | 正式规模 | 近期 60-80 实体 | ACCEPTED | 持续性能门 |
+| D-024 | 叙事基调 | 可审计自主指挥与责任 | DEFERRED | R6 冻结 |
+| D-025 | 真人门处理 | 工程模拟条件放行，真人债务保留 | SUPERSEDED | 由 D-026 取代 |
+| D-026 | 真人证据政策 | 可选产品研究，不作为工程/阶段/发布硬门 | ACCEPTED | 已生效；保持证据来源诚实 |
+| D-027 | R2-R7 路线 | 玩法优先重排 | ACCEPTED | `GAMEPLAY_REWORK_ROADMAP.md` 生效 |
+
+未接受的推荐值可以用于设计讨论，不能被 AI 当作已经生效的产品承诺。
+
+## 5. R0 历史队列
+
+| ID | 状态 | 工作项 | 所有者 | 依赖 | 下一动作 |
+|---|---|---|---|---|---|
+| WS-R0-001 | CANCELLED (D-026) | 执行 P6.7 陌生玩家 cohort | 真人组织者 | 需求已取消 | 可作为自愿研究重新发起，不恢复旧门禁 |
+| WS-R0-002 | CANCELLED (D-026) | 汇总 cohort 与分级缺陷 | AI + 产品 | R0-001 已取消 | none |
+| WS-R0-003 | CANCELLED (D-026) | 修复 P0/P1 与重复 P2 | AI | R0-002 已取消 | 新发现缺陷按当前阶段维护项处理 |
+| WS-R0-004 | CANCELLED (D-027) | 评审 D-018 至 D-024 | 产品负责人 | 由逐阶段决策取代 | none |
+| WS-R0-005 | CANCELLED (D-027) | 冻结第一扩充切片 | 产品 + AI | 由玩法优先路线取代 | none |
+| WS-R0-006 | CANCELLED (D-027) | R0 阶段出口验证 | AI + 产品 | R1 已按 D-025 完成 | none |
+
+## 6. R1 历史队列
+
+R1 已完成。其自动化与开发者试玩证据继续标记为 `SIMULATED`，但 D-026 已移除真人验证债务。
+
+| ID | 状态 | 工作项 | 依赖 |
+|---|---|---|---|
+| WS-R1-001 | DONE (`SIMULATED`) | 目标定义、稳定 ID、参数和数据校验 | D-019、D-025 |
+| WS-R1-002 | DONE (`SIMULATED`) | 目标状态、快照与结构化事件 | R1-001 |
+| WS-R1-003 | DONE (`SIMULATED`) | 确定性 `ObjectiveSystem` 与同 tick 结算 | R1-002 |
+| WS-R1-004 | DONE (`SIMULATED`) | 四关等价总部目标迁移 | R1-003 |
+| WS-R1-005 | DONE (`SIMULATED`) | `BattleOutcome`、结算一次性保护和目标 UI | R1-004 |
+| WS-R1-006 | DONE (`SIMULATED`) | 护送胜利纵向测试场景 | R1-005 |
+| WS-R1-007 | DONE (`SIMULATED`) | 有序撤离纵向测试场景 | R1-005 |
+| WS-R1-008 | DONE (`SIMULATED`) | R1 阶段出口验证 | R1-006、R1-007 |
+
+## 7. R2 已完成队列
+
+R2 的目标是建立灰脊玩法基准，不在本阶段批量增加地图、卡牌或战役内容。完整契约与后续阶段见 `GAMEPLAY_REWORK_ROADMAP.md`。
+
+| ID | 状态 | 工作项 | 依赖 |
+|---|---|---|---|
+| WS-R2-001 | DONE (`SIMULATED`) | 灰脊完整对局基线与因果观测契约 | R1 出口、D-026、D-027 |
+| WS-R2-002 | DONE (`SIMULATED`) | 战线、威胁、情报不确定性与补给承诺叠层 | R2-001 |
+| WS-R2-003 | DONE (`SIMULATED`) | 高层意图与异常驱动指挥界面 | R2-002 |
+| WS-R2-004 | DONE (`SIMULATED`) | 战后关键转折、卡牌贡献和失败因果 | R2-001、R2-003 |
+| WS-R2-005 | DONE (`SIMULATED`) | 完整策略质量审计与灰脊调优 | R2-002 至 R2-004 |
+| WS-R2-006 | DONE (`SIMULATED`) | R2 阶段出口 | R2-005 |
+
+## 8. 已有验证证据
+
+| 证据 | 状态 | 边界 |
+|---|---|---|
+| 18 套 headless 测试 | PASS (`SIMULATED`) | 新增完整玩法报告、战场态势、高层意图、异常与战后复盘投影的 schema、确定性、值拷贝和知识边界；不证明真人理解 |
+| 战场态势叠层 | PASS (`SIMULATED`) | 战线、整卡任务轴、已知/最后已知威胁、探索不确定区和 Supply 承诺只由玩家合法快照派生；四层开关与小地图同步 |
+| 灰脊 15 案例完整策略质量矩阵 | PASS (`SIMULATED`) | 3 敌方计划 × 5 玩家策略 × 2 重复均确定性；分轴与集中突破各跨三计划获胜，侦察后投入、静态预备队和无干预各三败；质量门 `PASS`，aggregate fingerprint `a994185d975a06e046fe608567e9adb685b6a9525a83fdc85b858477d8a51255` |
+| 四关 smoke | PASS | 机制触发和稳定性，不证明完整胜率 |
+| 四关 72 案例审计 | PASS | 主动策略主要覆盖前 200 tick，不是 72 场完整对局 |
+| Windows 80 实体 | PASS (`SIMULATED`) | 2026-09-10 整卡入口完整门模拟 P95 10.029 ms、表现层 P95 1.259 ms；当前正式性能门 |
+| Windows 120 实体 | MEASURED (`SIMULATED`) | 2026-09-10 整卡入口完整门模拟 P95 21.690 ms、表现层 P95 2.152 ms；扩展测量，不改变当前 60-80 范围 |
+| 五档分辨率矩阵 | PASS (`SIMULATED`) | 1280x720、1920x1080、2560x1600、640x800、480x800；不替代真人可访问性 |
+| R1 完整发布门 | PASS (`SIMULATED`) | 2026-08-21，651.775 秒；含两轮 14 套测试、四关、72 案例、性能、导出和包内启动 |
+| P6.7-RC4 完整发布门 | PASS | 2026-08-20，459.397 秒；工程门通过不替代真人证据 |
+| P6.7-RC4 候选包 | PASS | 11 项清单、逐文件哈希、独立解压和包内 console EXE 启动通过 |
+| P6.7 cohort | OPTIONAL_NOT_RUN (`HUMAN`) | D-026 后仅作可选产品研究，不参与门禁 |
+| R1 机制真人专项 | OPTIONAL_NOT_RUN (`HUMAN`) | 用例保留在 `HUMAN_VALIDATION_TEST_PLAN.md`，不参与门禁 |
+| 反馈收集完整链路 | PASS (`SIMULATED`) | 本地先落盘、HTTP 确认、服务幂等、sent 归档、看板与 CSV；不证明真人发现或理解 |
+| 反馈 UI 五档矩阵 | PASS (`SIMULATED`) | 中英文、必填校验、滚动可达与真实窗口截图；鼠标/触控板真实体验仍为 `NOT_RUN` |
+| 反馈真人专项 | OPTIONAL_NOT_RUN (`HUMAN`) | 可选研究；HV-FB-001 至 HV-FB-005 不参与门禁 |
+| R1-FEEDBACK-RC2 完整发布门 | PASS (`SIMULATED`) | 2026-09-01，489.325 秒；两轮 14 套测试、四关、72 案例、80/120 实体、反馈链路、Windows 导出和包内启动 |
+| 首关反馈修复真人专项 | OPTIONAL_NOT_RUN (`HUMAN`) | 可选研究；HV-MAINT-001 至 HV-MAINT-004 不参与门禁 |
+| 单位固定世界体积 | PASS (`SIMULATED`) | 详细代理世界比例恒为 `1.0`，批量比例固定；旧 RTS 与卡牌会战五档真实窗口路径通过；HV-MAINT-005 仍为 `NOT_RUN (HUMAN)` |
+| 编成战术选择信息披露 | PASS (`SIMULATED`) | 字段标签、常驻说明、折叠控件悬停连接和逐项 tooltip 通过；五档真实窗口布局通过；HV-MAINT-006 仍为 `NOT_RUN (HUMAN)` |
+| 高层意图与异常驱动指挥 | PASS (`SIMULATED`) | 五字段意图、显式取消、五类异常、稳定去重/解决/重开、有限合法处置、完整报告与五档鼠标交互通过；不证明真人纠正负担或主观乐趣 |
+| 决策回执与将领撤离链路 | PASS (`SIMULATED`) | 异常动作具名回执保持 30 tick 并抑制重复提交；撤离清除旧意图、取消侦察任务、转为总部安全集结并取消已排队/后续自动战法；完整发布门与五档实渲通过 |
+| 指挥响应、整卡协同与情境教程 | PASS (`SIMULATED`) | 动作按控制权投影并给出具名拒绝/恢复；同将领附近 Agent 战斗卡共同响应合法可见威胁，整卡可攻击成员自动开火；领队阵亡不再瘫痪整卡；教程等待权威快照并提供常驻指南。完整门 `1930.881s`、四关矩阵、72 案例、30 场完整质量矩阵、80 实体与 Windows 导出通过 |
+| 精简 HUD 与可靠决策闭环 | PASS (`SIMULATED`) | 卡牌会战收敛为支援、小地图、高层意图、扩大决策区、三张将领卡和暂停入口；悬停预览路线/目标；成功即时回执，拒绝、过期、宿主不可用和 15 tick 超时弹窗；本局历史默认隐藏。五档真实窗口与完整门 `1885.515s` 通过 |
+| 决策区整卡行动入口 | PASS (`SIMULATED`) | 稳定卡 ID 补员/预备队及五类卡目标支援、费用/人口/冷却/失败恢复、两步部署、意图继承、快照确认、五档实渲与完整发布门 `1486.851s` 通过；完整质量指纹保持不变 |
+| 战后因果复盘 | PASS (`SIMULATED`) | 真实宿主合法观测、3-7 个转折、逐卡贡献、结果主因与支撑事实、来源签名及隐藏身份过滤通过；三视图五档实渲可达，不证明真人理解 |
+| R2 完整发布门 | PASS (`SIMULATED`) | 2026-09-07，1426.714 秒；两轮 18 套测试、四关 smoke/矩阵、72 案例、30 场完整质量矩阵、80/120 实体、反馈工具链、Windows 导出与包内启动通过 |
+| R2 五档真实窗口 | PASS (`SIMULATED`) | 五档均覆盖战场态势、高层意图、异常队列和战后三区；命令回执不得遮挡资源栏、战况栏或态势开关，桌面与 480x800 截图已人工视觉抽查 |
+
+具体测试数字和限制见 [`../design/EXPANSION_CURRENT_STATE_AUDIT.md`](../design/EXPANSION_CURRENT_STATE_AUDIT.md)。
+
+## 9. 当前风险
+
+| 风险 | 状态 | 控制 |
+|---|---|---|
+| 核心交互的主观理解与乐趣缺少真人样本 | ACCEPTED_PRODUCT_RISK | 使用完整对局代理、因果指标和开发者试玩推进；不得声称已证明真人体验 |
+| `SimulationWorld` 继续增长关卡特判 | OPEN | R2-R5 先建立观测、效果与 AI 扩展点；不批量生产内容 |
+| 新卡只换名称不换底层行为 | OPEN | R3 要求混成卡和可解释单位行为纵向切片 |
+| 新地图继续依赖 `test_arena` | OPEN | R6 正式地图/内容验证器；此前不新增正式地图 |
+| 自动化平衡证据被过度解读 | CONTROLLED | 报告强制标注 tick 窗口与断言范围 |
+| 120 实体被误当近期目标 | CONTROLLED | 正式门固定 60-80，复测后再决定 |
+| 护送/撤离仅有工程测试资源，尚无正式玩家入口 | OPEN | R6 内容迁移时建立正式入口；当前不把测试夹具当成玩家内容 |
+| 临时反馈服务器无生产级认证与 TLS | CONTROLLED | 仅限受信任临时局域网；默认 loopback，`-Lan` 显式开放；不得映射公网 |
+| 自动化指标被误写成主观乐趣证明 | CONTROLLED | 报告只陈述策略差异、纠正负担和因果完整性；主观结论保持未知 |
+| 灰脊脚本策略可能过拟合固定路线与时点 | CONTROLLED | 两种不同兵力/路线跨三敌方计划获胜并保留三类稳定失败；完整矩阵锁定策略链、权衡和确定性，但不外推真人发现性或其他地图平衡 |
+| 友军协同发现距离可能改变接敌节奏 | CONTROLLED | 只允许同将领、附近、Agent 控制且不处于侦察/撤离/撤退的战斗卡响应合法可见目标；四关矩阵和完整灰脊质量门锁定当前行为，真人节奏感仍未知 |
+| 友方任务无法完成可观测目标 | OPEN | 完整基线所有 case 的任务 `completed=0`；R2-002/R2-003 暴露受阻与承诺，R4 重做任务图和重规划 |
+| Markdown 存在重复或过时权威声明 | CLOSED | `WS-MAINT-20260907-001` 删除重复交接、分层 README 权威入口并标记历史边界；打包协议与历史架构依据继续保留 |
+| 精简 HUD 后整卡动作入口缺失 | CLOSED (`WS-MAINT-20260910-001`) | 决策区已恢复任意缺员补员、预备队投入、筑垒、工程路线、快速机动与前线保障；五档真实窗口、权威命令确认和完整发布门通过，真人发现性仍为可选研究 |
+
+## 10. 状态更新记录
+
+| 日期 | 变更 | 证据/原因 | 下一工作项 |
+|---|---|---|---|
+| 2026-09-10 | 完成 WS-MAINT-20260910-001，删除临时文档并恢复正常工作流 | 决策区补员、预备队及既有卡支援闭环；两轮 18/18、四关、72 案例、30 场完整质量矩阵、五档实渲、80 实体 P95 `10.029ms`、Windows 导出/隔离启动通过；完整门 `1486.851s`，证据 `SIMULATED`。契约并入本文第 12 节 | `/goal review phase-exit R2` |
+| 2026-09-10 | 登记 WS-MAINT-20260910-001 决策区部队卡行动入口修复 | 用户验收发现：右侧只保留将领卡后，战地补员仍要求先选中隐藏 UnitCard，预备队投入按钮也随卡槽消失；同类依赖 selected_unit_card_id 的既有支援需要一并审计。权威命令和模拟测试仍存在，问题定位为 UI 可达性回归 | `/goal work-item WS-MAINT-20260910-001` |
+| 2026-09-10 | 完成 WS-MAINT-20260909-002 战场 HUD 收敛与可靠决策闭环 | 常驻 HUD 收敛为支援、小地图、高层意图、扩大决策区、三张将领卡与暂停；路线/目标悬停预览，成功即时回执，拒绝/过期/宿主不可用/15 tick 超时弹窗和隐藏式本局历史完成。两轮 18/18、四关 smoke/矩阵、72 案例、30 场完整质量矩阵、五档真实窗口、80 实体 P95 `15.344ms`、Windows 导出和隔离启动通过；完整门 `1885.515s`，证据为 `SIMULATED` | `/goal review phase-exit R2` |
+| 2026-09-09 | 完成 WS-MAINT-20260909-001 指挥响应、整卡协同与情境教程修复 | 决策动作按控制权投影并显示对象、拒绝原因与恢复；同将领附近 Agent 战斗卡共同接敌、整卡多成员自动开火，领队阵亡后剩余成员仍可行动；教程等待权威状态并新增常驻指南。完整发布门 `1930.881s`、两轮 18/18、四关 smoke/矩阵、72 案例、30 场完整质量矩阵、80 实体 P95 `12.478ms`、Windows 导出和隔离启动通过；证据为 `SIMULATED` | `/goal review phase-exit R2` |
+| 2026-09-09 | 完成 WS-MAINT-20260908-001 决策区反馈与撤离链路修复 | 具名回执保持 30 tick 并锁定重复动作；撤离清除旧意图、取消 `SCOUT_AREA`、创建安全集结任务并抑制已排队/后续自动战法；完整发布门 `1000.437s`、两轮 18/18、四关矩阵、72 案例、30 场完整策略矩阵、80 实体 P95 `10.413ms`、五档真实窗口与 Windows 导出通过；证据为 `SIMULATED` | `/goal review phase-exit R2` |
+| 2026-09-07 | 完成 WS-MAINT-20260907-001 Markdown 权威性与引用清理 | 删除仅由 README 引用且内容过时的 `AI_HANDOFF.md`；README 收敛当前权威入口；旧评估与 AI 设计补归档/路线边界；43 份源码 Markdown 零失效链接、零异常围栏；试玩包 smoke 与 `git diff --check` 通过 | `/goal review phase-exit R2` |
+| 2026-09-07 | 完成 WS-R2-006 工程出口，等待产品负责人接受 R2 残余风险 | 最终完整门 1426.714 秒；两轮 18/18、四关 smoke/矩阵、72/72、5×3×2 完整质量矩阵、80 实体 P95 13.373 ms、五档真实窗口、Windows 导出与启动通过；修复命令回执遮挡 HUD；证据为 `SIMULATED` | `/goal review phase-exit R2`；接受后解锁 `WS-R3-001` |
+| 2026-09-07 | 完成 WS-R2-005，修复灰脊策略只争夺区域、不转入总部突击的根本问题 | 18/18 tests；总部目标合法可见性 focused test；5 策略 × 3 计划 × 2 重复完整质量矩阵通过；分轴与集中突破各三胜，三类劣势策略各三败；质量 fingerprint `f5afda05a1cb0579c633d61caccf5496b950c32b46d08a0ff19f9c56540c1085`；未运行阶段出口完整发布门 | `/goal work-item WS-R2-006` |
+| 2026-09-07 | 完成 WS-R2-004，建立可追溯战后转折、逐卡贡献与结果因果 | 18/18 tests；focused determinism/deep-copy/live-capture/knowledge-boundary；3×5×2 完整基线确定且 aggregate fingerprint 保持 `4d8204397a86e63d408e8c56cfd1866c2d7c1f60434c5b0e2adec293c433aa32`；三视图五档真实窗口与最窄截图通过；未运行非必需完整发布门 | `/goal work-item WS-R2-005` |
+| 2026-09-07 | 完成 WS-R2-003，建立高层意图与异常驱动指挥闭环 | 17/17 tests 两轮；五类异常 focused suite；3×5×2 完整基线确定且 aggregate fingerprint `4d8204397a86e63d408e8c56cfd1866c2d7c1f60434c5b0e2adec293c433aa32`；五档真实窗口；完整发布门 811.468 秒；80 实体 P95 12.618 ms；Windows 导出与包内启动通过 | `/goal work-item WS-R2-004` |
+| 2026-09-07 | 完成 WS-R2-001，冻结灰脊完整对局和因果观测基线 | 修改后 15/15 tests；3 计划 × 5 策略 × 2 完整重复确定；15/15 `defeat/collapse`、任务完成数均为 0；报告 fingerprint `1f13738901225350cca5dc340f69f09c9c0fee94706156a9d8c66764f9990353` | `/goal work-item WS-R2-002` |
+| 2026-09-07 | 完成 WS-R2-002，建立合法阵营态势与补给承诺叠层 | 16/16 tests；灰脊 6×3 矩阵与 3×5×2 完整基线通过且 aggregate fingerprint 不变；五档真实窗口、鼠标/快捷键切换和整卡高亮通过 | `/goal work-item WS-R2-003` |
+| 2026-09-07 | D-026 取消真人证据硬门；D-027 通过 R1 出口并重排 R2-R7 | 产品负责人明确授权；新建玩法优先路线与 WS-R2-001 契约；历史证据标签保留 | `/goal work-item WS-R2-001` |
+| 2026-09-03 | 返工并完成 WS-MAINT-20260901-002；建立 `.4-dev` 即时验证版本 | 用户复测发现 `.3-dev` 仅覆盖卡牌会战；14 套测试通过；旧 RTS 实际 Canvas 在镜头 `0.20/1.20` 均为 `0.5500`；卡牌会战滚轮前后均为 `0.55`；未导出、未打包 | 用户在正确 Godot 工程执行 HV-MAINT-005，或 `/goal review phase-exit R1` |
+| 2026-09-01 | 完成 WS-MAINT-20260901-002；建立 `.3-dev` 即时验证版本 | 14 套测试通过；真实窗口镜头 `0.1019965 -> 0.2019965` 时单位屏幕比例保持 `0.55`；未导出、未打包，RC2 不变 | 用户在 Godot 执行 HV-MAINT-005，或 `/goal review phase-exit R1` |
+| 2026-09-01 | 完成 WS-MAINT-20260901-001，冻结 R1-FEEDBACK-RC2 | 发布门 489.325 秒；两轮 14 套测试；五档真实窗口；72 案例；80 实体 P95 6.735 ms；EXE SHA-256 `679DF06F7F9F2D2293768747AA9AD71FB996869249960179ADA8180445FC0A7A`；PCK SHA-256 `6B0584E99524ECB084AAE08C8B598A29C9CBD518A69D62FEE096C39E214ED107`；ZIP SHA-256 `730B7F496F8871D62CA887F5B955974CF540014F3B5EA9307E6F5D4070C10A08` | 执行 HV-MAINT-001 至 HV-MAINT-004，或 `/goal review phase-exit R1` |
+| 2026-08-25 | 完成 WS-MAINT-20260825-001，冻结 R1-FEEDBACK-RC1 | 发布门 485.651 秒；两轮 14 套测试；72 案例；80 实体 P95 6.717 ms；五档截图；反馈完整链路；ZIP SHA-256 `C26466252AC7372C469107988B4FB3D49C0B2B90A9BC475B30B356519CBD5DC7` | `/goal review phase-exit R1` 或执行 HV-FB 真人专项 |
+| 2026-08-21 | R1-001 至 R1-008 完成 `SIMULATED` 工程出口，停在阶段出口审查 | 14 套测试；四关 smoke/矩阵；72 案例；80 实体 P95 10.195 ms；五档分辨率；Windows 完整门 651.775 秒；真人证据仍为 `NOT_RUN` | `/goal review phase-exit R1` |
+| 2026-08-21 | 建立集中真人验收测试方案 | `HUMAN_VALIDATION_TEST_PLAN.md` 覆盖 P6.7、目标 UI、总部/超时、护送、撤离、结算原因、可访问性和四关串联 | 等待阶段审查或真人批次 |
+| 2026-08-21 | 产品负责人授权工程模拟条件放行，阶段推进到 R1 | D-025；P6.7 真人证据保留为发布债务，所有替代验证必须标记 `SIMULATED` | WS-R1-001 |
+| 2026-08-21 | 冻结 R1 必需决策并延后无关决策 | D-019、D-023 Accepted；D-018、D-020 至 D-022、D-024 Deferred 到对应阶段 | WS-R1-001 |
+| 2026-08-20 | 复查 P6.7 外部证据与产品决定，状态保持 `WAITING_HUMAN_EVIDENCE` | 用户数据目录仍为 0 份 assessment、0 份 cohort 汇总；`123` 只有一份缺上下文的断桥原始记录；D-018 至 D-024 仍全为 `PROPOSED` | WS-R0-001 |
+| 2026-08-20 | 晋升 `P6.7-RC4` 为唯一新场次候选包；RC3 与所有 `Latest` 包停止用于新场次 | 完整发布门 459.397 秒通过；RC4 ZIP SHA-256 `775CE0A71A634938836ED30E75F4D200C2021F3CE206BA398AF5A08435C42D73`；11 项清单哈希与包内 console EXE 隔离启动通过 | WS-R0-001 |
+| 2026-08-20 | 建立 P6.7 现场登记、证据账本和 AI 接手清单 | `P6_7_FIELD_EXECUTION_CHECKLIST.md` 固定 9 人、24 场最低覆盖及未归属原始记录处理规则 | WS-R0-001 |
+| 2026-08-20 | 建立仓库级 `/goal` 协议；推荐命令为 `/goal phase R0` | `AGENTS.md` 与 `AI_GOAL_COMMANDS.md` 已定义解析、范围和门禁规则 | WS-R0-001 |
+| 2026-08-20 | 建立 AI 主工作流和状态队列；当前阶段保持 R0 | 全仓审计与扩充文档已完成，P6.7 人工证据仍缺失 | WS-R0-001 |
+
+## 11. 下一次 AI 接手检查单
+
+1. 读取根目录 `AGENTS.md`、本文件控制块、D-026、D-027 与 `GAMEPLAY_REWORK_ROADMAP.md`；
+   成本分工和最短阅读路径见 `AI_AGENT_PLAYBOOK.md`；任务交接用 `AI_DELEGATION_TEMPLATE.md`。同一上下文内未变化的规范不重复读取，历史按需追溯。
+2. R3/R4/R5工程出口均已完成并接受；旧R4暂停与预算阻塞记录仅为历史，不重新执行；
+3. 第25至30节维护已DONE；001最新交付motion29移动/将领随军修复包，整体仍REWORK。修复后台插值倒放、不可达质心目标和独立追击覆盖随军；1025专项、完整发布门与最终导出/独立包通过，长时双边观测见MOVEMENT_AND_ESCORT_FIX_20260921.md。PLAYER_AI_CONTROL_RULES_DRAFT_20260921.md为强攻/转移目标/交还/微操/焦点设计稿，未实现，不可声称当前有强攻锁定。保持610实体、10Hz、当前单导弹/v4，旧perf28包保留。仅无窗口验证，无测试排队；后续同一001按用户审阅推进，原20–40分钟节奏未完成，不进入R6；
+4. 所有自主试玩、规则代理和自动化证据继续标记为 `SIMULATED`，但真人 `NOT_RUN` 不再阻塞；
+5. 若出现真人记录，可按构建哈希和原始记录审计为 `HUMAN` 可选研究，不改变工程完成状态；
+6. R2已建立完整对局观测与指挥闭环，R3完成卡牌战术，R4完成方案/阶段任务图，R5完成敌方行动；不能把固定脚本策略外推为真人主观乐趣。
+7. Markdown 清理 `WS-MAINT-20260907-001` 已完成；`AI_HANDOFF.md` 已删除，历史/打包文档已明确保留边界，后续不得重新把归档文档声明为实时状态源。
+8. 决策区维护 `WS-MAINT-20260908-001` 已完成；后续若扩展异常动作，必须复用具名回执与统一命令管线，并保持撤离高于该将领的待执行自动指令。
+9. 指挥协同维护 `WS-MAINT-20260909-001` 已完成；将领撤离是安全集结而非永久退场，同将领整卡协同只消费合法阵营知识并服从玩家接管、侦察、撤离和撤退优先级；后续修改必须保留这些边界。
+10. HUD 已由 `WS-MAINT-20260910-002` 按用户新要求调整为右侧决策、底部将领分组与每张部队卡、左侧支援/小地图及空格战术暂停。旧“三张将领卡、不显示部队卡”的限制已被替代；后续仍须复用即时回执、明确失败、权威确认、悬停预览和本局历史链路。
+11. `WS-MAINT-20260910-001` 已完成：整卡补员、预备队投入和五类卡目标支援均可在决策区操作；继续保持固定卡 ID、权威确认、具名拒绝和战中 Supply / 跨局补员点的区别。临时任务文档已删除，完整契约与证据保留在本文第 12 节，不重新创建临时交接入口。
+
+## 12. 整卡入口维护契约与验收归档
+
+按用户要求，临时工作项文档已阅读，契约归入本正常状态入口，原文件删除。
+
+### WS-MAINT-20260910-001：决策区补齐部队卡行动入口
+
+```yaml
+work_item_id: WS-MAINT-20260910-001
+title: Restore hidden unit-card actions through contextual decisions
+phase: maintenance
+type: ui_command_vertical_slice
+status: DONE
+owner: ai
+blocker: none
+reported_at: 2026-09-10
+external_research: optional
+objective: >-
+  在不恢复常驻下属部队卡槽的前提下，把战地补员、预备队投入以及其他因卡槽隐藏而失去入口的既有整卡动作
+  转化为决策区内可解释、可预览、可执行的上下文决策，并继续经过现有权威命令与确认链路。
+why_now: >-
+  WS-MAINT-20260909-002 将右侧收敛为三张将领卡，但 SupportPanel 和 ArmyBoard 的若干动作仍依赖玩家先选中
+  已隐藏的 UnitCard。模拟能力仍存在，玩家却无法发现或触发，造成补员与预备队投入的功能回归。
+depends_on:
+  - WS-MAINT-20260909-002
+source_documents:
+  - docs/AI_DEVELOPMENT_STATE.md
+  - docs/AI_DEVELOPMENT_WORKFLOW.md
+  - docs/GAMEPLAY_REWORK_ROADMAP.md
+  - docs/archive/design/GAME_DESIGN_DOCUMENT.md
+  - docs/archive/work_items/WS-MAINT-20260909-002.md
+current_evidence:
+  - ArmyBoard commander_only 分支在创建下属 UnitCard 控件前返回，预备队部署按钮和卡牌选择入口均不再生成
+  - SupportPanel 从 InputController.selected_unit_card_id 取得目标；隐藏卡槽后，战地补员、筑垒、快速机动、前线保障和工程路线缺少稳定的选卡入口
+  - 战地补员的 SupportOrderCommand.FIELD_REINFORCEMENT、预备队的 DeployUnitCardCommand 及其权威校验和模拟行为仍存在并有自动测试
+  - 战前与战后 ArmyRosterStore 补员仍可使用；本问题主要发生在会战 HUD，不是存档数据丢失
+in_scope:
+  - 从玩家合法 WorldSnapshot 投影需要玩家选择的受损已部署卡、可投入预备卡和既有卡目标支援动作
+  - 在决策区显示部队卡名称、所属将领、当前/编制兵力、费用、补给、人口、冷却、目标和不可执行原因
+  - 战地补员直接对决策绑定的稳定 unit_card_id 提交既有 FIELD_REINFORCEMENT 命令，不依赖隐藏选择
+  - 预备队投入从决策行进入明确的地图投入点选择，沿用现有安全锚点解析、人口/补给校验和部署后加入将领意图的行为
+  - 审计并恢复因隐藏 UnitCard 选择而不可达的既有筑垒、工程路线、快速机动和前线保障入口；不得新增支援机制
+  - 复用 WS-MAINT-20260909-002 的即时回执、失败弹窗、15 tick 权威确认、路线/目标悬停预览和本局历史
+  - 中英文文本、focused tests、五档真实窗口和完整发布门
+out_of_scope:
+  - 不恢复右侧完整部队卡列表、路线/姿态/战法编辑器或旧 HUD 信息密度
+  - 不新增兵种、卡牌、支援类型、补员资源、战斗数值或跨局经济规则
+  - 不改变战前/战后 ArmyRosterStore 补员成本和存档 schema
+  - 不提前实现 R3 typed effect grammar、R4 通用 COA 或将领任务图重做
+invariants:
+  - SimulationWorld 仍以 10 Hz 持有权威状态；UI 只投影快照并提交命令
+  - 玩家与 Agent 继续走同一命令、校验、事件和快照确认管线
+  - 正式操作粒度保持整张部队卡；不通过单体实体补员或部署
+  - 决策只消费玩家阵营合法知识，不显示隐藏敌方或未来状态
+behavior_contract:
+  discovery:
+    - 只要存在受损且已部署的友方卡，决策区必须列出具名补员机会或具名不可执行原因
+    - 只要存在可用预备卡，决策区必须列出投入机会，并说明所属将领、兵力、费用和当前目标
+    - 没有合格对象时不生成伪决策；支援冷却、补给不足、人口已满和状态冲突必须可见而非静默禁用
+  execution:
+    - 补员动作绑定稳定 unit_card_id，提交后同帧显示接受或拒绝，并在权威快照中确认真实成员增加
+    - 预备队动作先进入投入点选择；地图明确高亮合法总部部署区，取消、非法位置和最终提交都有直接反馈
+    - 新部署卡沿用其将领当前高层意图和 Agent 控制，不在 UI 中直接改写任务或阵营状态
+  parity:
+    - 隐藏部队卡前可执行的既有整卡支援动作必须仍有明确入口，或在工作项结果中逐项说明为何产品决定移除
+    - 决策历史按一次玩家提交只记录一条，保存对象、动作、结果、原因和 tick
+persistence:
+  format_change: false
+  migration: none
+acceptance_criteria:
+  - 隐藏全部下属部队卡时，玩家仍能从决策区为指定受损整卡完成战地补员
+  - 隐藏全部下属部队卡时，玩家仍能从决策区选择预备卡、选择合法投入点并完成部署
+  - 补给不足、人口已满、冷却、满编、错误部署状态和非法位置均显示具名原因与恢复建议
+  - 补员后真实成员、人口、补给和冷却与既有权威规则一致；部署后整卡加入负责将领当前意图
+  - 筑垒、工程路线、快速机动和前线保障不再因 selected_unit_card_id 无入口而永久不可用
+  - 右侧仍只显示三张将领卡，决策区和地图在 480x800 至 2560x1600 无遮挡或横向滚动
+  - focused tests、18 套回归、四关 smoke/矩阵、五档真实窗口、完整发布门和 git diff --check 通过
+verification:
+  focused:
+    - CommandDesk contextual card decisions and stable card binding
+    - SupportPanel selection-independent command submission or delegated decision execution
+    - InputController reserve deployment targeting entered from a decision row
+    - SimulationWorld field reinforcement and reserve deployment authoritative confirmation
+    - GameIntegration commander-only HUD preserves unit-card action parity
+  full_gate: true
+  evidence_level: SIMULATED
+expected_files:
+  - src/ui/command_desk.gd
+  - src/ui/support_panel.gd
+  - src/ui/army_board.gd
+  - src/input/input_controller.gd
+  - src/presentation/command_situation_projector.gd
+  - src/presentation/command_situation_snapshot.gd
+  - src/app/game_root.gd
+  - locale/zh_CN.po
+  - locale/en.po
+  - tests/unit/test_command_situation.gd
+  - tests/integration/test_game_integration.gd
+  - tests/tools/accessibility_resolution_matrix.gd
+  - docs/AI_DEVELOPMENT_STATE.md
+risks:
+  - 把所有支援都变成常驻决策会再次造成信息过载；只在存在合格对象或明确阻塞原因时生成上下文行，并保持去重
+  - UI 若直接调用世界方法会绕过统一管线；必须复用 SupportOrderCommand、DeployUnitCardCommand 和 SimulationHost.submit_command
+  - 预备队部署是两步交互，不能把进入目标选择误记为权威成功；历史成功必须等最终命令接受和快照确认
+rollback: >-
+  移除新增的上下文卡牌决策投影和入口即可；既有 SupportPanel、ArmyBoard、权威命令、模拟规则与存档格式保持不变。
+```
+
+### 调查结论
+
+- 这是 UI 可达性回归，不是补员或部署模拟逻辑缺失。权威命令、校验、真实实体生成、补给/人口扣除和现有测试仍在。
+- `ArmyBoard._create_commander_column()` 在 `commander_only` 模式添加将领状态后立即返回，因此不会生成下属卡选择、部署和控制按钮。
+- `SupportPanel.update_snapshot()` 仍通过 `input_controller.selected_unit_card_id` 解析战地补员及多项卡目标支援；当前精简 HUD 没有替代选卡方式。
+- 战前和战后持久军团补员由 `PrebattlePlanner`、`BattleDebrief` 和 `ArmyRosterStore` 提供，仍然可达；不要把跨局 replacement points 补员与战中 Supply 补员混为一套资源。
+- 推荐实现顺序：先冻结“隐藏卡槽下动作可达性”失败测试，再建立 typed 上下文决策投影，接入既有命令和响应观察，最后补五档实渲与完整发布门。
+
+
+执行记录：READY → DISCOVERY。只读预检工作区干净；普通沙箱启动 Godot 因用户日志目录不可写崩溃，正在以许可的完整用户目录权限执行基线。
+
+契约冻结：基线 18/18 PASS (SIMULATED)。新建 typed CardActionSnapshot/CardActionProjector，只消费合法阵营快照及静态 BattleDefinition。补员覆盖任意缺员；预备队两步选择并持续显示总部部署区；既有卡支援从决策行绑定 ID 执行。补充可用预备兵力、机动剩余时间和本阵营已开工程路线的值拷贝快照以对齐现有规则。支持逐项费用、人口、冷却、阻塞恢复和中英文。提交复用原命令，成功等待真实快照，15 tick 为响应确认窗，部署动画另计既有 deployment_ticks。无存档格式/数值/阶段变化。
+
+状态：DISCOVERY → CONTRACT → IMPLEMENTING。
+
+实现/返工记录：IMPLEMENTING → VERIFYING → REWORK → VERIFYING。修正 focused 严格类型与零冷却工程确认；100 tick 部署按现有动画等待，不放宽 15 tick 初始响应窗。focused 全部整卡动作及固定卡 ID、命令拒绝、人口/Supply/冷却、意图继承已通过。五档真实窗口首次完整 PASS，最终输入绑定与简短支援标题修订后重跑五档并执行完整发布门。全部为 SIMULATED。
+
+### 实现与验证记录（WS-MAINT-20260910-001）
+
+- `CardActionSnapshot` / `CardActionProjector` 从合法阵营快照和静态会战 Resource 建立具名整卡决策；缺一名成员即出现战地补员，可用预备兵力按实际 available strength 展示。
+- 决策行显示卡牌/将领、兵力、Supply 费用与余额、人口空间、冷却、当前目标及阻塞恢复；支援面板进入相应筛选列表，右侧继续只有三张将领卡。
+- 补员、筑垒、工程路线、快速机动与前线保障均由绑定的稳定卡牌 ID 提交现有命令。前线保障按组织损失或存活成员受伤投影，不能混同于补员。
+- 预备队两步交互固定卡牌及所属将领，选择期间持续预览总部部署范围；右键/C 取消，非法落点给出可恢复失败，合法落点沿用原安全锚点解析。15 tick 内确认开始部署，随后等待原卡牌 deployment_ticks；真实成员到场后更新同一条历史为完成。
+- 新增 available_strength、机动剩余时间和本阵营开路记录的值拷贝快照；其他阵营看不到私有开路记录。存档格式、经济规则、战斗数值和阶段未改变。
+- 新增整卡按钮跨 tick 保持实例的鼠标测试；同一候选的内容更新不会销毁尚未松开鼠标的按钮。历史确认复用原记录并处理 64 条上限后的索引移动。
+- focused 覆盖全部五种支援、预备队、任意缺员、固定 ID、另一张卡被选中、取消、非法点恢复、满编拒绝、补给/人口/冷却、Agent 与当前意图继承、快照值拷贝和知识边界；最终 `CARD_ACTION_FOCUSED failures=0`。
+- 最终 UI 复测曾在 2560x1600 的既有战后 Cards 悬停断言失败，整卡动作当次通过；测试现显式刷新 Input 事件缓冲，保留全部鼠标和键盘断言后重跑。完整发布门的运行时代码没有因此变化。
+- 双语检查：新增 CARD 文本完整且没有新增重复 key；英文战后复盘已有 31 个重复 msgid 与 HEAD 相同，未在本项扩大清理。
+- 当前证据路径：`artifacts/maint-card-focused.log`、`artifacts/maint-card-ui-final3.log`、`artifacts/accessibility_resolution_matrix.json`、`artifacts/accessibility/<resolution>/card_reinforcement.png`、`reserve_targeting.png`、`card_decisions_confirmed.png`、`artifacts/maint-20260910-release.log`。
+
+最终实渲证据：五档矩阵 `resolutions=5`、退出码 0，所有鼠标/键盘断言保留；最窄补员界面和桌面投入区截图人工视觉抽查通过。实渲观察仍标记 SIMULATED，不作为真人研究结果。
+
+审查：VERIFYING → REVIEWING。完整发布门 `1486.851s` PASS；两轮 18/18、四关 smoke/矩阵、72 案例、30 场完整质量矩阵、反馈链路、Windows 导出/隔离启动及试玩包 smoke 全通过。发布日志无 SCRIPT ERROR、Parse Error 或 TEST FAILED。
+
+最终交接：REVIEWING → DONE。临时任务文件已按用户明确要求删除；开发状态恢复为没有活动维护项、没有 READY 项，唯一下一入口为 `/goal review phase-exit R2`。R2 产品验收仍待负责人决定，未解锁 R3。
+
+- 完整发布门：`1486.851s` PASS，Windows EXE `101030400` bytes / SHA-256 `679DF06F7F9F2D2293768747AA9AD71FB996869249960179ADA8180445FC0A7A`；PCK `6127528` bytes / SHA-256 `514CE2FD1CABFECAB5B32A3CFE7E11A88F10C7AEF40293A4FF43009DAD7AA7DD`。
+- 80 实体：模拟 P95 `10.029ms`、表现 P95 `1.259ms`，正式门 PASS。120 实体：模拟 P95 `21.690ms`、表现 P95 `2.152ms`，仅作扩展压力测量。
+- 15 案例 × 2 完整重复确定，质量 `PASS`；fingerprint 保持 `a994185d975a06e046fe608567e9adb685b6a9525a83fdc85b858477d8a51255`。
+- 验证摘要：`artifacts/maint-20260910-summary.json`。上述自动化与视觉抽查均为 `SIMULATED`；真人可发现性和操作体验 `OPTIONAL_NOT_RUN (HUMAN)`，不阻塞完成。原英文复盘重复翻译 key 保留为既有低风险项。
+- 实际 diff 已审查、`git diff --check` 通过；未提交、未推送、未创建分支或 PR。当前导出是工程工作版本，不创建新的正式候选包。
+
+## 13. WS-MAINT-20260910-002 完成记录
+
+状态 `DONE`；契约见 `../work_items/WS-MAINT-20260910-002.md`。右侧扩大决策区，底部按将领分组显示每张卡现员/编制及将领汇总、风格和绿/黄/红任务文本；最终目标与途经区分离。说明等待 0.5 秒后显示 0.5 秒进度，再展示文本。空格只冻结战场推进，规划、菜单和统一命令排队可用，恢复不补跑。
+
+- 最终 focused 与五档真实窗口交互 PASS；底部原生姿态菜单与自定义说明避让，旧补员/预备两步投入保持可达。
+- 完整门 `1884.207s` PASS：两轮 18/18、Legacy/四关 smoke/矩阵、72 案例、30 场完整对局、反馈与工具、导出和包内启动通过。完整策略质量与确定性 PASS，指纹仍为 `a994185d975a06e046fe608567e9adb685b6a9525a83fdc85b858477d8a51255`。
+- 80 实体模拟/表现 P95 `15.462/1.812 ms`，正式门通过；120 实体 `19.315/2.391 ms`，仅压力测量。
+- EXE SHA-256 `679DF06F7F9F2D2293768747AA9AD71FB996869249960179ADA8180445FC0A7A`；PCK `6147024` bytes / `B686ADC446726320AFEBA71B7C9241D93D36BBB69D56FDB07B1611BF58EAA3D4`。
+- 证据：`artifacts/maint-002-summary.json`、`artifacts/maint-002-release-final.log`、`artifacts/maint-002-focused-final2.log`、`artifacts/maint-002-ui-final2.log`、`artifacts/maint-002-evidence/`。第一次中止的发布门不计 PASS。
+- 无存档格式变化；合法知识、值拷贝、统一命令和 10 Hz 边界保持。diff 审查与 `git diff --check` 通过，无提交/推送/分支/PR。全部工程与视觉证据为 `SIMULATED`；真人理解与主观操作体验 `OPTIONAL_NOT_RUN (HUMAN)`。旧英文复盘重复 key 保留。
+
+## 14. R3 已完成队列
+
+R2 出口审查已复核，用户“维护自检后完成 R3、R4、R5”的明确指令作为继续授权，未重复索取阶段顺序确认。产品决定方案见 `../reports/R3_ENTRY_REVIEW.md`；技术准备见 `R3_TACTICAL_GRAMMAR.md`。D-021 已于 2026-09-10 按用户要求接受，D-022 已于 2026-09-11 明确接受。
+
+| ID | 状态 | 工作项 | 依赖 |
+|---|---|---|---|
+| WS-R3-001 | DONE (`SIMULATED`) | 类型化战法语法与加载验证 | R2 出口、维护 002 自检均满足 |
+| WS-R3-002 | DONE (`SIMULATED`) | 首条效果注册器纵向切片 | R3-001 已满足 |
+| WS-R3-003 | DONE (`SIMULATED`) | composition 与安全存档兼容 | R3-002、D-021、维护 003 均满足 |
+| WS-R3-004 | DONE (`SIMULATED`) | 首批差异卡 | 1575.107 秒完整门、五档、生命周期、最终 60/80 实窗通过 |
+| WS-R3-005 | DONE (`SIMULATED`) | 灰脊内容迁移 | 686.300秒完整门、606文件哈希、双语五档、四关联动、正式60/80实渲全部通过 |
+| WS-R3-006 | DONE (`SIMULATED`) | R3 出口 | 606文件一致，契约、最终完整门和风险审查通过 |
+
+R3-001 已完成七类 typed Resource 与加载验证、无效内容拒绝和旧十二战法兼容。证据：`artifacts/r3-001-import.log`、`artifacts/r3-001-focused-final.log`、`artifacts/r3-001-tests.log`（18/18 PASS）。无运行行为或存档变化，本项按数据矩阵不额外重跑完整门。首次测试 fixture 外部 Resource 共享问题已用完整深复制修复，缓存污染断言保留。`git diff --check` 通过；证据均为 `SIMULATED`。
+
+R3-002：VERIFYING → REVIEWING → DONE。交替掩护正式数据接入类型注册器，世界应用合法阵营快照计算出的任务参数；任务效果元数据值拷贝，编成页显示反制说明。三处行为名称分支已移除，其他十一战法保持兼容，无存档格式变化。
+
+- 黄金 61 tick 轨迹前后 SHA-256 均为 `c4dd3d05dce912c94d39b9ad5a27cc44ddb95a028e7b5f66647350e2920fecda`，永久回归覆盖接管、归还、重下令；专项另覆盖改 ID/时序、知识污染、非法定义及快照不变。
+- 完整门 `1930.230s` PASS，进程退出 0：两轮 18/18、Legacy/四关 smoke 与矩阵、72 案例、15×2 完整对局、性能、反馈与工具、Windows 导出、包内启动及试玩包校验全部通过。策略质量与确定性 PASS，汇总指纹仍为 `a994185d975a06e046fe608567e9adb685b6a9525a83fdc85b858477d8a51255`。
+- 80 实体模拟/表现 P95 `13.582/1.726 ms`，正式门 PASS；120 实体 `22.077/2.626 ms`，仅压力测量。最终连续五档真实窗口交互 PASS；超高/窄窗定位返工保留原鼠标和键盘断言。
+- EXE `101030400` bytes / SHA-256 `679DF06F7F9F2D2293768747AA9AD71FB996869249960179ADA8180445FC0A7A`；PCK `6167268` bytes / `FF7966887AEFC3D872256F10A4AF7DFE435E8331EA3603827D7C2B93E888E472`。这是工作版本导出，没有创建新的正式候选。
+- 证据：`artifacts/r3-002-summary.json`、`artifacts/r3-002-release.log`、`artifacts/r3-002-focused.log`、`artifacts/r3-002-tests.log`、`artifacts/r3-002-ui-final2.log`、`artifacts/r3-002-evidence/`。321 个受验源码文件与启动完整门时哈希一致；完整矩阵和 72 案例 JSON 已独立归档。
+- 实际 diff 与文档链接已审查，`git diff --check` 通过；保留既有无关修改，未提交/推送/创建分支或 PR。证据均为 `SIMULATED`；真人文字理解、发现性和主观体验为 `OPTIONAL_NOT_RUN (HUMAN)`，不构成阻塞。旧英文复盘重复 key 继续保留。
+
+状态版本 42 的历史阻塞记录（现已由用户接受 D-021 解除）：当时下一项 WS-R3-003 因 D-021 尚为 Deferred 而 BLOCKED；D-022 同样待用户答复，但它是 R3-004 的门。已发送的审查方案见 `../reports/R3_ENTRY_REVIEW.md`，没有把阶段继续授权代替具体产品决定。依照 `AGENTS.md` 第 5 节“缺少产品决策、任务依赖或外部授权时保持 BLOCKED，不得用推测补齐”，不开始混成/存档实现。收到对应决定后，更新 `DECISIONS.md` 并将 R3-003 按状态机领取。R4/R5 保持原路线依赖，完整 goal 未标记完成。
+
+## 15. 控制交接与完整军团总览维护
+
+`WS-MAINT-20260910-003` 已 DONE，契约及验收见 `../work_items/WS-MAINT-20260910-003.md`。用户明确要求新的玩家将领决策交还相应手控卡，并提供 R 快捷键、主动按钮和左上提醒；旧任务不存在或已取消时也可交还，后台 Agent 不抢回控制。底部按将领汇总并直接展示当前最多十二张卡，保留逐卡兵力和绿黄红工作文字。
+
+已完成控制链实现与拒绝/隔离/同 tick/快照测试；最终 `maint-003-tests-final2.log` 18/18 PASS、`maint-003-ui-final6.log` 五档真实窗口 PASS，包含每档十二卡可见和逐卡点击，桌面与最窄截图已视觉抽查。已修复小地图旧 232px 最小宽度与 180px 左栏冲突，定向隔离及最终回归均通过；超大窗口真实输入先同步物理鼠标，原地图面积、遮挡、点击、历史与黄金断言均保留。323 个受验文件已记录哈希，完整发布门已 PASS，日志 `artifacts/maint-003-release.log`，最终证据如下。
+
+本维护无存档格式变化，证据仅为 SIMULATED，真人操作理解仍为 OPTIONAL_NOT_RUN。维护完成后唯一下一项为已解锁的 WS-R3-003，按 Accepted D-021 实施混成条目与安全 v4 迁移；不再请求 D-021 确认。完整 R3/R4/R5 goal 保持活动。
+
+最终 VERIFYING → REVIEWING → DONE：完整门 `1487.349s` PASS，正常退出 0；两轮 18/18、Legacy/四关、72 案例、15×2 完整对局、反馈工具、性能、导出与试玩包全部通过。完整策略指纹保持 `a994185d975a06e046fe608567e9adb685b6a9525a83fdc85b858477d8a51255`。80 实体模拟/表现 P95 `10.472/1.344 ms`，120 实体 `15.429/1.928 ms` 仅压力测试。323 个受验文件哈希前后一致，实际 diff 与 `git diff --check` 通过。
+
+PCK `6178532` bytes / SHA-256 `CAF20D37F891353931E0DF089187F695D92923AA2EBD2DD5AAB3932B2173284C`；EXE SHA-256 `679DF06F7F9F2D2293768747AA9AD71FB996869249960179ADA8180445FC0A7A`。摘要 `artifacts/maint-003-summary.json`；日志 `artifacts/maint-003-release.log`；五档、完整对局、72 案例和源码哈希归档 `artifacts/maint-003-evidence/`。上述“正在运行”为中间历史，不再是当前状态。
+
+## 16. R3-003：混成编制与安全存档完成
+
+WS-R3-003 已按 VERIFYING → REVIEWING → DONE 完成。typed 条目永久 ID、统一部署/补员/撤离、值拷贝快照、v1/v2/v3 → v4 安全迁移及失败提示/重试均已接通；混成说明纳入既有延迟悬停。旧十二卡保持单一 main 编制，未重做兵力比例。契约见 `../work_items/WS-R3-003.md`，设计见 `R3_COMPOSITION_AND_SAVE_COMPATIBILITY.md`。
+
+- 专项 `r3-003-focused7.log`、最终18套 `r3-003-tests-final.log`、连续五档 `r3-003-ui-full3.log` 均 PASS；每档包含十二卡总览、两条目兵员说明、坏档禁开局、保存失败及真实点击重试。桌面/480窄屏截图已人工查看，证据来源仍为 SIMULATED。
+- 四关链式 `r3-003-campaign.log` PASS：battle_count=4，补充16人，rescue_citation 跨关保留。实际文件核对为 v4/content1、12卡、8份备份，已复制隔离档归档；未接触正式玩家存档。
+- 完整发布门 `r3-003-release.log` 在1745.289秒正常退出0：两轮18/18、Legacy/四关、72案例、15×2完整对局、反馈工具、性能、Windows导出/包内启动和试玩包校验全部PASS。完整策略指纹保持 `a994185d975a06e046fe608567e9adb685b6a9525a83fdc85b858477d8a51255`。
+- 80实体模拟/表现P95为15.125/1.678ms，正式门PASS；120实体13.708/1.821ms，仅压力测量。EXE SHA-256 `679DF06F7F9F2D2293768747AA9AD71FB996869249960179ADA8180445FC0A7A`；PCK 6209388 bytes / `48CF8410D841ABB68CC3E92B565D1DDED80EDD9BED1BEF3F74CBD9F151B772EB`。
+- 564个受验源码文件在发布门前后哈希一致；实际diff与 `git diff --check` 通过。摘要 `artifacts/r3-003-summary.json`，源码哈希/矩阵/链式存档/截图在 `artifacts/r3-003-evidence/`。无提交、推送、分支或PR；001临时文档保持删除。
+- 真人对混成明细、错误提示和主观乐趣的理解仍为 OPTIONAL_NOT_RUN (HUMAN)，不阻止已满足的工程验收。旧版程序应使用保留的迁移备份，不逆向猜测混成编制；本项不自动清理历史备份。
+
+状态版本 46 的历史阻塞记录：当时 WS-R3-004 的工程依赖已满足，但 D-022 仍 Deferred，故按产品决定门保持 BLOCKED。2026-09-11 用户明确接受 `../reports/R3_ENTRY_REVIEW.md` 中传感器/识别、组织压制、专业火力弹药与受限伤害标签的首批范围，现已解除该阻塞。R3/R4/R5 完整 goal 尚未完成。
+
+
+## 17. 左侧冷却维护及D-022接受
+
+2026-09-11用户明确接受D-022并要求继续后续工作，旧阻塞记录已失效，DECISIONS.md现为Accepted。R3-004恢复READY；先按READY → DISCOVERY → CONTRACT领取WS-MAINT-20260911-001，现进入IMPLEMENTING，仅补左侧支援入口的快照冷却显示，18套及五档验证后继续R3-004。契约见work_items/WS-MAINT-20260911-001.md。无需再次确认D-021或D-022，完整R3/R4/R5目标保持原范围。
+
+
+左侧冷却维护现已按 IMPLEMENTING → VERIFYING → REVIEWING → DONE 完成。18/18 回归与五档真实窗口连续 PASS，桌面/窄屏截图可读；日志 artifacts/maint-20260911-001-tests.log、artifacts/maint-20260911-001-ui.log，矩阵和截图归档 artifacts/maint-20260911-001-evidence/。纯 UI 不重复权威发布门。证据 SIMULATED；可选真人研究 NOT_RUN。
+
+## 18. R3-004 差异卡
+
+READY → DISCOVERY → CONTRACT：D-022 已正式接受，读取路线、产品规格和现有命令/战斗/知识/卡牌快照后冻结首批五卡纵向契约。旧十二卡和正式四关保持兼容；新卡以独立内容样板验证，R3-005 再迁移灰脊。详见 work_items/WS-R3-004.md。完整 R3/R4/R5 目标继续，不以维护完成替代阶段完成。
+
+R3-004 已实现五张独立差异卡的 typed 能力、权威执行、专业弹药/压制/识别、正常决策UI和快照Agent。专项 focused6、首轮18套与五卡部署/撤离/v4恢复生命周期全部PASS（SIMULATED）；五档实窗、专业卡性能及完整发布门正在验证，尚未DONE。实现/返工细节见工作项契约。
+
+2026-09-11性能返工：专业卡80实体实渲初测frame P95 174.050ms未通过；重复文本/布局、逐实体压制决策、地形和迷雾绘制、视野及火控扫描已优化。最新3秒诊断frame P95 22.980ms仍未通过16.667ms门，不能据短测或诊断开关标DONE。artifacts/r3-004-rework-tests2.log的18/18回归PASS；最终五档正在执行，完整采样性能及完整发布门尚待通过。所有新增证据均为SIMULATED，HUMAN研究仍可选。
+
+
+R3-004现已返回VERIFYING：artifacts/r3-004-rework-ui.log五档全部PASS，artifacts/r3-004-focused-fairness.log的新鲜合法快照污染对照PASS。artifacts/r3-004-render-rework.log完整15秒60/80实渲通过：80实体frame P95 14.843ms、模拟10.943ms、呈现输入104.503ms，150/150 tick、路径失败0；先前短测失败保留，不声称执行了480秒长局门。源码清单已冻结，正在运行完整发布门，下一项仍须等待本项DONE。
+
+2026-09-11 审查返工：自然结束的观察动作残留持续识别计时，下一次冷却后重启会跳过10 tick识别窗口。artifacts/r3-004-observation-probe.log已复现。完整门主动中止，原日志保留为非最终证据；修复新动作/自然结束时清理计时，并新增跨冷却周期测试。需重新冻结和验证，当前不是DONE。
+
+识别生命周期修复专项artifacts/r3-004-lifecycle-rework.log PASS（SIMULATED），REWORK → VERIFYING；冻结清单仅更新执行系统与测试两个文件，完整发布门重新运行。
+
+最终 VERIFYING → REVIEWING → DONE：`artifacts/r3-004-release-final.log` 完整门 1575.107 秒 PASS、正常退出 0、无脚本错误。两轮 18/18、Legacy/四关、72 案例、15×2 完整对局、反馈、性能、Windows 导出与包校验通过，完整策略指纹保持 `a994185d975a06e046fe608567e9adb685b6a9525a83fdc85b858477d8a51255`。80 实体 headless 模拟/表现 P95 9.663/1.441 ms；120 实体 13.444/2.110 ms 仅压力测量。
+
+识别修复后的 `artifacts/r3-004-render-final.log` 最终 15 秒实窗 PASS：60/80 实体 frame P95 14.104/15.018 ms，80 实体模拟 10.859 ms、输入呈现 105.801 ms，150/150 tick、零路径失败。80 实体卡住事件 8、恢复峰值 2；不声称已恢复全部事件或通过 480 秒长局门，未注入弹丸峰值。五档最终 UI PASS，最后生命周期修复不改变 UI；最新实窗截图已检查。589 文件哈希一致，实际 diff 和 `git diff --check` PASS；摘要 `artifacts/r3-004-summary.json`，归档 `artifacts/r3-004-evidence/`。PCK 6268816 bytes / SHA-256 `1407F6383808900E93F1AE8D43AE93D3E0296E2D856EC944DD083C83B9FA4FD2`。HUMAN 仍为可选未运行，所有证据为 SIMULATED。唯一下一项 WS-R3-005 已 READY；不提前标记 R3/R4/R5 goal 完成。
+
+
+2026-09-12 发布证据与更正：保留 `artifacts/r3-005-release-final4.log` 的脚本 PASS 事实，PCK SHA-256 `45F0928F5F281627859F1A449A0CDE9EC46E03480F4F3605FC7273B647B4B6BB`。该脚本不证明未接入的战术贡献/归因契约，也不替代迁移后的战术 UI 五档实渲和换 ID/参数专项审查。本次 `artifacts/r3-005-push-focused.log` 正式五动作专项退出 0。原 R3-005 DONE 与 R3-006 READY 均为验收误记，现已纠正；没有完成 R3/R4/R5。
+
+2026-09-12 增援冷却同步维护：修正 `SupportPanel` contextual 分支覆盖权威 `disabled` 状态的问题，并使 `CommandDesk` 决策动作按 `CardActionSnapshot.reason` 同步置灰；左侧与决策区均显示按 10 Hz tick 换算的剩余秒数。集成回归 `artifacts/maintenance-reinforcement-cooldown-tests.log` 18/18 PASS，新增断言覆盖决策区下发增援后左侧入口的禁用与倒计时同步。证据为 `SIMULATED`，不改变 R3-005 的未闭环状态。
+
+2026-09-12继续验收：维护 `WS-MAINT-20260912-001` 修复无选中卡时入口错误禁用，左右入口统一读取冷却来源，决策按钮直接显示秒数；最终两卡补员/暂停/到期回归PASS。桌面截图确认左右同时置灰且显示30秒，五档遇异常鼠标坐标316663616和自动审批503，维护BLOCKED，不宣称五档通过。
+
+R3-005已接通独立Supply来源/卡ID及战术贡献报告、typed DTO和中英复盘。五动作、同tick费用、有效压制封顶、隐藏事件污染、旧报告值拷贝、三战法改ID/改参数及中英UI专项PASS；最终18/18和编制存档专项PASS。完整发布脚本 `artifacts/r3-005-contributions-release.log` 1059.921秒退出0，30场完整对局质量与确定性、四关兼容、80实体、工具、Windows导出与包校验PASS。80实体模拟/表现更新P95 6.409/0.814ms；PCK SHA-256 `041F68E844D5907940E6CD4117B25CAF1851EFB78DCDF5A47CFD9D46FE629C65`。运行源码474文件哈希已记录并复核。详见工作项末尾；仍待五档/60-80实渲及四关联动实窗证据复核，R3-005保持VERIFYING、R3-006仍BLOCKED。以上为SIMULATED，HUMAN仍可选未运行。
+
+Git交接：此前 `.git/index.lock` 权限与审批服务503阻塞已于2026-09-13在用户开放完整访问后解除。当前实现提交 `2cc0343` 与七个资源末尾空行修正 `b9a34a3` 已成功push到origin/main；远程引用已核对。已找到既有Godot 4.6.3安装，未将开发机路径写入运行代码。474文件冻结清单中467个逐字节一致，七个资源仅删除文件末尾空行；此前完整门行为证据仍有效。
+
+2026-09-13恢复实窗验收：五档矩阵 `artifacts/r3-005-ui-full-access.log` 全部通过，异常鼠标坐标未复现，左右补员入口同时置灰并显示30秒；正在追加中英冷却和战后贡献截图。五卡样板60/80实体15秒实渲 `artifacts/r3-005-render-full-access.json` PASS，80实体帧/模拟/输入呈现P95为10.767/7.254/103.006ms，150/150 tick、零路径失败；卡住事件7，不宣称全部恢复或480秒长局通过。四关连续实窗尚在执行；维护回到VERIFYING，R3-005保持VERIFYING，不提前解锁出口。
+
+## 19. R3出口与R4当前队列
+
+2026-09-13：增援共享冷却维护及WS-R3-005、WS-R3-006均DONE。最终完整门686.300秒、两轮18/18、Legacy/四关、72案例、30场完整对局、反馈工具、Windows导出及包校验全部PASS。606文件哈希复核变化0，完整策略指纹保持4fb412b52bca4e5aee0f659694f5b7e9ab086c1b570571d5890f329b2030855f。完整审查见[WS-R3-006](../work_items/WS-R3-006.md)。
+
+双语五档通过，左右补员同步致灰/倒计时、暂停、AI交接、六卡及十二卡总览和战后贡献均覆盖；英文标题撑宽左栏问题已修复。四关实窗链4次结算、补充3人、荣誉/累计损失保持，四场失败仅作流程证据。正式60/80实体15秒实渲帧P95 12.601/13.743ms，80输入呈现107.407ms、模拟5.808ms，150/150tick，路径失败0。80卡住事件30、恢复峰值7，未证明全部恢复或480秒长局；tasks_completed=0由R4阶段任务图继续处理。固定脚本过拟合与真人理解未知保留，HUMAN研究OPTIONAL_NOT_RUN。全部工程证据为SIMULATED。
+
+证据：artifacts/r3-005-final-evidence/、artifacts/r3-005-summary.json；PCK 6311428 bytes / B41CA543B86845DF57178D0877C84CFCA6AF974A42E1E3DBCF58320CBD82AB70。R3最终修复与正常状态文档已提交0f0ecb3并成功推送；此前2cc0343和b9a34a3亦在origin/main。直连GitHub超时，通过Windows已有本地代理的单命令Git配置恢复，未改永久配置。
+
+| ID | 状态 | 工作项 | 依赖 |
+|---|---|---|---|
+| WS-R4-001 | DONE (`SIMULATED`) | 公平态势评估黑板 | R3出口已满足 |
+| WS-R4-002 | DONE (`SIMULATED`) | 行动方案定义、生成与效用比较 | R4-001 |
+| WS-R4-003 | DONE (`SIMULATED`) | 参谋方案比较与玩家确认UI | R4-002 |
+| WS-R4-004 | DONE | 将领阶段化任务图 | 完整门与8场定向审计通过 |
+| WS-R4-005 | DONE | 预备队、增援、撤退与受阻重规划 | 功能专项、8场审计、五档与681.26秒发布门PASS |
+| WS-R4-006 | DONE | R4阶段出口 | D-029：8/9组合、两方案全覆盖；18场确定性、819.106秒完整门及五档UI通过 |
+| WS-R5-001 | DONE | 敌方Doctrine与阶段计划 | 765.543秒完整门；719受验文件无漂移 |
+| WS-R5-002 | DONE | 兵力分配与预备策略 | 815.577秒完整门；724受验文件无漂移 |
+| WS-R5-003 | DONE | 多轴与补给切断模板 | 1046.924秒完整门；752文件无漂移 |
+| WS-R5-004 | DONE | 反应审计与复盘 | 960.707秒完整门；最终真实五档UI/重导出PASS |
+| WS-R5-005 | DONE | R5出口 | 最终完整门/真实UI/包/知识/确定性审查通过 |
+
+用户已授权按独立工作项完成R3/R4/R5，本次R3工程出口审查通过后仅解锁R4-001；R4和R5尚未完成。临时WS-MAINT-20260910-001文档保持删除，契约仍在第12节，不另建交接文档。
+
+2026-09-13 R4-001已DONE：只读typed态势黑板、宿主入口、双方隐藏信息污染/情报老化/矛盾/值拷贝/接管与预备区别通过；18套和四关smoke PASS，60/80各150评估P95 0.248/0.343ms。日志artifacts/r4-001-regression.log、r4-001-focused2.log及r4-001-staff-situation.json。无权威/命令/存档/UI变化，本项未重复发布或五档门；方案、任务图与纠正负担仍待R4后续工作，HUMAN可选NOT_RUN。下一项WS-R4-002，完整R3/R4/R5目标继续。
+
+2026-09-13 R4-002已DONE：三类typed方案通过只读宿主生成，逐卡分工/预备/战略路标/准备延迟/预算与人口约束/效用分量可审计。最终专项、18套及四关smoke PASS，60/80规划P95 1.073/1.306ms；日志artifacts/r4-002-focused-final.log、r4-002-regression.log和r4-002-staff-plans.json。未改变执行行为、不宣称导航或胜率；下一项WS-R4-003，完成玩家比较、修改、批准和拒绝流程。R3修复0f0ecb3、R4-001的14d4451均已通过已有系统代理推送并核对远程；本项待提交推送，完整目标继续。
+
+R4-002的983b87a现已推送并核对远端。R4-003审批、修改/拒绝和比较UI已实现，审查后补齐本地玩家阵营校验，并修正五档弹窗测试：鼠标经根窗口输入路由，无直接按钮回调补偿。最终专项 `artifacts/r4-003-focused-final.log`、双语五档 `artifacts/r4-003-ui-final.log` PASS，包含真实同tick接管与审批竞态；高分辨率和480窄屏截图已检查。此前含回调补偿的结果不作为最终鼠标证据。当前VERIFYING，冻结源码清单后重新运行完整门 `artifacts/r4-003-release-final.log`；未通过前不解锁004、不把批准记录当作已执行任务图。所有新证据为SIMULATED，HUMAN方案理解仍可选NOT_RUN，存档格式不变。
+
+2026-09-13 R4-003现已DONE：最终双语五档（r4-003-ui-layout-final.log）、专项及665.333秒完整门（r4-003-release-final2.log）全部PASS；两轮18/18、Legacy/四关、72案例、30场完整对局、反馈工具、80实体、Windows导出与包校验通过，无脚本错误，649受验文件哈希变化0。80实体模拟/表现更新P95 5.712/0.744ms；120实体仅压力测量。PCK SHA-256 40C2A740CDAE10BF8B592D78829D2F98283D3623F1F3AEFD0EBC2051E963A9E2。源码、矩阵、截图和摘要见artifacts/r4-003-evidence/与r4-003-summary.json，详细验收见work_items/WS-R4-003.md。此前验证中及返工描述仅作历史。所有证据SIMULATED、HUMAN理解研究可选NOT_RUN，无存档格式变化；批准只是本局权威记录。唯一下一项WS-R4-004已READY，实际阶段任务执行由该项实现；R4/R5完整目标尚未完成。
+
+
+R4-004已接通批准后的真实六阶段任务、依赖/整卡执行、手控恢复与显式撤退，审查边界及18/18回归通过（artifacts/r4-004-regression-boundaries.log）。当前VERIFYING：完整对局复测、双语五档、活动图60/80性能和完整发布门尚未全部完成；不提前解锁005或标DONE。完整目标保持活动，最新已推送为R4-003的f4cc93c。
+
+## 20. 手控战斗修复与可玩包
+
+2026-09-14 最新用户指示优先完成 `WS-MAINT-20260914-001` 并交付游戏包，然后暂停开发。上节 R4-004 验收中的描述为历史；其已有实现保留，当前状态为 BLOCKED / USER_PAUSE，不能继续 R4-005 或 R5，也不宣称 R4 阶段完成。
+
+本维护已修复超过56实体后的批量显示坐标与地形遮挡、手控局部自主攻击、Q攻击移动接敌/继续路线、旧AI任务与低组织阻断基础命令、混成卡攻击时成员脱离，并增加合法发现敌方总部后的进攻决策。左侧支援区顶部常驻当前补给/上限，支持中英切换；既有左右增援入口共享置灰与倒计时。坦克地形倍率、快速机动结束及队形等待规则已验证不累乘，详见 `PLAYABLE_20260914.md`。
+
+已验证（SIMULATED）：`artifacts/manual-battle-final2.log` 手控专项及四地图总部目标寻路 PASS；`manual-visibility2.log` 的55→57→80→40实体实渲像素检查 PASS；`manual-final-regression3.log` 18/18 PASS；`manual-shipping-ui.log` 中英五档真实窗口全部 PASS，包含补给常驻/刷新、左右冷却、R交还、总部点击与十二卡总览。独立解压包已通过清单哈希校验；包内EXE真实窗口完成选关→军团编成→进入会战，实际显示“补给4/10”，空格切换“已暂停”，退出前日志无脚本错误。未执行成功的临时外部启动脚本已移除，不作为通过证据。
+
+产品负责人明确允许本包暂时放宽帧数要求并停止调优：80实体最新实渲帧/模拟/输入呈现P95为16.803/10.003/102.786ms，150/150tick，零路径失败。原16.667ms帧门未通过，保留 `manual-render-fog-cache.log`、`manual-render-measured.json` 及此前失败记录；此例外不修改后续阶段性能标准。HUMAN主观体验为 OPTIONAL_NOT_RUN。
+
+最终交付入口：`build/playable/WARSEED-Playable-20260914-final/WARSEED.exe`；ZIP：`build/playable/WARSEED-Playable-20260914-final.zip`，SHA-256 `1AF08EEC4AA0A80AB181C6C0FB46103A5B34C91C2B8E483BC0F9237EBDC738C8`。最终PCK为6412340字节 / SHA-256 `F241FB8418F159EDB3A473786EE0EB1D3B7BFD6671E109D7561AA94F6C4F06A4`，与完整门导出完全一致；EXE SHA-256 `679DF06F7F9F2D2293768747AA9AD71FB996869249960179ADA8180445FC0A7A`。旧无final后缀包仅保留历史，不作为最终交付入口。
+
+VERIFYING → REVIEWING → DONE：`artifacts/manual-release-final2.log` 完整发布门727.735秒PASS、退出0、无脚本错误。两轮18/18、Legacy及四关smoke/矩阵、72案例、30场确定性完整对局、反馈工具、Windows导出与包校验均通过。80实体headless模拟/表现更新P95为6.429/0.946ms，120实体只作压力测量；此结果不替代上述实渲帧数例外。首轮唯一黄金漂移已单变量证明来自新增手控自主攻击，仅更新对应灰脊案例；其余黄金与确定性要求不变。
+
+714项冻结清单中现存712文件哈希均未变化，仅移除两个未使用的临时启动测试文件；不是受验运行代码变化。两次导出PCK的636项内容逐项比较，唯一差异为 `.godot/uid_cache.bin`，635项内容一致，详见 `artifacts/manual-package-pck-comparison.json`。最终ZIP独立解压清单校验和真实窗口选关→编成→战场→空格暂停再次通过；`manual-package-final-visible.log` 无脚本错误。源码diff已审查，`git diff --check`通过。上述证据全部为SIMULATED，HUMAN仍可选未运行；无存档格式变化。交付后停止开发，R4-004保持BLOCKED / USER_PAUSE。
+
+## 21. 低成本开发与后续代理入口
+
+2026-09-16 `WS-MAINT-20260916-001` 已DONE。用户授权建立低成本分工规范，并比较Kimi K3、GPT-5.6-Luna、Agents-A1、DeepSeek-V4-Flash-0731。此为开发流程维护，未恢复游戏开发；R4_USER_PAUSE、R4-004 BLOCKED和09-14可玩包保持原状。
+
+正常入口 `AGENTS.md` 已接入 `AI_AGENT_PLAYBOOK.md`（渐进阅读、L0–L3风险分工、代码导航、后续阶段恢复顺序）、`AI_DELEGATION_TEMPLATE.md`（输入/交付/验收契约）和 `AI_LOW_COST_PROVIDER.md`（本机接入及对比事实）。修正主工作流与目标协议的旧阶段提示和14套旧口径；验证仅在同一受验源码/环境/命令及可复核日志下复用，核心工程门不降低。
+
+四模型同题各一次，Luna在27.605秒内六项判断正确、零误报，服务报告输入648/输出1247token；Kimi与Agents响应没有可用正文，DeepSeek请求超时。选择 `gpt-5.6-luna` 为当前低风险文本委派首选，仅完成一个审查题样本，不能声称模型综合最强或代码实现资质已认证。详细回执与失败边界见服务指南，费用UNKNOWN，不持续付费重试。
+
+`tools/ask_low_cost_ai.py` 提供固定同源HTTPS、显式文件输入、无自动重试、重复run-id拒绝、输出usage的一次文本请求；不执行外部补丁/工具。`python tests/tools/test_low_cost_ai.py` 离线5/5通过，文档20条本地链接/围栏及11文件密钥检查通过，实际diff和空白检查通过；本机配置只保存凭据路径，位于Git忽略目录。未改游戏源码，不重复游戏发布门；证据SIMULATED，HUMAN不适用。当前流程维护改动未提交/推送，游戏最新提交仍238613a。后续只有用户明确恢复时才验收R4-004，不从头重做，也不越过依赖执行R4-005/R5。
+
+
+## 22. R4/R5 恢复与预算约束（当前）
+
+2026-09-16 用户明确恢复并持续完成 R4、R5，使用 GPT-5.6-Luna 辅助；此前 USER_PAUSE 和第20/21节暂停结论已被本次授权替代。R4-004 恢复 VERIFYING，005 仍等待004 DONE，不重复既有实现。用户授权主模型上限200美元，小模型费用排除；按用户确认输入10美元/百万、输出50美元/百万，以本地会话 token_usage_record 的累计差值保守估算，全部输入不计缓存折扣。基线输入292997349、输出927181，对应本轮请求之前的记录；本地脚本 artifacts/check-r4-r5-budget.py 与 budget-latest.json 保存用量。170美元停止新增实现，保留30美元用于验证、交接；此为估算控制，不冒充服务商美元账单，也不自设goal token预算。
+
+D-028 已按用户最新指示 Accepted：整体逻辑优先，性能门暂缓，数据仅供参考；功能、10Hz逻辑语义、确定性、公平知识、存档安全、UI和导出门继续执行。R4-004 8场整局定向审计通过（含撤退、跨策略差异、阻塞原因和重复确定性）；节点反射复制改为显式值拷贝并通过全字段与数组隔离测试。60/80实渲本次frame P95为13.820/15.590ms，80模拟8.196ms，150/150tick；性能记录保留，不继续调优或以其取代功能验收。当前完整发布门日志 artifacts/r4-004-resume-release.log 尚在执行，不提前DONE。所有工程证据SIMULATED，HUMAN仍OPTIONAL_NOT_RUN。
+
+R4-004最终DONE：完整发布门退出0，8场postcopy定向整局审计PASS，704受验文件无漂移；详见工作项最终证据。当前唯一下一项R4-005 READY。低成本流程与D-028已提交并推送1cb7499；原第21节未推送描述仅是历史。
+
+R4-005已冻结独立契约并进入IMPLEMENTING；当前下一步为四类适应动作纵向实现。R4-004提交23aa5a8，发布门694.338秒PASS。
+
+R4-005功能专项及8场整局审计PASS，进入VERIFYING；完整门artifacts/r4-005-release.log与五档UI进行中，不提前DONE。当前主模型本地保守估算约117美元，170美元停止新增实现规则保持。
+
+R4-005最终DONE：完整门681.26秒及最终UI/导出/包校验PASS，性能DEFERRED；原运行源码冻结未漂移，最后三处纯UI文案变化已单独验证并导出。下一项R4-006为PRODUCT_DECISION阻塞，用户尚未回复出口指标建议（不是已接受）；当前只读研究正确计数5/9，9場均结束但会战胜利0，不能将其报告为R4阶段完成。新接手按R4_R5_NEXT_AGENT_HANDOFF.md和WS-R4-006.md进行，R5依赖尚未解锁。R4/R5持续目标未完成，预算基线不重置，主模型本地估算最近约151美元，最终实际估算以budget-latest.json为准。
+
+2026-09-16最新授权：用户扩大主模型累计额度至400美元（原用量基线不变，370美元停止新增实现），并接受R4出口指标，D-029 Accepted。R4-006解除PRODUCT_DECISION阻塞，按BLOCKED → READY → DISCOVERY → CONTRACT → IMPLEMENTING继续；R5仍依赖真实出口通过。
+
+R4-006最终DONE：VERIFYING → REVIEWING → DONE。D-029指标8/9、集中投入与侧翼推进各3/3；18场重复指纹相同，纠正0或1次/10分钟，失败例有实际撤退凭据与主力恢复结果。完整发布门819.106秒、五档真实UI、702受验文件哈希无漂移；详细表见[R4_EXIT_EVIDENCE.md](../../R4_EXIT_EVIDENCE.md)。R4工程出口依据用户持续推进及D-029授权接受，R5-001 READY。HUMAN为可选NOT_RUN，性能DEFERRED。主模型累计保守估算250.37美元，400美元上限及370美元停止新增实现保持。
+
+R5-001 DONE：typed准则、阶段化行动、命令与快照、公平目标和实际撤退完成。完整发布门765.543秒通过；黄金迁移与集中进攻侦察修复均已解释并验证。R5-002 READY，其余R5尚未完成。模块入口[ENEMY_OPERATION_GUIDE.md](../../ENEMY_OPERATION_GUIDE.md)。
+
+R5-002最终DONE：预备队实际执行与公平条件、完整发布门815.577秒、724文件哈希无漂移通过。当前主模型累计保守估算371.95美元（记录时间2026-09-15T20:54:08.621Z，不是账单；Luna排除），总上限400美元、370美元停止新增实现的预留规则不变。已进入预算预留区，本轮停在已验证的002基线；R5-003工程依赖满足但因预算保持BLOCKED，004/005依赖阻塞。剩余契约和接手文档已完成，R5总体与持续goal尚未完成；不进入R6/R7。此暂停与真人证据、性能或产品门无关。
+
+2026-09-16 最新授权：用户将主模型累计预算扩充至1000美元，保留原输入/输出计费基线；970美元停止新增实现，预留30美元验收交接。旧400美元预算暂停解除，R5-003按BLOCKED → READY → DISCOVERY恢复。继续使用Luna辅助，性能D-028暂缓；R5-004/005仍按工程依赖执行。
+
+R5-003 DONE：三份正式typed模板、实际轨迹重复一致、普通矿区补给2→0→2通过；1046.924秒完整发布门、752文件无漂移，旧黄金未改。唯一下一项WS-R5-004 READY。费用上限1000美元且原基线不变；性能仍暂缓，HUMAN可选。
+
+R5-004阶段性验证：最终权威版本完整门960.707秒PASS，762文件初次冻结无漂移；真实UI的英文480宽暴露两处旧布局最小宽度，仅ArmyBoard/PrebattlePlanner后续调整，最终五档与重导出尚待。不能把此前ui4四档通过写成五档全过。
+
+R5-004 DONE：反应/护送目标切换延迟、typed执行审计和合法双语复盘完成；960.707秒完整门PASS，之后两处纯UI布局修复由最终ui5真实五档及重导出/包smoke验证，最终PCK DD5692F388A20D90557A8E27E1228D42E4A62E0AA950CB1DBDF2D50C4FD13578。下一项R5-005 READY，阶段尚待出口审查。
+
+R5-005 REVIEWING → DONE：001～004全部DONE，30场完整对局重复一致、质量PASS，合法知识/审计/存档/UI/导出通过。完整门960.707秒后仅两个UI布局文件变化，经ui5真实五档及重新导出/包验证闭环。R5阶段出口按用户持续完成R4/R5授权接受；本次维护及R3/R4/R5完整目标完成，不进入R6/R7。已交付WARSEED-R5-Playable-20260916.zip，17文件和ZIP逐个校验。性能DEFERRED，HUMAN可选NOT_RUN。预算上限1000，原基线不变，收尾前保守估算约725.52美元；不是账单。
+
+
+## 2026-09-16 R5可玩版反馈维护（WS-MAINT-20260916-002）
+
+契约：[WS-MAINT-20260916-002](../work_items/WS-MAINT-20260916-002.md)。当前DONE；修复方案重新生成缺少具体反馈、左侧工程入口未接入迁移后的技能、渡口可视范围/导航障碍不一致、开通后AStar残留solid，以及全部据点占领后的持续侦察入口。合法发现总部后保留进攻决策，重要后续决策不再被支援筛选隐藏。无存档迁移、核心无网络依赖；HUMAN仍为可选NOT_RUN，性能按D-028暂缓。
+
+维护最终完整门973.265秒PASS（artifacts/maint-002-release2.log），五档中英真实窗口PASS（maint-002-ui3.log），专项与自然连续侦察通过；ZIP及17文件manifest已校验。包与SHA见控制块，工作版本0.1.0-r5-fix.20260916。下一任务none；R5出口保持，未开启R6/R7。
+
+
+## 24. 最终决战 WS-MAINT-20260916-003（已完成）
+
+用户明确授权大地图、百单位、战术配置、AI与经济、美术新任务。D-030记录该内容规模授权，主阶段保持R5。早期草案被错误描述为中心对称、超大地图、可执行新增阶段；实际仅为灰脊同面积左右镜像数据和无消费者字段，已进入REWORK，不计完成证据。工作项重新覆盖完整可玩闭环。
+
+Godot4.6.3已完整解压到tmp/godot，可运行；无需外部安装。首轮18套完成但新地图资源解析失败，日志tmp/test-run-final.log，不得报告PASS。正在修复资源、真正180°旋转对称、扩大地图及逐格导航测试。两次美术任务创建仅返回clientThreadId，列表没有实际任务，不能报告美术已开始或完成。后续核对创建结果并补齐真正的独立任务。
+
+2026-09-17 继续验证：D-031 的 256 对 256 与界面简化已纳入同一维护范围。地图已扩至 32768×24576；19 节点、三主路与六野区连接、四战团、自动补员、并行任务图、小地图聚合及美术已接入。独立美术任务实际完成，ID 01a0aad4-9072-7610-a49c-8a92fbd9dc06，29 个 SVG 已集成；此前“没有实际任务”仅为历史。
+
+完整发布门 artifacts/final-release-gate.log 首轮失败：旧渲染缓冲测试越界和旧任务图侦察依赖回归，已修复；随后回归暴露残骸被画成旧情报，已修复。只读复核进一步发现红方技能缺少真实任务、占点完成后失去 AI 控制、谨慎侦察路线折返和长导航路线超过8点限制，正在补齐验证。首个长局运行因缺陷修复中止，不计通过。工作项保持 REWORK，不能依据早期 smoke 的 PASS 行忽略脚本错误。
+
+新最终决战采用超时与同tick双方总部毁灭平局规则，避免沿用旧战役超时仅蓝方失败；旧战役目标不变。存档仍 v4，新增 draw 结果字符串；最终决战独立档案。HUMAN OPTIONAL_NOT_RUN；性能 DEFERRED。下一步为修复后新关长局、双方技能/后勤边界、存档、五档UI及完整发布门，不开启 R6。
+
+2026-09-17 最终专项通过，REWORK → VERIFYING：地图/双方后勤与技能/预备队/知识污染/同tick手控/存档/五档新旧UI均通过；两次最终决战6388tick完整局结局与事件指纹一致。实际窗口选关→512开局→超时夹具结算与存档→重开相机复位通过。494文件冻结无漂移。完整门 final-release-verified.log 仍进行中，独立导出包验收尚待完成；详细范围和较早失败作废记录见工作项。所有证据SIMULATED，不提前DONE。
+
+最终 VERIFYING → REVIEWING → DONE：1106.71秒完整门退出0通过，实际解压EXE选关/中英切换/开局四战团256人/暂停/展开地图通过。包内发现旧规模说明后，只改两份locale的两条文本，重新导出并做真实UI验证；492冻结文件未变。首轮完整门有历史截图UID警告与导出结束的Android EditorSettings日志，最终重导出与包内运行无错误；详细分类见工作项，不掩盖日志。源工程脚本验证结算存档/重开/相机复位，导出EXE忽略外部脚本的尝试不算验证。
+
+交付：`build/playable/WARSEED-Final-Decision-20260917-final/WARSEED.exe`；ZIP同目录-final.zip，SHA-256 `EA54A17F798C03DA9BB7BA2F81D7C0DD08CD91959011EF65E73AA49CDA5D333A`。PCK SHA-256 `1203D601255C9DBE0455500BD77A2DF0AFF014422E85429F89BB85E18EC4A117`，独立解压五文件清单一致。无后缀包为旧候选，非最终入口。地图/经济/行为边界见 `../design/FINAL_DECISION_MAP_DESIGN.md`，操作说明见 `../releases/PLAYABLE_FINAL_DECISION_20260917.md`。代码与文档未提交/推送。当前无活动工作项，不进入R6；HUMAN OPTIONAL_NOT_RUN，性能DEFERRED。
+
+
+## 25. 大地图发育对局重做（已完成）
+
+2026-09-18：用户明确要求替换第24节满编开局及杂乱地图，当前唯一工作项 [WS-MAINT-20260918-001](../work_items/WS-MAINT-20260918-001.md)，IMPLEMENTING。八项目标完整保留：三路层级与双野区、缩放可读性、双阵营将领自主性、情境警报、独立模式及发育经济、区域特殊支援、数值文档、整局自玩与趣味改进。D-032按用户明确授权Accepted，不需要再次询问产品许可。旧-final包仅是历史基线，不能作为本次验收。新规则验证NOT_RUN，目标保持active；性能DEFERRED，HUMAN可选NOT_RUN。
+
+2026-09-18 实施进展（未完成）：地图26点、48对48开局/256上限、按兵种付费扩员、优先补给、区域侦察/友伤导弹/60秒医院、远景聚合与渲染包围盒修复已接入。地图专项、经济专项、区域支援专项、48/128单位多档缩放实渲曾通过；当前扩展至双方八位将领、自主推进与恢复、付费重建、默认维修/补弹/驻守、据点与遇袭提示。`growth-commander-02.log`、`growth-economy-02.log`、18套`growth-preflight-01.log`通过，但后续重建及总部耐久调整需再验，不能当最终发布门。
+
+整局发现：`growth-ai-discovery-01.log`完整18000tick平局（游戏30分钟/墙钟830.62秒），暴露旧HOLD姿态与游离侦察；已修复。第二轮3872tick结束但含支援API运行错误，仅作发现记录，不计PASS；修复后第三轮正在运行。新增重建测试覆盖残骸已删除编队，修复自动重建被旧formation存在性检查挡住的问题。当前仍IMPLEMENTING，最终整局重复、完整门、五档中英UI、最终导出包未完成。
+
+低成本模型按用户依次尝试Luna、kimi-k3、Agents-A1；回执在`artifacts/delegation/`。Luna HTTP503，Kimi无可用正文；Agents-A1极小诊断确认finish_reason=length、正文0、推理字段占满额度；4096输出审查仍正文0，总7148token/61.362秒，不采纳任何建议，不再追加重复请求。开发服务仅用于离线文本审查，核心运行无网络依赖；密钥未输出。
+
+2026-09-18 验证进展：IMPLEMENTING → VERIFYING。256+256自动扩员容量专项PASS（补充金库夹具，非自然经济速度证据）；双方侦察/压制、自动重建、独立任务图替换、将领恢复原路线/性格/合法知识及区域支援边界通过。自然完整自动局两次均6840tick（11分24秒），事件SHA-256同为f2e75eccecdc9a50d3c0c7ea29fc2fbc547157aa9630358b9084d526aba2c4bd，墙钟463.33/420.54秒，峰值107/218；蓝方不使用玩家特殊支援，此结果不代表胜率平衡。早期第三轮构造器错误已修复，第四轮7476tick无错误完成，后续恢复规则再改进后由上述两局替代。
+
+中英五档和实际缩放/平移/整卡选择已执行；点击侦察发现UI忽略已入队招募的预留费用，改为复用权威可用补给计算。施放/视野/20补给扣费已通过，最后两项UI断言因分帧HUD刷新等待不足正在修正测试等待，未计最终PASS。完整门growth-release-20260918-01.log运行中；旧四关实窗、独立新包和最终文档仍待完成。当前665运行文件冻结于artifacts/growth-runtime-freeze.json；未经最终门和交付不标DONE。
+
+2026-09-18 收尾进展：用户最新要求以大地图为重点、旧四关简要兼容。完整门growth-release-20260918-01已PASS（1288.985秒），后续对称接敌和告警修正后重跑growth-release-final-02。大地图中英五档与实际缩放/支援输入growth-ui-final-03 PASS；新模式选关/48开局/超时夹具存档/重开相机growth-delivery-ui-03 PASS，英文窄屏标题撑宽已修复。最终策略自然局两次3696tick同事件指纹，试玩报告及新操作说明已写；剩余最终门和独立EXE/包哈希验收。旧UI额外640物理输入矩阵失败保留，不称旧五档通过；不扩展旧关工作。此时仍VERIFYING，以下最终记录替代该进度。
+
+2026-09-18 最终 VERIFYING → REVIEWING → DONE。完整门 `artifacts/growth-release-final-02.log` 1321.309秒、退出0，两轮18套、四关兼容/矩阵、30场重复整局、72案例、反馈工具、Windows导出和包校验全部通过，无SCRIPT ERROR/ERROR；保留历史截图重复UID警告，不宣称无警告。最终665运行文件与 `growth-runtime-delivery-freeze.json` 无漂移，导出晚于已验证的窄屏布局修改。PCK 6900100字节，SHA-256 `7BDE9C80F6DC24B067B091A7BC4D592F73020026EE575899E82AD1AF90B0355C`。
+
+同一最终版本追加无蓝方特殊支援对照局11297tick（19分09.7秒）、实际729.04秒、峰值151/184、蓝败、无错误。主动策略两局3696tick仍同指纹；差异同时含拨款优先与支援，不外推单卡效果或平衡胜率。完整报告 `../reports/GROWTH_MATCH_PLAYTEST_20260918.md` 保留拥堵/拒绝事件、开局2分半行军、固定脚本样本限制；HUMAN OPTIONAL_NOT_RUN，性能DEFERRED。低成本工具离线5/5通过，Agents-A1尝试仍无可用正文。
+
+交付 `build/playable/WARSEED-Growth-Match-20260918-final/WARSEED.exe`，同名ZIP SHA-256 `96BCEEB7CD53609FC773BB1F4093163C8B1C698C74A3E7A140BBD5A8EB9DF060`。独立解压7文件逐项一致，包内EXE通过真实窗口中文/英文菜单→编成→会战，初始补给24、四团各12人，自动增长至53人；暂停、滚轮缩放、展开小地图和定位部队正常，退出日志无错误。仅关闭自己的测试进程，用户编辑器6496保留。最终diff/空白审查通过；不提交、不推送、不进入R6/R7。当前无必需残留和下一工作项；旧关640额外UI矩阵限制仍按用户缩限记录。
+
+
+## 26. 大地图反馈维护（已完成）
+
+2026-09-19：WS-MAINT-20260919-001 IMPLEMENTING，D-033按用户七项反馈授权。军团告警、医院战区部署、导弹可读性、性格偏好、临时微操、10秒新兵光圈、每秒5人配额与最低补给储备及收支显示。契约见work_items/WS-MAINT-20260919-001.md。新验证NOT_RUN；旧包仍为上轮交付，不标作本轮完成。
+
+
+2026-09-19 验证进展：IMPLEMENTING → VERIFYING。七项实现完成，新增权威边界`feedback19-boundaries04.log`及实际窗口`feedback19-visual02.log`通过，涵盖队列每秒5人/军团2人/最后人口与余额预留、同军团横幅合并、微操新命令取消旧交还、医院战区治疗、导弹真实伤害和新兵光圈。此前首轮typed字典错误和视觉夹具时序失败已修复并保留日志，不作PASS。完整门`feedback19-release-final01.log`和最终五档/自然整局进行中，独立交付尚未完成。
+
+
+2026-09-19 储备边界返工：自动付费技能同步遵守自定义储备，避免招募停止后仍花掉玩家支援预算，显式玩家命令不受限。专项05通过；final01完整门与自然局01/02主动中止，最终版本改用final02、自然局03/04、UI05和`feedback19-runtime-final-freeze.json`，不混用中止结果。仍VERIFYING。
+
+
+2026-09-19 最终 VERIFYING → REVIEWING → DONE。七项反馈及自动技能储备边界已闭环。完整门final02耗时1346.695秒、退出0，两轮18套/四关/72案例/30场重复整局/反馈/Windows导出与包检查PASS，无脚本错误；最终669运行文件哈希无漂移。专项05、实际视觉02、中英五档UI05与512容量PASS。自然局03/04均20分29.7秒蓝胜，峰值249/246、事件SHA一致，详细记录`../reports/GROWTH_FEEDBACK_PLAYTEST_20260919.md`；不外推胜率或真人趣味。
+
+交付`build/playable/WARSEED-Growth-Feedback-20260919-final/WARSEED.exe`，ZIP SHA-256 `04D5FC8EC84EC3B234315D90058D6561F3D232C9F1CA93A1377EA09DCCD29F50`；PCK SHA-256 `1225EEE9C1CCA79582374F90B571643440A3E3C54F62D4C23EEC78221C1897D0`。独立解压7文件一致，EXE实际菜单/编成/会战/暂停/真实键盘储备60/鼠标配额0/2/1/2应用均通过，HUD已确认；`feedback19-package-visible.log`无错误。仅关闭自有测试PID21040，用户编辑器6496保留。
+
+存档v4不变；每局方案重置。代码/文档/差异/空白检查完成，不提交、不推送。性能仍DEFERRED，HUMAN可选NOT_RUN，拥堵检测/命令拒绝及英文31个旧复盘重复键如实记录。当前无必需残留、无下一工作项，不进入R6/R7。旧final01/自然局01/02中止结果和早期失败日志仅保留历史，不计最终PASS。
+
+
+## 27. 野区河道串联道路（已完成）
+
+WS-MAINT-20260919-002，按用户北侧S-L-河道-S/南侧S-河道-L-S新增对称道路。VERIFYING，契约见工作项；道路专项、全图对称可达、总览和实际南北交汇渲染均PASS。完整发布门jungle-links-release01运行中；旧包仍为前次交付，尚未交付本轮新包。
+
+
+2026-09-19 最终 VERIFYING → REVIEWING → DONE。北侧S-L-河道-S、南侧S-河道-L-S两条320宽道路按180°旋转生成，接入512宽河道，六个野区点战略邻接同步。逐格对称/可达、直接路线/宽度/双向邻接/上下河道转场、实际渲染及地图总览PASS。完整门`jungle-links-release01.log`1058.904秒、退出0，含两轮18套、30场重复整局、四关矩阵、72案例、反馈UI/工具、导出/包校验；无SCRIPT ERROR/ERROR，仍有历史截图重复UID警告。669运行文件哈希无漂移。
+
+独立EXE实际菜单→编成→会战→暂停→缩放→南北小地图定位通过，日志无错误，截图`jungle-links-package-north.png`/`jungle-links-package-south.png`。交付`build/playable/WARSEED-Jungle-Links-20260919-final/WARSEED.exe`，ZIP SHA-256 `03BC27548428C030D9770494E307442B71040242E4BAF5780238C35C27DBEB26`；PCK SHA-256 `5A781414DF7198C39DC94F5CB60CD5797683939648571538FB22AF2F467950B7`。独立解压7文件一致。报告`../reports/JUNGLE_LINKS_VERIFICATION.md`，回执`artifacts/jungle-links-delivery-package.json`。
+
+本轮无运行代码或v4存档结构修改。新地图自然对局平衡、真人研究尚未运行，不能复用前一地图的自然对局时长当作新路线结论；HUMAN OPTIONAL_NOT_RUN，性能DEFERRED_D028。首轮导入关闭期错误和已修复的视觉夹具失败不记PASS。最终差异/空白审查完成；仅关闭测试EXE3716，用户编辑器6496保留。不提交、不推送、不进入R6/R7，无必需残留。
+
+
+## 28. 自主交战与数值战术审计（已完成）
+
+WS-MAINT-20260919-003，VERIFYING，D-034授权。侦察协同、自主选敌、炮车普通开火、移动与集火独立、短追归位及死亡领车替换已实施。专项focused08与96单位实际渲染visual01通过；两次自然对局和完整发布门combat20-release01正在运行。671运行文件冻结，旧包仍为前次交付，独立新包尚未验收。现行数值、战法、补员固定秒边界与敌我战略自动化差异见CURRENT_NUMBERS_AND_TACTICS_20260919.md；不提前DONE，不擅自实现新平衡或战略语义。
+
+最终 VERIFYING → REVIEWING → DONE：完整发布门`combat20-release01.log`1343.741秒、退出0，两轮18套/四关/30场重复整局/72案例/反馈UI工具/Windows导出与包校验通过，无SCRIPT ERROR/ERROR，保留历史截图UID警告。671运行文件零漂移。focused08、真实96单位visual01、完全无将领指挥关系uncommanded01均PASS。自然局01/02各5998tick蓝败、事件指纹均`a6b79f75abb00d2f422b6067416f72b289049c25db01abddbbe7adfdfbb1e99b`；蓝红侦察693/677发、火力354/362发，人口峰值229/256。固定秒招募自然峰值4、专项5/5/5；跨tick9/10可连续10人，未改为滑动窗口。
+
+完整现状文档`../design/CURRENT_NUMBERS_AND_TACTICS_20260919.md`已交付，明确炮车普通弹仅压制、装甲沿用突击基础数值、玩家将领命令关闭战略自主且无恢复入口、红方自动区域支援而蓝方手动等现状；后续平衡/战略重设计等待用户计划。报告`../reports/COMBAT_AUTONOMY_VERIFICATION_20260919.md`记录长局3555次拥堵检测、339次拒绝事件及样本限制，不宣称所有路径停滞或胜率平衡已解决。
+
+交付`build/playable/WARSEED-Combat-Autonomy-20260919-final/WARSEED.exe`，ZIP SHA-256 `46B15E97D2106B4E59E90FC1BC287651EBA3DB4EFD984E35D1C1323A29F3E343`；PCK SHA-256 `998D1DC0772A8B26CCBC07B9839213F55585A541C47B856D01080F1ADE868B37`。实机菜单→编成→会战、暂停/继续、侦察整卡选择、右键路线、R交还AI通过，人口自动增长到69；日志无错误。独立解压8文件逐项一致，回执`artifacts/combat20-delivery-package.json`。仅关闭自有41008，用户编辑器6496保留。v4存档不变，HUMAN OPTIONAL_NOT_RUN、性能DEFERRED_D028；不提交、不推送，无必需残留，不自动开启下一项。
+
+
+## 29. 双武器与军团协同（DONE）
+
+WS-MAINT-20260919-004，DONE，D-035由用户新数值及协同需求授权。READY→DISCOVERY→CONTRACT→IMPLEMENTING→VERIFYING→REVIEWING→DONE，不重开R6/R7。
+
+交付：突击300生命；装甲400生命/25甲/每名5补给；大地图火炮70×0.5～2导弹生命杀伤并保留9压制，4弹耗尽切40攻击/300固定射程无限普通炮；补弹恢复导弹。出生、补员、重建使用同一typed覆写，旧兵伤势/弹药不被补员重置。将领不再仅因带副武器火炮弹尽整团撤回。
+
+决策区新增联合进攻/据点互援与横队/楔形/梯队。复用参谋批准→共享命令→任务图；至少两完整可调度军团，联合进攻全卡展开屏障，共享最长准备预算及单一手控暂停时钟；阵位导航保留途经点，图撤退禁止局部停车追击。互援为己方点防守并最终驻守，不是临时支援后回旧任务。共享集火仍只读取合法目标、每将领只指挥自己的卡。
+
+SIMULATED证据：rules07（新数值、双武器、实际补员/重建、360追近、快照/确定性/路线），operation03（8卡tick157同期接敌、互援tick259完成、跨将领合法集火），edges01（混合武器、两卡手控暂停只计21tick），contested02（250生命拦截敌军实际击毁后同步发起），regression-combat（补员固定秒桶≤5），ui05（双语五档），native-source02及export-approved（真实点击审批）全部PASS。最终完整发布门combined21-release02 PASS，1390.611秒；旧关黄金轨迹未变、两轮18套回归、30场全局矩阵/公平知识/v4存档/UI/导出通过。第一次门因最终路线边界修复主动终止，不计PASS。
+
+自然对局两次同tick8604蓝败，峰值人口248/235，首战tick1460，侦察921/1930发、火炮1342/1171发、全场11252发，补员最大5/固定秒。整局SHA256均80385d61bea76dfa67dd71b150558d29717050300939bc44ebf6f458aa6cdf75。蓝方未买区域支援，这不是胜率平衡结论。日志4512次UNIT_STUCK与526次拒绝仍为残余拥堵/命令评估风险，不宣称所有停滞已消除。
+
+运行文件冻结426项，无漂移；任务基线差异27个既有源码/数据/本地化文件+2个新增助手/系统，未整理既有无关改动。工具生成器同步新数值并check-only通过。完整数值/战术及后续职责/预备队建议写入设计文档，未把建议标为已实现。
+
+独立试玩目录build/playable/WARSEED-Combined-Arms-20260919-final，ZIP SHA256 E47757283EE8AF51F03FBF81FFED2754A1DEBF605FB6D12314513C2645A21C05；EXE 679DF06F7F9F2D2293768747AA9AD71FB996869249960179ADA8180445FC0A7A；PCK 3130E15168A9E57ED481EEF374FD0F437AAAE8BB70918F5D45CD1886030F09F9。9文件manifest及独立解压逐文件哈希PASS，收据artifacts/combined21-delivery-package.json。旧003交付包保留。未提交、推送或创建分支。性能DEFERRED_D028，HUMAN OPTIONAL_NOT_RUN；唯一下一项none，待用户反馈。
+
+## 30. 五军团战略指挥（DONE）
+
+WS-MAINT-20260919-005 / D-036，2026-09-20完成。READY→DISCOVERY→CONTRACT→IMPLEMENTING→VERIFYING→REVIEWING→DONE。依用户十一项要求，固定上/中/下/野/机五军团，各60、每方300；战前唯一将领与0–60四兵种配置、3/10秒可配自动交接、机动高地阻击支援、组织度/实际数值悬停/聚合警报音、侦察200、导弹卡3秒、导弹车展开动画落地。
+
+修复极小正容量兵种开局0人时无法增员、0容量阻塞协同、v4历史容量和实际伤亡去重、异步加载历史保护及Resource导出循环依赖。玩家/Agent同命令和合法知识，旧快照隔离；后台只构造未发布世界，正式模拟仍10Hz。当前数值与玩法以FIVE_LEGIONS_DESIGN_20260919.md为准。
+
+最终SIMULATED证据：rules03、tactics03、zero-operation02、persistence04、fog-edges01、history03、small-roles03、ui07 PASS；独立EXE真实菜单/进度/编成/机动配置/开战/暂停/小地图定位检查无错误。完整门release04 1627.048秒退出0，18套双轮、30场整局质量与确定性、四关策略及联动、UI、工具、Windows导出与包验证全部通过。release01/02/03为修复主动中止，不计PASS；原始失败日志保留。
+
+自然04/05均tick7016结束蓝败，SHA256 bf0935426191b2e42a4f070472b42ea47c485056c90ae7fed2050e9b4c3e2bf7；峰值285/291，7103次发射，侦察546/794、火炮669/968，全阵营每固定秒最多补员5人。蓝方未买战区支援，不是镜像平衡结论。5700次UNIT_STUCK与412次拒绝仍是后续拥堵/命令评估风险，不是永久挂机人数，不能宣称所有停滞解决。
+
+性能局部测量：重复导航网格1003.077→162.680ms，600静止单位视野30次262.942→92.174ms，结果相等。加载P95 17.194ms、最长2123.997ms；600密集交火P95 559.582ms、最长621.393ms，仍严重卡顿。本轮完成加载/局部优化与科学测量，未声称性能问题解决；快照索引/投影复用/尾迹批处理/独占模拟线程为后续方案。D-028性能DEFERRED，HUMAN OPTIONAL_NOT_RUN。
+
+运行374与美术31文件冻结无漂移。完整门启动后仅commander_profile描述改为相同本地化key直接调用以消除导出循环依赖，UI07与重新导出覆盖。候选与最终PCK的809内部文件MD5有效、SHA256/长度/标志相等，仅物理打包顺序不同；交付采用完整门输出。独立解压12文件逐项一致，收据artifacts/legion22-delivery-package.json，受验差异及失败范围见FIVE_LEGIONS_VERIFICATION_20260919.md。
+
+交付build/playable/WARSEED-Five-Legions-20260919-final/WARSEED.exe；ZIP SHA256 61388BDDF48A4566D28DB68D45AE9C437FA367947FA6670B376A601C3A51C8C1；PCK SHA256 47AE93D285065DE5CD9644114A47661D9B9DE141C26A343596AEF97CADC9F983。旧包及用户编辑器/旧游戏保留，仅关闭自有测试窗口。未提交、推送或创建分支。下一项none，等待用户试玩反馈，不扩展R6/R7。
+
+## 31. 科学性能优化与完整试玩（进行中）
+
+WS-MAINT-20260920-001，用户2026-09-20授权；依赖005完成，READY→DISCOVERY→CONTRACT→IMPLEMENTING。先测模拟/导航/知识/命令/快照/表现和拥堵持续情况，再做等价优化与有证据的缺陷修复。随后完整流程及蓝方合法获胜路径试玩。基线artifacts/perf23-baseline，旧005包保留；未测项目NOT_RUN。
+
+2026-09-20实施进展：逐真实tick/帧/命令与导航测量已落地；决策候选一次索引、表现快照ID索引、合法可见目标空间桶/射程包围盒、补员候选每pass筛选和双层尾迹批绘已实现。发现并修复终点纵队提前结束、归队连接不可达仍拼接、侦察展开与位置校验不一致；持续净位移检测与超过三次后的有界重试针对真实长时间拥堵。初次regression03/04与combat01通过；自然基线7016tick/614.33秒，旧实现5700受阻/412拒绝，命令延迟均1tick；中间自然after01在7821tick结束，47个≥10秒无净进展片段，最长486秒，证明不能仅修到达判定便称解决拥堵。最终持续恢复改动另测。首轮600实渲P95 539.349→286.48ms，仍卡顿，非最终性能结论。状态VERIFYING；尚无完整流程/蓝胜/最终门和新交付包证据，不能DONE。
+
+2026-09-20实窗返工：完整流程01发现弹道批绘颜色数量不满足Godot每线段一个颜色的契约，perf23-render-final01含194条ERROR，脚本退出0不足以证明通过，该性能结果撤销验收资格。修正两层颜色数量，冻结06；流程01仅中止自有进程，重开流程02并明确窗口模式。头less自然局和已运行权威回归与此表现修正无关，可复用；完整门尚在纯模拟矩阵阶段，后续渲染/导出使用修复版。VERIFYING→REWORK→VERIFYING；最终独立压力与尾迹实渲仍待完成。五档双语UI01通过，极窄屏文本省略为现有布局限制。
+
+2026-09-20命令缺陷返工：concentration01持续INVALID_TARGET，独立诊断确认0容量兵种DEPLOYED但无formation使整军团目标校验失败。校验跳过明确authorized_strength=0的空兵种，非零缺失formation仍拒绝；policy-diagnostic02全部四团目标接受及损坏实体边界PASS。冻结07，release01/旧concentration01/旧jungle01只停止经命令行核对的自有进程并保留日志；release02与concentration02/jungle-final02重跑。默认编成passive/support/flow无0容量兵种，源差异不影响对应执行路径，可复用结果，不能复用自定义军团旧局作为修复后结果。状态REWORK→VERIFYING。
+
+2026-09-20命令时间追加优化：economy长局揭示联合批准每次约9秒，任务图独立重复创建大地图导航器。StaffPlanGenerator提供合法快照导航缓存，已验证的任务图安装传入相同合法快照的导航器，保留独立构建作为回退与差分参考。plan-cache01：48节点逐字段相等；同进程新建14.172秒/复用6.783ms，仅并行环境诊断值，不作为独立性能门。首次方案生成冷启动仍约15秒，未宣称消除。缓存随可见建筑足迹变化失效，新增拒绝真值快照校验；最终隔离重复待跑。冻结08，release02主动中止，release03完整门；自然旧日志不受等价缓存优化影响。最终无干预局18000tick平局，136个≥10秒停滞片段涉及40单位、最长577秒，不能宣称拥堵完全解决。
+
+2026-09-20流程02在结算前窗口退出，仅有6000tick里程碑和退出清理资源日志，没有完整流程回执，不计PASS（不推测退出原因）。流程03使用fire_support策略、每呈现帧推进5个完整host tick，明确为加速SIMULATED而非帧性能证据，仍完整记录命令/事件/存档并等待实际再战。maneuver01测试脚本的条件数组typed赋值运行错误已修，旧局主动停止，maneuver02重开；不涉及运行源码。协同真实执行cooperation01两模式、8卡共同接敌/互援PASS。最终源仍冻结08。
+
+2026-09-20 用户追加八项修订：001进入REWORK→IMPLEMENTING；契约见工作项追加段。已按命令行核验停止perf23排队实机监督器及旧重负载验证，保留用户编辑器/旧游戏。新验证只用无窗口数据模拟，旧中断release03/flow03不算通过。
+
+001追加修订已IMPLEMENTING→VERIFYING：D-037，英雄独立实体/军团回营/护甲15/友敌卡样式/战线移除/机动与撤退修复。hero24-contract06 78检查PASS，headless UI02与regression02 PASS；610压力150tick 11170发射，单步P95 219.939→95.108ms。冻结hero24-runtime-freeze01（437文件），完整发布门release01与自然fire01运行，功能并行数据不用于性能。报告docs/COMMANDER_REWORK_20260920.md。
+
+001最终数据返工：hero24-contract08 79项、bank-contract01 218项、map01及regression03通过；ui03双语五档、flow02无窗口结算/再战通过。自然对照揭示河岸长段采样漏检，中心对称大地图改用逐网格检查，冻结hero24-runtime-freeze04；旧自然fire02/decisive01为前修订对照，economy01/mirror01被新修订替代并停止，不计完成。最终fire03/04、mirror02、decisive02与完整门release01进行中。旧关不进入逐格分支；最终导出需包含freeze04，隔离性能待重测，仍VERIFYING。
+
+前排组织长局返工已完成：mirror02/flank01诊断出前排0组织被后排100均值掩盖；D-037补充前排加权35/65门。hero24-contract09 82项PASS；冻结05，release02在最终冻结后重新启动，不再复用混合源码完整门结论。最终fire05/06及flank02进行中。无重负载并行时measure03：610实体11170发射，模拟P50/P95/max64.670/85.702/109.132ms；plan-cache02同48节点6.401秒对4.519毫秒，首次方案仍6.170秒。以上不推算FPS，原生试玩NOT_RUN。
+
+将领确定性补充：发现新增系统的StringName默认排序不是名称文本排序，改为显式String比较，集火同样修正（仅growth）。hero24-contract10 83项通过，freeze06；旧关完整门不受影响，最终导出与fire07/08、flank03使用此版。上一修订fire05完整局5234tick蓝败、补员<=5、零>=10秒行军低位移；fire06/flank02因排序修订中止不算完整局。measure04待全部功能重负载完成后独立执行。仍VERIFYING。
+
+
+2026-09-20 功能切片验证、审查与独立交付完成，001 VERIFYING → REWORK（原性能/节奏目标未达成，不标DONE、不完成活动goal）。83项将领/命令契约、218项河岸短步与旋转路径、地图/regression、双语五档UI、菜单→编成→结算→再战无窗口流程、导出PCK专项均PASS。完整门hero24-release02 2024.968秒退出0，两轮18套、30场重复完整局、四关72案例、反馈工具/UI/Windows导出与包检查通过，无SCRIPT ERROR/ERROR；历史UID警告保留。门启动freeze05，旧关矩阵期间仅修正growth将领与集火稳定排序，contract10与最终fire07/08覆盖，导出为freeze06。437运行文件零漂移；相对任务开始基线45个运行文件变化，审查清单hero24-task-changes.json。
+
+最终数据：fire07/08均5234tick（8分43.4秒）蓝败，完整事件SHA256 1400960325a05ce3dd7c0bdfdc8e8c882a8a9fa5b431ed7b3a827bbca799dfd3；flank03为7479tick（12分27.9秒）蓝败、双方峰值300。三局补员均最多5/固定秒，所有失败断言为空；双方侦察/火炮实际开火；行军且无攻击目标的>=10秒低位移片段均0，但UNIT_STUCK仍2902/5224次，不声称所有闲置状态合理。最终没有已验证蓝胜，未达到20–40分钟健康节奏目标。
+
+全部重负载结束后独立measure04：610实体、20预热+150采样、前后11170次发射；模拟P50/P95/max从107.866/219.939/316.545ms降至62.839/86.013/119.274ms。5000条结束任务复制完整历史P95 51.425ms，实时视图5.940ms。plan-cache02隔离差分同48节点：新导航6401.122ms、缓存4.519ms；首次完整方案6169.755ms仍是风险。无窗口模拟不能推算FPS，性能DEFERRED不等于通过。
+
+独立交付build/playable/WARSEED-Commander-20260920-final.zip，SHA256 189FBDD6006D07191A69B418832CFCD815675A89C2CB58E3F45ACA231B4DC823；PCK SHA256 B91F255D356B0C989AB9415862F86D8B5FE91332DCA7D3A4E712E765F20CF3B2。manifest及独立解压10文件逐一相同，原Five-Legions ZIP哈希不变，回执artifacts/hero24-delivery-package.json。报告COMMANDER_REWORK_20260920.md、现行设计与README已同步。用户编辑器6496保留，无测试Godot残留；不提交、不推送、不建分支。HUMAN OPTIONAL_NOT_RUN，实机试玩NOT_RUN_BY_USER_REQUEST。
+
+下一步仍属于001：优先分解并消除首次方案导航构造停顿，测量知识更新/快照余下开销；用合法策略数据追踪总部攻防、分队脱节与目标完成后的停止状态，验证可重复蓝胜和20–40分钟节奏。不得将本次功能包“final”文件名解释为原goal已经完成；已有同源码专项和最终完整门按依赖复用。
+
+
+perf25续作（VERIFYING，原001仍REWORK）：导航冷构造改为精确行段，补给点占领资格单步复用，视野圆批处理与传感器签名、识别成员查找改为索引；已见目标建筑主动接近及总部预备队响应补充，显式命令/回营/休整优先。最终决战宿主增加独占后台模拟步、主线程快照/事件发布和只读导航副本；旧关同步、统一校验、10Hz与v4不变。冻结perf25-runtime-freeze01，438运行文件，尚无新包。
+
+隔离后的源码路径检查perf25-source01确认12个关键类全部来自res://src；thread04 374项同步/异步事件与单位状态、暂停/积压/命令边界/切换/退出PASS。导航mask发现PackedArray引用共享已改为显式duplicate，旧导航快照隔离通过。perf25-release01因Godot将artifacts源码对照副本误收录类索引主动中止，日志保留，不计PASS；新增artifacts/.gdignore后重新导入。此前重复类缓存相关验证不作为最终门，最终专项/自然局/性能重跑以明确源路径为准。elastic01中止；flank01虽10分54.3秒蓝败，因受验类来源未锁定，仅保留诊断不当作最终行为证据。旧Commander交付包不变，活动goal不完成，HUMAN可选NOT_RUN，原生试玩遵守用户要求NOT_RUN。
+
+
+perf25后续验证：冷却同对象刷新修复通过cooldown02；thread07同步/异步、结算事件类型与值拷贝通过。elastic02在7376tick蓝败，合法回防命令对总部中心连续PATH_UNAVAILABLE；新增两侧实测失败夹具，调整growth军团最终目标为各编队实际展开位校验后，hq-center-after01共34项PASS。旧关仍用原目标路径校验。战斗提示91501事件差分及图标160阶段差分PASS。冻结perf25-runtime-freeze04，完整门release04进行中；release02冷却断言失败，release03因总部中心与事件副本修复主动中止，均不计PASS。elastic03使用最终权威逻辑重跑。报告PERFORMANCE_CONTINUATION_20260920.md，原goal与001仍REWORK，无新包，不进行实机试玩。
+
+perf25最终门已通过：release04为1944.923秒退出0，无SCRIPT ERROR/ERROR，导出PCK B208870EB0EE09BF0CD3FD3C9B8EDC0AB691B7EB485C728E45559B074B47D546；export01直接加载PCK将领/护甲/总部中心/工作线程/结算值/最终批绘PASS。门从freeze04启动，旧关矩阵时仅WsArtBatch纯表现等价优化形成freeze05（438文件零漂移），120帧逐GPU输入缓冲/可见性/边界/动画计时比较PASS，final05 UI与流程PASS。权威/导航/存档未再改变。
+elastic03/04均6909tick（11分30.9秒）蓝胜，双方峰值300；全部事件、命令、拒绝、各兵种发射及战略轨迹一致，SHA256 016b60ae63fc93f22d14b59398c97e9885a1708032e6e6049a06f844d70fa60e，补员<=5、长时行军低位移片段0。reserve01当时尚在自然推进；其蓝方中路优先配额1/2/1/1/0、机动仅初始12人，不能称镜像或默认均衡补员。独立最终测量由artifacts/perf25-final-measure.ps1等待release04/elastic04/reserve01完成后串行执行。尚无perf25交付包，旧包保留；健康20–40分钟/整体性能目标未完成，001与goal保持REWORK/active。
+
+perf25 freeze05独立测量现已完成：首次完整方案192.770ms，48节点新图199.435/缓存3.164ms；610交火模拟P50/P95/max51.310/78.254/128.934ms，11170发射。独占线程world P95 71.682ms、宿主主线程每步P95 14.094ms；完整无窗口场景460帧回调P95 52.085ms、最大积压0.5813秒，不能当成正式FPS或性能解决。reserve01已16715tick（27分51.5秒）蓝胜，峰值252/300，20417发射，补员<=5、长时行军低位移0、UNIT_STUCK12913次，指纹6c54a7b25c9d8dbd8e16e815154a92860eb4494a2482ff159f6183f35efbe884，失败为空。
+
+进一步发现英雄死亡整团返营尖峰：六场60人冷缓存最高5704.108ms，路径简化重复扫同路。正式实现同次召回共享邻近256内可达首段，单人接入及截短段仍DDA验证、远处/隔墙独立寻路、缓存不跨tick、路径独立复制。measure02六场38.437–100.178ms，每场60人有路；regroup-contract01 912项、英雄83项PASS。只读子审查发现近似去重可能删除小数拐点并破坏镜像，已改严格相等，contract02扩至921项PASS；最终freeze07。完整门release05从freeze06启动，其旧四关/回归不经过本次growth召回新增分支，最终导出应为freeze07；专项和最终新自然局覆盖。elastic05加载freeze06，是中间对照；elastic06/reserve02及另一次最终重复局受验freeze07。新的自然事件允许因返营几何改变而改变，不声称与freeze05等价。原目标保持active，未生成新包，不进行实机试玩。
+
+
+用户最新炮车修订artillery26（同一001）：只导弹普攻20–80、固定420、无限弹、无最小射程/识别/备用炮/付费压制，2秒展开和攻击间隔保留。导弹生命损失与致死不额外扣组织，同tick普通伤害仍正常，typed标志默认不影响旧关。双边炮卡数据/生成器/绑定/地形/命中/数值悬停同步。361项contract05、83项hero01、7694项内容语义差分PASS；两处夹具失败日志保留。冻结artillery26-runtime-freeze01（438文件），完整门release01与elastic01/02重复自然局、reserve01中路优先自然局进行中。原perf25 release05/elastic08/09/reserve02为用户新规则主动中止，非新版本证据。返营921项与军团条80阶段等价优化保留；旧包未覆盖，新包未生成，原goal仍active/001REWORK。报告ARTILLERY_REVISION_20260920.md。所有验证无窗口，用户编辑器6496保留。
+
+
+artillery26功能修订完成（001仍REWORK，原性能/节奏目标不宣称完成）：final-contract361、回营921、线程886、军团条80双语阶段、五档UI与无窗口结算/再战、PCK炮卡/将领/双语说明全部PASS。release01因旧测试绕过快照刷新入口失败，修正夹具后status01通过；release02完整脚本1220.172秒退出0，但导出含CommanderProfile→GameText→SimulationWorld循环依赖错误，不当作无错误PASS。仅将三次翻译调用改为相同TranslationServer.translate，reexport01与export02/export01均无错误；受影响UI/流程重验，权威、存档、旧关矩阵结果复用。freeze03相对freeze01仅两条组织度帮助文本与翻译依赖，438文件零漂移，失败日志保留。
+
+最终四场SIMULATED：elastic01/02均4375tick（7分17.5秒）蓝败，指纹f6528a4e79c2f0a936322939dca263e45f3c435843864047712fc6effb3a59de；reserve01/02均11026tick（18分22.6秒）蓝胜，指纹7773587346308a0305679e273e3e9936198cc630d2a260cee06728ad02318d1d。两组各自完整事件/命令/角色发射/战略/英雄生命周期一致。reserve使用中路优先1/2/1/1/0、机动初始12、22次合法战术支援，不是镜像默认策略；峰值252/300，15369发射，最大补员5/秒，长时行军低位移0、受阻恢复8430，不能说全部拥堵/闲置消失。现行炮车规则的两套策略都短于20–40分钟目标。
+
+最终隔离测量：610实体11290发射，模拟P50/P95/max41.282/64.204/80.105ms；后台world39.246/59.169/77.174ms，宿主主线程每tick5.477/11.799/16.227ms。首次完整方案172.485ms；48节点新图179.135/缓存2.600ms；六次60人回营33.179–84.058ms。完整无窗口CPU回调P95探针30.965ms/关闭探针30.343ms，仍不能宣称60FPS或整体性能解决。final-verify04监督器全部PASS；原生试玩NOT_RUN_BY_USER_REQUEST，HUMAN OPTIONAL_NOT_RUN。
+
+独立交付build/playable/WARSEED-Artillery-20260920.zip，SHA256 4C08A1576345C0F6F5ECE88C9E5640DCDA14B2616819D80D8AD6C7476089E77E，PCK D578CE8D0366E406CF8DBAB7B5CDB2A00DBC71C64D2847E4FCDDC5C476044FAB；13文件独立解压逐项哈希相等、旧Commander包不变，收据artillery26-delivery-package.json。报告ARTILLERY_REVISION_20260920.md。首次打包检查遇PowerShell日志UTF16解码失败，未产生包；修正BOM检测后package02完成。没有提交/推送/建分支；保留用户编辑器6496。
+
+下一步仍为001：基于新炮车规则处理低于20分钟的攻防节奏、远距回营造成的兵力真空，并继续降低完整场景CPU回调成本；保留已完成炮车规格，不用旧双武器胜负代替证据。目标工具当前读到blocked（与此前记录active不同），此轮未调用状态变更、未标complete；工作项REWORK表示尚有可实施改进，不是缺少用户批准。
+
+2026-09-20 perf27逐项性能实验完成：用户授权保持游戏表现尝试调研方案。以当前未提交工作区1026文件为基线，仅9个运行文件变动，其余1017项含地图/单位数值/场景/project.godot不变。保留UI/态势几何缓存、批绘静态字段及分组复用、常驻单飞worker、补员专用合法视图、路径/方案避免重复复制、同draw参数的方向/文字尺寸缓存。容量预留默认关闭；C#隔离内核约7.5倍仅属局部实验，未引入正式程序集；现有导航复核通过但非本轮新收益；GPU/渲染器实渲NOT_RUN。
+
+perf27完整门freeze01 PASS 1048.76秒；两轮18套、灰脊30整局及其余关卡矩阵、公平知识/v4/UI/工具/导出通过。额外弱引用检查发现常驻线程循环局部变量在休眠时保留旧世界/快照，freeze02在完成通知前清空两引用，复测实际worker释放、生命周期11项、同步异步线程、18套、重新导出和实际PCK探针全部PASS。完整门其余证据按不变规则源码复用，最终包不是旧freeze01导出。监督器perf27-supervisor.log及perf27-followup-export-resume.log通过。新对照工程触发警告使首次补充导出中止，移入忽略目录重导成功；失败日志保留，详情PERFORMANCE_OPTIMIZATION_20260920.md。
+
+两策略自然局均与artillery26相同：elastic 4375tick蓝败、reserve 11026tick蓝胜，完整事件指纹及tick/outcome/events/rejections/role_shots/strategic_trace/hero_events/player_supports/max_recruits一致。draw984、批绘120帧、合法快照8605、双语HUD/态势各80阶段、炮车361/归队921等专项PASS。三轮交替A/B使用相同610实体/11290发射夹具：P50中位数20.839→18.062ms，P95中位数29.783→28.275ms（5.06%），单位批绘准备6.117→3.711ms（39.33%）、补员14.896→11.042ms（25.87%）。三轮最大峰值45.973→76.194ms，第2轮P95略回退，尖峰原因尚未定位，不声称全面消除卡顿。全部headless CPU，不换算FPS，HUMAN OPTIONAL_NOT_RUN。
+
+最终运行freeze02共375项零漂移。新包build/playable/WARSEED-Performance-20260920.zip，SHA256 655F35DF4F1AAB531EC63BA7C434310CE32EA8BF26791BBE1E19D21AD9A83ABA，PCK DE4F09C34CD4899D25AF17D952214D6725ACBC3D16DAFE89E2034D8E311A4CCF；12文件清单及独立解压哈希通过，收据artifacts/perf27-delivery-package.json。旧Artillery包原哈希不变，用户编辑器6496保留。未提交/推送/建分支。
+
+本轮VERIFYING→REVIEWING完成性能切片交付；001整体REWORK，原20–40分钟节奏、尖峰及实渲流畅度仍残留，不标DONE。目标工具本轮读取null，无新goal、无工具状态变更。下一次性能工作优先关联记录高峰tick/命令/发布与帧耗时，再按证据处理；原生验证仍受仅无窗口约束，容量预留/C#正式化不得凭局部数字自动启用。
+
+
+2026-09-21 perf28 VERIFYING→REVIEWING完成性能切片交付，001整体REWORK。报告事件筛选/历史复用、独占worker共享态势、HUD与选择索引、敌人空间桶、C#正式批绘内核/容量复用及事件字符串解析已落地；最后补迷雾均匀行原生count扫描，首次worker投影trace 110.739→35.810ms。保留全部单位/视觉内容、10Hz/合法知识/快照隔离/事件顺序/v4/单导弹规则，不更改权威战斗、命令、Agent、存档或内容。
+
+完整发布门freeze02 PASS 1076.303秒，两轮18套、灰脊30整局与其余矩阵/公平/v4/UI/工具/Windows .NET导出通过。freeze03仅追加纯展示迷雾冷扫描优化，576项新专项、567项报告/共享投影、80阶段态势差分、993项线程、引用释放/生命周期/双语五档/610压力与18套复验PASS；重新导出最终EXE原生内核/worker/炮车探针PASS，PERF28_COLD_ALL_PASS。其余完整门证据按不变源码依赖复用。此前native31710/300帧、表现984、反馈91501、快照8605、炮车361与归队921有效检查保留。失败实验均有日志，详见PERFORMANCE_PEAKS_20260920.md。
+
+freeze03最终三轮交替A/B全部11290次发射、零失败：P50 19.577→18.488ms（降低5.56%），P95 32.610→30.625ms（降低6.09%），P99 41.053→38.097ms（降低7.20%），最坏样本 65.640→46.790ms（降低28.72%）。均为headless CPU回调统计，不是GPU/FPS。worker模拟计时不含新增展示投影；命令同步等待、原生批绘冷加载与整场景残余峰值仍未消除。C#整场景单位批绘尚无独立显著收益；GPU/渲染器/输入到显示延迟NOT_RUN，不以降画质/降单位数量代替优化。自然局复用不变权威源码的perf27：4375tick蓝败、11026tick蓝胜，同历史事件指纹；本轮未重新执行这两场大地图自然局，原20–40分钟节奏未改变。
+
+最终freeze03共387运行文件零漂移；相对1133项基线15既有文件变化（含1集成测试）、新增8运行/构建/诊断文件，另有专项测试及文档。新包build/playable/WARSEED-Performance-Peaks-20260920.zip，SHA256 82E4C97228E579DE10BAAAC36CC0BFDAC80C82D06A41CCAF1F3FBDD6ED41D1A5；PCK 502B4CC38FD70388415DF3F7C5CCAFB05D0773ACEB2E1A797DE8C6E40E7C3B76；程序集 1B210320B1CE21DE9715114474DC048E6801207DE73BC7042C4B0D5F3697CB20。独立解压195文件哈希及实际EXE无窗口探针PASS，确认使用包内.NET运行时，约79MB未压缩运行时依赖一并交付，无需开发SDK。回执artifacts/perf28-delivery-package.json，差分perf28-task.diff。旧Performance ZIP原哈希655F35DF4F1AAB531EC63BA7C434310CE32EA8BF26791BBE1E19D21AD9A83ABA不变。用户编辑器6496保留；未提交/推送/建分支。SIMULATED，HUMAN OPTIONAL_NOT_RUN，原生试玩NOT_RUN_BY_USER_REQUEST。
+
+下一步仍为001：以剩余峰值的关联采样、命令等待边界和原生批绘开关对照继续优化；实际GPU/画面验证待仅无窗口限制改变。20–40分钟节奏属原维护残留，不把性能切片交付当作整体DONE；不进入R6，不创建新goal。
+
+
+2026-09-21 motion29用户缺陷修订进入VERIFYING：修复后台tick派发导致同快照插值从0.99回退0.01、不可通行全团平均点导致将领无路、独立追击返回旧位置覆盖随军。1025专项、hero83/归队921/线程994/生命周期11/报告567/炮车361与1800tick双边18,000步检查通过；完整发布门进行中。新增PLAYER_AI_CONTROL_RULES_DRAFT_20260921.md，强攻/转移目标/交还/微操/队列冲突与焦点均为待审设计，未实现。冻结motion29-runtime-freeze01，三个运行文件变更；旧perf28包保留，交付尚未完成。
+2026-09-21 五将固定编制与四态阵型设计切片完成（所属WS-MAINT-20260920-001，不改变原维护状态）：用户要求将领与部队固定成阵、攻/移/守/退不同状态并取消战前自选兵种配比。设计见[COMMANDER_FORMATIONS_DRAFT_20260921.md](../../COMMANDER_FORMATIONS_DRAFT_20260921.md)：保留现有五将及稳定ID，每团60士兵/开局12，提供20种专属阵型、将领固定槽位、地形收队/残阵/补员/接管与阵亡边界。具体配额及切换参数为建议，未修改运行代码、现行规则或存档；不将关联的操纵权限草案视为已实现。文档切片按DISCOVERY→CONTRACT→IMPLEMENTING→VERIFYING→REVIEWING完成，原001与正在验证的motion29不标DONE。文档五组60/12人数、20阵型、链接、围栏与空白检查PASS；交互示意20态脚本执行及每图61成员检查PASS（仅示意验证，不是游戏证据）。新玩法SIMULATED=NOT_RUN，HUMAN=OPTIONAL_NOT_RUN；未运行游戏发布门，无新包。预检已有状态文档EOF空行警告，追加本记录后复查；其他既有改动保持。后续若要求实施，应先冻结具体编制/变阵契约并安排独立实现切片，完整权威、存档、公平知识、UI及导出门仍必需，不自动实施本草案或新建goal。
+
+2026-09-21 motion29 VERIFYING→REVIEWING，修复切片交付，001整体REWORK。SimulationHost显示插值计入尚未发布后台步骤，消除同快照0.99→0.01倒放；将领跟随可达实际主力成员，避免质心落障碍，最多8候选/秒并保持路径合法；射程内自卫不再用单体追击/旧返回点覆盖随军。固定数值、死亡回营、10Hz/合法知识/v4保持。玩家AI新权限仅文档，尚未开发。
+
+1025显示与两侧随军专项、hero83/归队921/线程994/生命周期11/共享态势567/炮车361通过。完整门1082.44秒PASS，两轮18套、灰脊30整局及旧关矩阵/公平/v4/UI/工具/导出；最终双语UI、无窗口结算再战、EXE和实际PCK专项通过。长时自主6000tick，在6000tick观察上限停止，非完整对局，59899位置步进检查，无失败；20秒脱队低净位移窗口0。事件8bfbff73fe23d37a8bfa5dc8ae24a3805dc1c87921bf1f4ca7561dbbebc36a9f，不宣称与旧行为相等。场景610压力P95/P99/max 27.199/32.798/37.791ms，11290发射；仅单轮headless，不是FPS或收益对照。
+
+冻结motion29-runtime-freeze01共387项零漂移，1282文件基线仅三个既有运行文件改变，其他为设计/测试/文档。新包build/playable/WARSEED-Movement-Escort-20260921.zip，SHA256 B0D00A1914737D203015DB6A04DAC05D48F9F4B738342679D97E9FCA114DCDD6，PCK 4FC90EE4BAF6C1AC4E42450DF1BE6E6FCC8A6E8965440C7649D0C7502B5F7556，独立解压196文件哈希与实际EXE/包内.NET运行时PASS；旧perf28包原哈希不变。回执motion29-delivery-package.json。报告MOVEMENT_AND_ESCORT_FIX_20260921.md，权限设计稿PLAYER_AI_CONTROL_RULES_DRAFT_20260921.md（待审）。用户原局无完整逐tick重放，未冒称该局唯一根因；SIMULATED，HUMAN可选NOT_RUN，继续仅headless。未提交/推送/建分支，用户编辑器保留，无测试遗留。
+
+下一步：用户审阅强攻/目标转移权限设计后再实施；现阶段不接入新操纵规则。将领真实速度和地形绕行仍会造成短时距离差，玩家分兵/复杂长局需按新证据继续审计；原001全面性能与节奏未完成，不能标DONE或进入R6。

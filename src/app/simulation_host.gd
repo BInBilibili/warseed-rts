@@ -13,9 +13,37 @@ signal campaign_persistence_changed
 
 const TICK_SECONDS := SimulationWorld.TICK_SECONDS
 
-@export_enum("Legacy RTS", "Grey Ridge", "Broken Bridge", "Fog Forest", "Black Well") var scenario_kind: int = SimulationWorld.ScenarioKind.LEGACY_RTS
+@export_enum("Legacy RTS", "Grey Ridge", "Broken Bridge", "Fog Forest", "Black Well", "Final Decision") var scenario_kind: int = SimulationWorld.ScenarioKind.LEGACY_RTS
 
-var world := SimulationWorld.new()
+static var prepared_world: SimulationWorld
+var _world := SimulationWorld.new(false)
+# Compatibility access (commands, diagnostics, prebattle) acquires ownership.
+# Presentation must use published values rather than this blocking getter.
+var world: SimulationWorld:
+	get:
+		_finish_background_tick(true)
+		return _world
+	set(value):
+		_finish_background_tick(true)
+		_world = value
+		_presentation_views.clear()
+		_published_events.clear()
+		_presentation_grid = null
+		_publish_world_view()
+var background_simulation_enabled := true
+var _tick_thread: SimulationTickJob
+var _tick_worker: SimulationTickJob
+var _tick_job: SimulationTickJob
+var _published_events: Array[SimulationEvent] = []
+var _presentation_grid: LogicGrid
+var _published_queue_size := 0
+var _published_available_supply := 0
+var _published_hq_directive := StrategicHeadquarters.Directive.NONE
+var _published_hq_directive_key: StringName
+var _published_hq_decision_key: StringName
+var _published_hq_budget: Dictionary = {}
+var _published_agent_recommendations: Dictionary = {}
+var _published_agent_authorizations: Dictionary = {}
 var previous_snapshot: WorldSnapshot
 var current_snapshot: WorldSnapshot
 var _accumulator: float = 0.0
@@ -33,8 +61,8 @@ var _campaign_saved: bool = false
 var _playtest_recorder := PlaytestSessionRecorder.new()
 var _gameplay_report: GameplayObservabilityReport
 var _gameplay_event_cursor: int = 0
-var _gameplay_situation_projector := BattlefieldSituationProjector.new()
-var _gameplay_command_situation_projector := CommandSituationProjector.new()
+var _presentation_projector := BattlePresentationProjector.new()
+var _presentation_views: Array[BattlePresentationView] = []
 var _playtest_record_path := ""
 var _playtest_session_id := ""
 var _campaign_record_path := ArmyRosterStore.DEFAULT_PATH
@@ -44,32 +72,143 @@ var _grey_ridge_army_plan: ArmyPlan = ArmyPlan.grey_ridge_default()
 
 
 func _ready() -> void:
+	var adopted := prepared_world != null and prepared_world.scenario_kind == scenario_kind
+	if prepared_world != null and prepared_world.scenario_kind == scenario_kind:
+		world = prepared_world
+		prepared_world = null
 	_playtest_session_id = ArmyRosterStore.active_playtest_session_id()
 	_campaign_record_path = ArmyRosterStore.campaign_record_path_for_session(_playtest_session_id, get_scenario_id())
 	_playtest_record_directory = ArmyRosterStore.playtest_record_directory_for_session(_playtest_session_id)
-	if world.scenario_kind != scenario_kind:
+	if adopted or world.scenario_kind != scenario_kind or world.units.is_empty():
 		_campaign_record = {}
 		if _is_card_battle() and ArmyRosterStore.runtime_persistence_allowed():
 			_load_campaign_roster(_campaign_record_path)
+	if not adopted and (world.scenario_kind != scenario_kind or world.units.is_empty()):
 		world = SimulationWorld.new(true, false, scenario_kind, _campaign_record, &"", _grey_ridge_army_plan)
 	if _is_card_battle():
 		_grey_ridge_army_plan = world.grey_ridge_army_plan.duplicate_plan()
 	_grey_ridge_battle_started = not _is_card_battle()
 	current_snapshot = world.create_snapshot()
 	previous_snapshot = current_snapshot
+	_publish_world_view()
 	if _grey_ridge_battle_started:
 		_start_playtest_session()
 
 
 func _process(delta: float) -> void:
+	_finish_background_tick(false)
 	if _tactical_paused:
 		return
 	if _is_card_battle() and not _grey_ridge_battle_started:
 		return
 	_accumulator += delta
-	while _accumulator >= TICK_SECONDS:
+	if background_simulation_enabled and scenario_kind == SimulationWorld.ScenarioKind.FINAL_DECISION:
+		if _tick_thread == null and _accumulator >= TICK_SECONDS:
+			_accumulator -= TICK_SECONDS
+			_start_background_tick()
+		return
+	var catchup := 0
+	while _accumulator >= TICK_SECONDS and catchup < 2:
+		catchup += 1
 		_accumulator -= TICK_SECONDS
 		advance_tick()
+
+
+func _start_background_tick() -> void:
+	if _tick_worker == null:
+		_tick_worker = SimulationTickJob.new()
+		if _tick_worker.start() != OK:
+			_tick_worker = null
+			advance_tick()
+			return
+	_tick_job = _tick_worker
+	_tick_thread = _tick_worker
+	_tick_worker.dispatch(_world, true)
+
+
+func _finish_background_tick(blocking: bool) -> void:
+	if _tick_thread == null or (not blocking and _tick_thread.is_alive()): return
+	var completed := _tick_thread.wait_to_finish() as WorldSnapshot
+	var elapsed := _tick_job.elapsed_usec
+	if _tick_job.presentation_view != null:
+		_cache_presentation_view(_tick_job.presentation_view)
+		_tick_job.presentation_view = null
+	_tick_thread = null
+	_tick_job = null
+	_complete_tick(completed,elapsed)
+
+
+func _exit_tree() -> void:
+	_finish_background_tick(true)
+	_stop_tick_worker()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		_finish_background_tick(true)
+		_stop_tick_worker()
+
+
+func _stop_tick_worker() -> void:
+	if _tick_worker != null:
+		_tick_worker.stop()
+		_tick_worker = null
+
+
+func _publish_world_view() -> void:
+	if _world == null: return
+	for index in range(_published_events.size(),_world.events.size()):
+		var event := _world.events[index]
+		if event is BattleConclusionEvent:
+			_published_events.append(BattleConclusionEvent.new(event.tick,(event as BattleConclusionEvent).outcome))
+		else:
+			_published_events.append(SimulationEvent.new(event.tick,event.kind,event.entity_id,event.detail))
+	if _presentation_grid == null or _presentation_grid.revision != _world.logic_grid.revision:
+		_presentation_grid = _world.logic_grid.copy_for_presentation()
+	_published_queue_size = _world.command_queue.size()
+	_published_available_supply = _world.area_support_system.available_supply(_world,SimulationWorld.LOCAL_PLAYER_ID)
+	_published_hq_directive = _world.get_headquarters_directive()
+	_published_hq_directive_key = _world.get_headquarters_directive_key()
+	_published_hq_decision_key = _world.get_headquarters_decision_key()
+	_published_hq_budget = _world.get_headquarters_budget_snapshot().duplicate(true)
+	for id in [StrategicTaskSystem.INDUSTRIAL_AGENT_ID,StrategicTaskSystem.BATTLEFIELD_AGENT_ID]:
+		_published_agent_recommendations[id] = _world.get_agent_recommendation_key(id)
+		_published_agent_authorizations[id] = _world.get_agent_authorization(id)
+
+
+func get_battle_definition() -> BattleDefinition:
+	# Content resources are immutable for the duration of a battle.
+	return _world.battle_definition
+
+
+func _cache_presentation_view(view: BattlePresentationView) -> void:
+	_presentation_views.append(view)
+	if _presentation_views.size() > 3: _presentation_views.pop_front()
+
+
+func get_presentation_view(snapshot: WorldSnapshot) -> BattlePresentationView:
+	for view in _presentation_views:
+		if view.source == snapshot and view.definition == _world.battle_definition:
+			return view
+	var result := _presentation_projector.project(snapshot, _world.battle_definition)
+	_cache_presentation_view(result)
+	return result
+
+
+func get_presentation_grid() -> LogicGrid:
+	return _presentation_grid
+
+
+func get_published_events() -> Array[SimulationEvent]:
+	return _published_events
+
+
+func allocate_command_id() -> int:
+	return world.allocate_command_id()
+
+
+func get_support_definition(kind: SupportOrderCommand.SupportKind) -> BattleSupportDefinition:
+	return _world.get_support_definition(kind)
 
 
 func get_staff_assessment() -> StaffSituationSnapshot:
@@ -81,6 +220,8 @@ var staff_plan_rejection_reason: StringName
 
 
 func get_staff_plans(request: StaffPlanRequest) -> StaffPlanSet:
+	# Navigation generators share mutable path caches with authoritative plans.
+	_finish_background_tick(true)
 	var generator := StaffPlanGenerator.new()
 	var result := generator.generate(current_snapshot, SimulationWorld.LOCAL_PLAYER_ID, request)
 	staff_plan_rejection_reason = generator.last_rejection_reason
@@ -103,6 +244,7 @@ func is_tactical_paused() -> bool:
 
 
 func set_tactical_paused(paused: bool) -> void:
+	_finish_background_tick(true)
 	if paused and (not _grey_ridge_battle_started or current_snapshot == null or (current_snapshot.outcome != null and current_snapshot.outcome.is_terminal())):
 		return
 	if _tactical_paused == paused:
@@ -129,6 +271,23 @@ func submit_command(command: GameCommand) -> CommandValidationResult:
 			player_action_recorded.emit(playtest_descriptor.duplicate(true))
 	command_evaluated.emit(result)
 	return result
+
+
+func create_recruitment_plan_command(ids: Array[StringName], rates: Array[int], reserve: int) -> RecruitmentPlanCommand:
+	return RecruitmentPlanCommand.new(world.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, world.current_tick, ids, rates, reserve)
+
+
+func create_supply_priority_command(commander_id: StringName) -> SupplyPriorityCommand:
+	return SupplyPriorityCommand.new(world.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, world.current_tick, commander_id)
+
+
+func create_area_support_command(kind: SupportOrderCommand.SupportKind, position: Vector2) -> AreaSupportCommand:
+	return AreaSupportCommand.new(world.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, GameCommand.IssuerKind.PLAYER, world.current_tick, kind, position)
+
+
+func get_available_support_supply() -> int:
+	if _tick_thread != null: return _published_available_supply
+	return world.area_support_system.available_supply(world, SimulationWorld.LOCAL_PLAYER_ID)
 
 
 func create_deploy_unit_card_command(
@@ -201,6 +360,7 @@ func create_commander_objective_command(
 		target_region_id, CommanderState.Posture.BALANCED, route_points
 	)
 	command.hand_back_control = true
+	command.apply_requested_posture = true
 	return command
 
 
@@ -221,6 +381,10 @@ func _strategic_region_at(world_position: Vector2) -> StringName:
 	return best_region_id
 
 
+func create_legion_formation_command(commander_id: StringName, mode: CommanderState.FormationMode) -> LegionFormationCommand:
+	return LegionFormationCommand.new(world.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, world.current_tick, commander_id, mode)
+
+
 func create_commander_posture_command(
 	commander_id: StringName,
 	posture: CommanderState.Posture
@@ -230,6 +394,7 @@ func create_commander_posture_command(
 		commander_id, CommanderOrderCommand.OrderKind.SET_POSTURE, Vector2.ZERO, &"", posture
 	)
 	command.hand_back_control = true
+	command.apply_requested_posture = true
 	return command
 
 
@@ -260,6 +425,11 @@ func create_cancel_high_level_intent_command(commander_id: StringName) -> Comman
 		world.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, world.current_tick,
 		commander_id, CommanderOrderCommand.OrderKind.CANCEL_INTENT
 	)
+
+
+func create_return_commander_ai_command(commander_id: StringName) -> CommanderOrderCommand:
+	return CommanderOrderCommand.new(world.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID,
+		world.current_tick, commander_id, CommanderOrderCommand.OrderKind.RETURN_AI)
 
 
 func create_equip_doctrine_command(
@@ -489,22 +659,38 @@ func create_task_control_command(task_id: int, action: TaskControlCommand.Action
 
 
 func advance_tick() -> WorldSnapshot:
+	_finish_background_tick(true)
 	if _tactical_paused:
 		return current_snapshot
 	if _is_card_battle() and not _grey_ridge_battle_started:
 		return current_snapshot
-	previous_snapshot = current_snapshot
 	var started_usec := Time.get_ticks_usec()
-	current_snapshot = world.advance_tick()
+	var measure_start := RuntimeMeasurement.begin()
+	var completed := world.advance_tick()
+	RuntimeMeasurement.end(&"tick.world_usec", measure_start)
+	_complete_tick(completed,Time.get_ticks_usec()-started_usec)
+	return current_snapshot
+
+
+func _complete_tick(completed: WorldSnapshot, simulation_usec: int) -> void:
+	previous_snapshot = current_snapshot
+	current_snapshot = completed
+	var started_usec := Time.get_ticks_usec()
+	var measure_start := RuntimeMeasurement.begin()
 	if _is_card_battle():
+		var record_started := RuntimeMeasurement.begin()
 		_playtest_recorder.observe_snapshot(current_snapshot)
+		RuntimeMeasurement.end(&"report.recorder_usec",record_started)
 		_observe_gameplay_report(current_snapshot)
-	_last_tick_usec = Time.get_ticks_usec() - started_usec
+	RuntimeMeasurement.end(&"tick.report_usec", measure_start)
+	RuntimeMeasurement.sample(&"tick.backlog_seconds", _accumulator)
+	_last_tick_usec = simulation_usec + Time.get_ticks_usec() - started_usec
 	_timed_tick_count += 1
 	_total_tick_usec += _last_tick_usec
 	_max_tick_usec = maxi(_max_tick_usec, _last_tick_usec)
 	_save_campaign_result_if_finished()
-	return current_snapshot
+	_publish_world_view()
+	RuntimeMeasurement.sample(&"host.publish_usec",Time.get_ticks_usec()-started_usec)
 
 
 func _save_campaign_result_if_finished() -> void:
@@ -544,12 +730,12 @@ func get_playtest_record_path() -> String:
 
 func record_playtest_ui_event(event_type: String, subject: StringName = &"") -> void:
 	if _is_card_battle():
-		_playtest_recorder.record_ui_event(event_type, subject, world.current_tick)
+		_playtest_recorder.record_ui_event(event_type, subject, current_snapshot.tick)
 
 
 func record_gameplay_exception_action(exception_id: StringName, action: String, accepted: bool) -> void:
 	if _is_card_battle() and _gameplay_report != null:
-		_gameplay_report.record_exception_action(exception_id, action, world.current_tick, accepted)
+		_gameplay_report.record_exception_action(exception_id, action, current_snapshot.tick, accepted)
 
 
 func replenish_unit_card(unit_card_id: StringName) -> bool:
@@ -651,14 +837,14 @@ func restart_grey_ridge() -> bool:
 	return true
 
 
-func start_grey_ridge(plan: ArmyPlan, prebattle_metrics: Dictionary = {}) -> bool:
+func start_grey_ridge(plan: ArmyPlan, prebattle_metrics: Dictionary = {}, built_world: SimulationWorld = null) -> bool:
 	if not _is_card_battle() or plan == null:
 		return false
 	if not get_grey_ridge_army_plan_errors(plan).is_empty():
 		return false
 	set_tactical_paused(false)
 	_grey_ridge_army_plan = plan.duplicate_plan()
-	world = SimulationWorld.new(true, false, scenario_kind, _campaign_record, &"", _grey_ridge_army_plan)
+	world = built_world if built_world != null else SimulationWorld.new(true, false, scenario_kind, _campaign_record, &"", _grey_ridge_army_plan)
 	current_snapshot = world.create_snapshot()
 	previous_snapshot = current_snapshot
 	_accumulator = 0.0
@@ -777,31 +963,19 @@ func _observe_gameplay_report(snapshot: WorldSnapshot, force_situation: bool = f
 	if _gameplay_report == null or snapshot == null:
 		return
 	var new_events: Array[SimulationEvent] = []
+	var observe_started := RuntimeMeasurement.begin()
 	for index in range(_gameplay_event_cursor, world.events.size()):
 		new_events.append(world.events[index])
 	_gameplay_report.observe(snapshot, new_events)
 	_gameplay_event_cursor = world.events.size()
+	RuntimeMeasurement.end(&"report.observe_usec",observe_started)
 	if not force_situation and snapshot.tick % 10 != 0 and not snapshot.outcome.is_terminal():
 		return
-	var battle := world.battle_definition
-	var bounds := battle.battlefield_bounds if battle != null else SimulationWorld.BATTLEFIELD_BOUNDS
-	var base_interval := battle.base_supply_interval_ticks if battle != null else BattlefieldSituationProjector.DEFAULT_BASE_SUPPLY_INTERVAL_TICKS
-	var region_interval := battle.region_settlement_interval_ticks if battle != null else BattlefieldSituationProjector.DEFAULT_REGION_SETTLEMENT_INTERVAL_TICKS
-	var support_costs := {}
-	if battle != null:
-		for support in battle.support_abilities:
-			support_costs[String(support.support_id)] = support.supply_cost
-	var situation := _gameplay_situation_projector.project(
-		snapshot, SimulationWorld.LOCAL_PLAYER_ID, bounds,
-		base_interval, region_interval, support_costs
-	)
-	if situation == null:
-		return
-	var command_situation := _gameplay_command_situation_projector.project(
-		snapshot, situation, SimulationWorld.LOCAL_PLAYER_ID
-	)
-	if command_situation != null:
-		_gameplay_report.observe_command_situation(command_situation)
+	var projection_started := RuntimeMeasurement.begin()
+	var view := get_presentation_view(snapshot)
+	RuntimeMeasurement.end(&"report.situation_usec",projection_started)
+	if view.command_situation != null:
+		_gameplay_report.observe_command_situation(view.command_situation)
 
 
 func _is_card_battle() -> bool:
@@ -809,7 +983,7 @@ func _is_card_battle() -> bool:
 
 
 func get_scenario_id() -> StringName:
-	return world.get_scenario_id() if world != null and world.scenario_kind == scenario_kind else SimulationWorld.scenario_id_for_kind(scenario_kind)
+	return SimulationWorld.scenario_id_for_kind(scenario_kind)
 
 
 func _persist_playtest_summary() -> void:
@@ -824,6 +998,12 @@ func _persist_playtest_summary() -> void:
 func _playtest_command_descriptor(command: GameCommand) -> Dictionary:
 	if command == null or command.issuer_kind != GameCommand.IssuerKind.PLAYER:
 		return {}
+	if command is RecruitmentPlanCommand:
+		return {"category": "commander", "subject": "army", "action": "recruitment_plan"}
+	if command is SupplyPriorityCommand:
+		return {"category": "commander", "subject": String(command.commander_id), "action": "supply_priority"}
+	if command is AreaSupportCommand:
+		return {"category": "support", "subject": str(command.support_kind), "action": "area_support", "position": [command.position.x, command.position.y], "uses_intel": true}
 	if command is CommanderOrderCommand:
 		var commander_command := command as CommanderOrderCommand
 		var action := "objective"
@@ -923,10 +1103,14 @@ func get_tick_timing_snapshot() -> HostTickTimingSnapshot:
 
 
 func get_interpolation_alpha() -> float:
-	return clampf(_accumulator / TICK_SECONDS, 0.0, 1.0)
+	# Dispatch reserves time before its new snapshot exists. That reservation
+	# must not rewind interpolation over the still-published snapshot pair.
+	var unpublished_time := TICK_SECONDS if _tick_thread != null else 0.0
+	return clampf((_accumulator + unpublished_time) / TICK_SECONDS, 0.0, 1.0)
 
 
 func get_queue_size() -> int:
+	if _tick_thread != null: return _published_queue_size
 	return world.command_queue.size()
 
 
@@ -943,10 +1127,12 @@ func get_enemy_decision_summary() -> String:
 
 
 func get_headquarters_decision_key() -> StringName:
+	if _tick_thread != null: return _published_hq_decision_key
 	return world.get_headquarters_decision_key()
 
 
 func get_headquarters_budget_snapshot() -> Dictionary:
+	if _tick_thread != null: return _published_hq_budget.duplicate(true)
 	return world.get_headquarters_budget_snapshot()
 
 
@@ -955,10 +1141,12 @@ func set_headquarters_directive(directive: StrategicHeadquarters.Directive) -> b
 
 
 func get_headquarters_directive() -> StrategicHeadquarters.Directive:
+	if _tick_thread != null: return _published_hq_directive
 	return world.get_headquarters_directive()
 
 
 func get_headquarters_directive_key() -> StringName:
+	if _tick_thread != null: return _published_hq_directive_key
 	return world.get_headquarters_directive_key()
 
 
@@ -975,8 +1163,10 @@ func set_agent_authorization(agent_id: int, authorization: AgentPolicy.Authoriza
 
 
 func get_agent_authorization(agent_id: int) -> AgentPolicy.Authorization:
+	if _tick_thread != null and _published_agent_authorizations.has(agent_id): return _published_agent_authorizations[agent_id]
 	return world.get_agent_authorization(agent_id)
 
 
 func get_agent_recommendation_key(agent_id: int) -> StringName:
+	if _tick_thread != null: return _published_agent_recommendations.get(agent_id,&"")
 	return world.get_agent_recommendation_key(agent_id)

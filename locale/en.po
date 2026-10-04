@@ -4,6 +4,49 @@ msgstr ""
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
+msgid "AUTHORITY_MODE_AUTONOMOUS"
+msgstr "AI autonomous"
+msgid "AUTHORITY_MODE_OBJECTIVE"
+msgstr "Player goal · AI execution"
+msgid "AUTHORITY_MODE_FORCE_ATTACK"
+msgstr "Player · Force attack"
+msgid "AUTHORITY_MODE_HOLD"
+msgstr "Player · Hold"
+msgid "AUTHORITY_MODE_RETREAT"
+msgstr "Player · Ordered retreat"
+msgid "AUTHORITY_HARD_LOCK"
+msgstr "Commander lost · Returning to HQ"
+msgid "AUTHORITY_RECEIPT_NONE"
+msgstr "Awaiting orders"
+msgid "AUTHORITY_RECEIPT_QUEUED"
+msgstr "Accepted, awaiting execution"
+msgid "AUTHORITY_RECEIPT_EXECUTING"
+msgstr "Executing"
+msgid "AUTHORITY_RECEIPT_BLOCKED"
+msgstr "Blocked; current intent retained"
+msgid "AUTHORITY_RECEIPT_ACHIEVED"
+msgstr "Objective achieved; holding area"
+msgid "AUTHORITY_RECEIPT_CANCELLED"
+msgstr "Cancelled; holding current position"
+msgid "AUTHORITY_RECEIPT_INTERRUPTED"
+msgstr "Interrupted by a hard rule"
+msgid "AUTHORITY_RECEIPT_RETURNED"
+msgstr "Returned to AI; old orders discarded"
+msgid "AUTHORITY_MANUAL_CARDS"
+msgstr "Player controlled cards: %s"
+msgid "AUTHORITY_FORCE_ACTION"
+msgstr "Force attack current goal"
+msgid "AUTHORITY_CANCEL_ACTION"
+msgstr "Cancel order and hold"
+msgid "AUTHORITY_RETURN_ACTION"
+msgstr "Return legion to AI"
+msgid "AUTHORITY_SCOPE_HELP"
+msgstr "A new commander order replaces this legion's intent and card overrides. Force attack retains its goal despite risk. Cancel holds position; return restores autonomy. Map routes retain force mode; selecting balanced/cautious/aggressive restores AI tactical judgement. Selection and Escape cancelling aim do not revoke executed orders."
+msgid "AUTHORITY_FORCE_RISK"
+msgstr "Force attack forbids strategic retargeting and autonomous legion retreat. Low organization and losses warn of risk; combat and navigation rules still apply."
+msgid "REASON_AUTHORITY_STALE"
+msgstr "Authorization replaced by a new player order"
+
 msgid "HUD_TITLE"
 msgstr "COMMAND NETWORK"
 msgid "HUD_MISSION_WAITING"
@@ -3111,3 +3154,766 @@ msgstr "All regions secured. Return scouts to AI to explore unknown areas and re
 
 msgid "CARD_ENGINEERING_NO_TARGETS"
 msgstr "No route available: an unopened crossing and surviving engineers are required. Deploy an engineer card from the army first."
+
+# Final decision battlefield
+
+msgid "FINAL_DECISION_TITLE"
+msgstr "Final Decision · Three Fronts"
+
+msgid "FINAL_DECISION_BRIEFING"
+msgstr "Contest 26 supply nodes on a 32768×24576 centrally symmetric battlefield. Blue southwest, red northeast. Each side starts with 60 troops across five legions and grows to 300 through supply income."
+
+
+msgid "FINAL_DECISION_MECHANICS"
+msgstr "Three tiered lanes and two connected jungle halves. Every 20s: HQ +12; high/inner/outer +4/6/8; small/large jungle +3/7. Recruitment is automatic. Recon, missiles and hospitals shape the battle."
+
+msgid "FINAL_POINT_BLUE_BASE"
+msgstr "Blue headquarters"
+
+msgid "FINAL_POINT_RED_BASE"
+msgstr "Red headquarters"
+
+msgid "FINAL_POINT_WEST_GATE"
+msgstr "West gate"
+
+msgid "FINAL_POINT_WEST_GATE_MIRROR"
+msgstr "East gate"
+
+msgid "FINAL_POINT_NORTH_DEPOT"
+msgstr "North depot"
+
+msgid "FINAL_POINT_NORTH_DEPOT_MIRROR"
+msgstr "South depot"
+
+msgid "FINAL_POINT_BLUE_MID"
+msgstr "Southwest relay"
+
+msgid "FINAL_POINT_BLUE_MID_MIRROR"
+msgstr "Northeast relay"
+
+msgid "FINAL_POINT_CENTER_HUB"
+msgstr "Central hub"
+
+msgid "FINAL_POINT_CACHE_WEST"
+msgstr "West cache"
+
+msgid "FINAL_POINT_CACHE_WEST_MIRROR"
+msgstr "East cache"
+
+msgid "FINAL_POINT_CACHE_NORTH"
+msgstr "North cache"
+
+msgid "FINAL_POINT_CACHE_NORTH_MIRROR"
+msgstr "South cache"
+
+msgid "FINAL_LANE_TOP"
+msgstr "Upper lane"
+
+msgid "FINAL_LANE_MID"
+msgstr "Middle lane"
+
+msgid "FINAL_LANE_BOTTOM"
+msgstr "Lower lane"
+
+msgid "BATTLEGROUP_EXPAND"
+msgstr "Show detachments"
+
+msgid "BATTLEGROUP_COLLAPSE"
+msgstr "Hide detachments"
+
+msgid "STAFF_ADVANCED"
+msgstr "Route and advanced settings"
+
+msgid "STAFF_VIA"
+msgstr "Waypoint %d"
+
+msgid "STAFF_VIA_NONE"
+msgstr "Automatic route"
+
+msgid "STAFF_DETAILS"
+msgstr "Tactical details"
+
+msgid "AUTO_LOGISTICS_SUMMARY"
+msgstr "Auto reinforcement · %d/%d\nReserve %d supply; replenish near safe friendly supply points."
+
+msgid "FINAL_POINT_REAR_GATE"
+msgstr "Southwest gate"
+
+msgid "FINAL_POINT_REAR_GATE_MIRROR"
+msgstr "Northeast gate"
+
+msgid "FINAL_POINT_REAR_MID"
+msgstr "Southwest staging depot"
+
+msgid "FINAL_POINT_REAR_MID_MIRROR"
+msgstr "Northeast staging depot"
+
+msgid "FINAL_POINT_CACHE_REAR"
+msgstr "Southwest jungle cache"
+
+msgid "FINAL_POINT_CACHE_REAR_MIRROR"
+msgstr "Northeast jungle cache"
+
+msgid "STAFF_MAP_HINT"
+msgstr "Choose battlegroups and an objective. Commanders handle reconnaissance, advance and reinforcement. Expand route settings to choose supply waypoints."
+
+msgid "STAFF_ALLOWED_GROUPS"
+msgstr "Battlegroups"
+
+msgid "STAFF_GROUP_SUMMARY"
+msgstr "Committed %d · Reserve %d\nSupply cost %d"
+
+msgid "BATTLE_OUTCOME_DRAW"
+msgstr "Draw"
+
+msgid "MINIMAP_EXPAND"
+msgstr "Expand tactical map"
+
+msgid "MINIMAP_CLOSE"
+msgstr "Return to battlefield"
+
+msgid "MINIMAP_LEGEND"
+msgstr "Diamond Recon · Rectangle Armor · Triangle Artillery · Arrow Assault · Castle HQ\nRings Supply · Faded outlines Remembered intel · Click to move camera"
+
+msgid "FINAL_POINT_BLUE_TOP_HIGH"
+msgstr "Blue top · High ground"
+
+msgid "FINAL_POINT_BLUE_TOP_INNER"
+msgstr "Blue top · Inner depot"
+
+msgid "FINAL_POINT_BLUE_TOP_OUTER"
+msgstr "Blue top · Outer depot"
+
+msgid "FINAL_POINT_BLUE_MID_HIGH"
+msgstr "Blue mid · High ground"
+
+msgid "FINAL_POINT_BLUE_MID_INNER"
+msgstr "Blue mid · Inner depot"
+
+msgid "FINAL_POINT_BLUE_MID_OUTER"
+msgstr "Blue mid · Outer depot"
+
+msgid "FINAL_POINT_BLUE_BOTTOM_HIGH"
+msgstr "Blue bottom · High ground"
+
+msgid "FINAL_POINT_BLUE_BOTTOM_INNER"
+msgstr "Blue bottom · Inner depot"
+
+msgid "FINAL_POINT_BLUE_BOTTOM_OUTER"
+msgstr "Blue bottom · Outer depot"
+
+msgid "FINAL_POINT_RED_TOP_HIGH"
+msgstr "Red top · High ground"
+
+msgid "FINAL_POINT_RED_TOP_INNER"
+msgstr "Red top · Inner depot"
+
+msgid "FINAL_POINT_RED_TOP_OUTER"
+msgstr "Red top · Outer depot"
+
+msgid "FINAL_POINT_RED_MID_HIGH"
+msgstr "Red mid · High ground"
+
+msgid "FINAL_POINT_RED_MID_INNER"
+msgstr "Red mid · Inner depot"
+
+msgid "FINAL_POINT_RED_MID_OUTER"
+msgstr "Red mid · Outer depot"
+
+msgid "FINAL_POINT_RED_BOTTOM_HIGH"
+msgstr "Red bottom · High ground"
+
+msgid "FINAL_POINT_RED_BOTTOM_INNER"
+msgstr "Red bottom · Inner depot"
+
+msgid "FINAL_POINT_RED_BOTTOM_OUTER"
+msgstr "Red bottom · Outer depot"
+
+msgid "FINAL_WILD_UPPER"
+msgstr "Upper jungle"
+
+msgid "FINAL_POINT_JUNGLE_UPPER_REAR"
+msgstr "Upper jungle · Rear cache"
+
+msgid "FINAL_POINT_JUNGLE_UPPER_FORWARD"
+msgstr "Upper jungle · Forward cache"
+
+msgid "FINAL_POINT_JUNGLE_UPPER_MAJOR"
+msgstr "Upper jungle · Major depot"
+
+msgid "FINAL_WILD_LOWER"
+msgstr "Lower jungle"
+
+msgid "FINAL_POINT_JUNGLE_LOWER_REAR"
+msgstr "Lower jungle · Rear cache"
+
+msgid "FINAL_POINT_JUNGLE_LOWER_FORWARD"
+msgstr "Lower jungle · Forward cache"
+
+msgid "FINAL_POINT_JUNGLE_LOWER_MAJOR"
+msgstr "Lower jungle · Major depot"
+
+msgid "COMMAND_EXCEPTION_UNDER_ATTACK"
+msgstr "Battlegroup under attack; commander responding"
+
+msgid "COMMAND_EXCEPTION_SUPPLY_THREAT"
+msgstr "Supply point threatened; plan a defense"
+
+msgid "COMMAND_EXCEPTION_SUPPLY_LOST"
+msgstr "Supply point lost; plan a recapture"
+
+msgid "COMMAND_EXCEPTION_SUPPLY_CAPTURED"
+msgstr "Supply point captured; income and recruitment active"
+
+msgid "COMMAND_EXCEPTION_ACTION_REPLAN_SHORT"
+msgstr "Plan tactics"
+
+msgid "COMMAND_EXCEPTION_ACTION_REPLAN_TOOLTIP"
+msgstr "Select battlegroups and plan an attack or defense around this supply point."
+
+msgid "COMMAND_EXCEPTION_KIND_UNDER_ATTACK"
+msgstr "Under attack"
+
+msgid "COMMAND_EXCEPTION_KIND_SUPPLY_THREAT"
+msgstr "Supply threatened"
+
+msgid "COMMAND_EXCEPTION_KIND_SUPPLY_LOST"
+msgstr "Supply lost"
+
+msgid "COMMAND_EXCEPTION_KIND_SUPPLY_CAPTURED"
+msgstr "Supply captured"
+
+msgid "GROWTH_MODE"
+msgstr "Grand battle"
+
+msgid "TACTICAL_MODE"
+msgstr "Tactical operations"
+
+msgid "GROWTH_MATCH_HELP"
+msgstr "Independent match · Start with 60 troops in five legions; automatically recruit to 300. History persists; armies and equipment reset."
+
+msgid "GROWTH_PRIORITY"
+msgstr "Supply priority"
+
+msgid "GROWTH_PRIORITY_HELP"
+msgstr "Priority legion 2/s, three others 1/s, mobile paused (jungle paused when mobile is priority). Clear priority for 1/s each, or customize quotas."
+
+msgid "GROWTH_CARD_COST"
+msgstr "Start %d / Capacity %d · %d supply per member"
+
+msgid "AREA_SUPPORT_TARGETING"
+msgstr "Click the map to target an area. Right-click or C cancels."
+
+msgid "AREA_RECON_CARD"
+msgstr "Aerial recon"
+
+msgid "AREA_MISSILE_CARD"
+msgstr "Missile barrage"
+
+msgid "AREA_HOSPITAL_CARD"
+msgstr "Field hospital"
+
+msgid "AREA_RECON_HELP"
+msgstr "20 supply: reveal any dark area within a radius of 1600 for 25 seconds, including moving enemies. Cooldown 60 seconds."
+
+msgid "AREA_MISSILE_HELP"
+msgstr "60 supply: after a 3-second public warning, strike a radius of 900 for 180 damage before armor. Hits BOTH factions and buildings. Cooldown 120 seconds."
+
+msgid "AREA_HOSPITAL_HELP"
+msgstr "40 supply: deploy on walkable battlefield terrain for 60s. Heals allies within 850 by 8 HP/s. Forbidden only inside enemy supply control zones. Cooldown 90s."
+
+msgid "AREA_RECON_ACTIVE"
+msgstr "Recon"
+
+msgid "AREA_MISSILE_WARNING"
+msgstr "Friendly fire zone"
+
+msgid "AREA_HOSPITAL_ACTIVE"
+msgstr "Hospital"
+
+msgid "GROWTH_LOGISTICS_HELP"
+msgstr "Commanders recruit automatically. Support powers share your recruitment budget. Select a power, then click the map."
+
+
+msgid "GROWTH_LEGION_NAME"
+msgstr "%s"
+
+
+msgid "AREA_MISSILE_IMPACT"
+msgstr "Missile impact · area damage applied"
+
+
+msgid "GROWTH_PLAN_OPEN"
+msgstr "Recruitment plan · quotas / reserve"
+
+
+msgid "GROWTH_PLAN_RESERVE"
+msgstr "Minimum supply reserve (recruits and auto abilities)"
+
+
+msgid "GROWTH_PLAN_APPLY"
+msgstr "Apply recruitment plan"
+
+
+msgid "GROWTH_PLAN_HELP"
+msgstr "0–2 units/s per group; 0 pauses. Army total ≤5. Funds, capacity and safety still apply. Priority restores the default 1/1/1/2 plan."
+
+
+msgid "GROWTH_PLAN_OVER_LIMIT"
+msgstr "Total exceeds 5 units/s. Reduce another group’s quota."
+
+
+msgid "GROWTH_ECONOMY_RATE"
+msgstr "Income +%.2f/s (paid every 20s)\nLast second spent: recruits %d · support/other %d\nReserve %d"
+
+
+msgid "GROWTH_INCOME_HELP"
+msgstr "Every 20s: HQ 12; high/inner/outer 4/6/8; small/large jungle 3/7. Contested points pay nothing. Spending reports the previous complete simulation second."
+
+
+msgid "GROWTH_RECRUITING"
+msgstr "New +%d · quota %d/s"
+
+
+msgid "GROWTH_QUOTA"
+msgstr "Quota %d/s · prioritize"
+
+
+msgid "GROWTH_MICRO"
+msgstr "Temporary control"
+
+
+msgid "GROWTH_MICRO_HELP"
+msgstr "Player authority persists for card routes, lines, focus fire and stop. Completion or blockage holds the action; explicit return rejoins the current commander intent."
+
+msgid "GROWTH_POINT_INCOME"
+msgstr "Income while controlled; contested points pay nothing."
+
+msgid "GROWTH_PERSONALITY_CAUTIOUS_TOOLTIP"
+msgstr "Cautious: prioritizes recon recruitment and scouting before advancing."
+
+msgid "GROWTH_PERSONALITY_STEADY_TOOLTIP"
+msgstr "Steady: balances recon, assault, armor and firepower."
+
+msgid "GROWTH_PERSONALITY_METHODICAL_TOOLTIP"
+msgstr "Methodical: prioritizes artillery recruitment and fire preparation."
+
+msgid "GROWTH_PERSONALITY_RESOLUTE_TOOLTIP"
+msgstr "Resolute: prioritizes armor recruitment and breakthroughs."
+
+msgid "GROWTH_PERSONALITY_OPPORTUNISTIC_TOOLTIP"
+msgstr "Mobile: prioritizes armor recruitment. Responds to visible threats within 2600 of HQ or friendly highlands; HQ emergencies take priority. Explicit support objectives retain priority."
+
+msgid "AREA_HOSPITAL_ENEMY_ZONE"
+msgstr "Hospital blocked by enemy supply control. Choose walkable terrain outside the control ring."
+
+msgid "GROWTH_PERSONALITY_CAUTIOUS"
+msgstr "Cautious · Recon"
+
+msgid "GROWTH_PERSONALITY_STEADY"
+msgstr "Steady · Balanced"
+
+msgid "GROWTH_PERSONALITY_METHODICAL"
+msgstr "Methodical · Artillery"
+
+msgid "GROWTH_PERSONALITY_RESOLUTE"
+msgstr "Resolute · Armor"
+
+msgid "GROWTH_PERSONALITY_OPPORTUNISTIC"
+msgstr "Mobile · Rapid support"
+
+msgid "COOP_MODE"
+msgstr "Legion cooperation"
+
+msgid "COOP_FORMATION"
+msgstr "Deployment formation"
+
+msgid "COOP_MODE_0"
+msgstr "Independent advance"
+
+msgid "COOP_MODE_1"
+msgstr "Joint attack"
+
+msgid "COOP_MODE_2"
+msgstr "Mutual defense"
+
+msgid "COOP_FORMATION_0"
+msgstr "Line · broad frontage"
+
+msgid "COOP_FORMATION_1"
+msgstr "Wedge · central lead"
+
+msgid "COOP_FORMATION_2"
+msgstr "Echelon · depth support"
+
+msgid "COOP_HINT"
+msgstr "Cooperation needs at least two complete, available legions. Joint attack waits for deployment; mutual defense protects an owned supply point. Line covers frontage, wedge leads centrally, echelon provides depth. Narrow terrain compresses positions."
+
+msgid "COOP_PLAN_1"
+msgstr "All selected legions participate: recon, deploy, then attack together. Every required group must be ready. Manual orders and operation retreat take priority."
+
+msgid "COOP_PLAN_2"
+msgstr "Selected legions reinforce an owned point and assist on arrival. Share visible targets and close short gaps. Complete defense after 10 safe seconds, then garrison until new orders."
+
+msgid "COOP_READY"
+msgstr "Deployment ready: %d/%d legions"
+
+msgid "STAFF_FAILURE_COOP_REQUIRES_TWO_GROUPS"
+msgstr "Select at least two legions for cooperation."
+
+msgid "STAFF_FAILURE_COOP_REQUIRES_READY_GROUPS"
+msgstr "Participating legions must be complete and available. Return manual groups or exclude unavailable legions."
+
+msgid "STAFF_FAILURE_SUPPORT_REQUIRES_FRIENDLY"
+msgstr "Mutual defense requires an owned supply point."
+
+msgid "TACTICAL_DUAL_BATTERY_HELP"
+msgstr "Missiles: 70 × 0.5–2 damage plus 9 suppression; 4 rounds, base range 140–420, 2s setup and identification. Empty launchers switch to a 40-damage, range-300 cannon. Reload restores missiles. Suppression ability costs 2 supply and does not reload."
+
+msgid "COOP_RETREAT_ALL"
+msgstr "Retreat entire operation"
+
+msgid "LEGION_TOP"
+msgstr "Top Legion"
+
+msgid "LEGION_MID"
+msgstr "Mid Legion"
+
+msgid "LEGION_BOTTOM"
+msgstr "Bottom Legion"
+
+msgid "LEGION_JUNGLE"
+msgstr "Jungle Legion"
+
+msgid "LEGION_MOBILE"
+msgstr "Mobile Legion"
+
+msgid "GENERAL_SENTINEL"
+msgstr "Bai Jiuyang · Sentinel"
+
+msgid "GENERAL_GUARDIAN"
+msgstr "Di Tian · Guardian"
+
+msgid "GENERAL_GUNNER"
+msgstr "Lin Mo · Gunner"
+
+msgid "GENERAL_SPEAR"
+msgstr "Lu Zheng · Spear"
+
+msgid "GENERAL_RANGER"
+msgstr "Yun Lan · Ranger"
+
+msgid "GENERAL_BUFFS"
+msgstr "Health +%d%% · Speed +%d%% · Attack +%d%% · Sight +%d%%"
+
+msgid "LEGION_CONFIG_INVALID"
+msgstr "Each general uses a fixed roster; assign each general once."
+
+msgid "LEGION_COMPOSITION_HELP"
+msgstr "Fixed roster: opening → full strength. Each legion starts with 12 troops and grows to 60. Swapping generals also swaps their roster and growth order."
+
+msgid "LEGION_TOTAL"
+msgstr "Target strength %d / 60"
+
+msgid "LEGION_AUTO_HELP"
+msgstr "Players own strategic goals; generals execute within that authority. Force attack forbids legion retreat. Ordinary goals allow recovery and return. Cancel holds current positions; return legion restores autonomy. Card return retains the commander intent."
+
+msgid "HANDOFF_CONTACT"
+msgstr "Handoff while in contact"
+
+msgid "HANDOFF_QUIET"
+msgstr "Handoff without contact"
+
+msgid "LEGION_ORGANIZATION"
+msgstr "Organization %.0f / 100"
+
+msgid "LOADING_BATTLE"
+msgstr "Deploying battlefield"
+
+msgid "LEGION_ICON_TOP"
+msgstr "T"
+
+msgid "LEGION_ICON_MID"
+msgstr "C"
+
+msgid "LEGION_ICON_BOTTOM"
+msgstr "B"
+
+msgid "LEGION_ICON_JUNGLE"
+msgstr "J"
+
+msgid "LEGION_ICON_MOBILE"
+msgstr "M"
+
+msgid "LEGION_UNIT_COST"
+msgstr "Each recruit costs %d supply; army cap 5/s, legion 0–2/s."
+
+msgid "LEGION_UNIT_STATS"
+msgstr "Current max HP %.0f · Armor %.0f · Speed %.0f · Attack %.0f · Range %.0f · Interval %.1fs"
+
+msgid "LEGION_DUAL_STATS"
+msgstr "Missile range %.0f–%.0f (terrain modified), deployment %.1fs; damage factor %.1f–%.1f. Empty magazine switches to cannon: commander-adjusted damage %.0f, range %.0f, interval %.1fs."
+
+msgid "LEGION_ORG_SHORT"
+msgstr "Org %.0f"
+
+msgid "LEGION_ROLE_RECON"
+msgstr "Recon"
+
+msgid "LEGION_ROLE_ASSAULT"
+msgstr "Assault"
+
+msgid "LEGION_ROLE_ARMOR"
+msgstr "Armor"
+
+msgid "LEGION_ROLE_FIREPOWER"
+msgstr "Artillery"
+
+msgid "LEGION_ORG_HELP"
+msgstr "Organization 0–100; display is weighted by survivors. AI uses its controllable squads' average: seek safe supply if its average or weighted assault/armor organization falls below 35. Rest at least 20s; resume with both averages at 65 and 75% of retreat strength (at least 12 troops) in safe supply. Ordinary damage and losses reduce organization; artillery missile damage and kills cause no additional organization loss. A wiped-out card still has zero organization."
+
+msgid "LEGION_MAGAZINE_STATS"
+msgstr "Missiles: %d per vehicle. Requires identified targets; resupply restores missiles and missile mode."
+
+msgid "LEGION_SIGHT_STATS"
+msgstr "Sight %.0f (includes commander bonus; terrain modified)."
+
+msgid "EFFECT_FRIENDLY"
+msgstr "Friendly"
+
+msgid "EFFECT_HOSTILE"
+msgstr "Hostile"
+
+msgid "HERO_HELP"
+msgstr "Commander: 600 HP / 20 armor / 145 speed / 30 damage / 190 range / 0.6s interval / 600 projectile speed. Deploys and captures. Death recalls the legion to HQ. Respawn starts at 10s, +10s per 10 match minutes; control resumes after regrouping."
+
+msgid "HERO_STATUS"
+msgstr "Hero %d/600"
+
+msgid "HERO_CURRENT_STATUS"
+msgstr "Hero %d/%d"
+
+msgid "HERO_TEMPLATE_HELP"
+msgstr "Commander: %.0f HP / %.0f armor / %.0f speed / %.0f damage / %.0f range / %.1fs interval / %.0f sight. Does not receive their own troop bonuses. Can capture; death recalls the legion. Respawn starts at 10s, +10s per 10 match minutes; command resumes after respawn and regrouping."
+
+msgid "HERO_RESPAWN"
+msgstr "Respawn %ds · returning"
+
+msgid "HERO_REGROUP"
+msgstr "Hero ready · regrouping"
+
+msgid "GROWTH_RECOVERY_HELP"
+msgstr "Fall back to safe supply if the legion average or weighted assault/armor organization is below 35, fewer than 8 soldiers, or when outmatched. Rest at least 20s; require both organization averages at 65 and 75% of retreat strength (at least 12), safe supply and ammunition before resuming. Defend while threats persist."
+
+msgid "LEGION_MISSILE_STATS"
+msgstr "HP %.0f · Armor %.0f · Speed %.0f\nMissile attack %.0f–%.0f before armor · Fixed range %.0f · Interval %.1fs\nStationary deployment %.1fs; no minimum range, unlimited ammunition, health damage only, no organization damage."
+
+msgid "TERRAIN_EFFECT_FIXED_FIREPOWER_OPEN"
+msgstr "Open: missile range remains420."
+
+msgid "TERRAIN_EFFECT_FIXED_FIREPOWER_FOREST"
+msgstr "Forest: speed ×0.8; missile range remains420."
+
+msgid "TERRAIN_EFFECT_FIXED_FIREPOWER_HIGH"
+msgstr "High ground: sight ×1.25; missile range remains420."
+
+msgid "GROWTH_WAIT_FULL"
+msgstr "Roster full"
+
+msgid "GROWTH_WAIT_PAUSED"
+msgstr "Recruitment paused"
+
+msgid "GROWTH_WAIT_HERO"
+msgstr "Waiting for commander regroup"
+
+msgid "GROWTH_WAIT_CONTROL"
+msgstr "Waiting for recruitment control"
+
+msgid "GROWTH_WAIT_REBUILD"
+msgstr "Waiting for detachment rebuild"
+
+msgid "GROWTH_WAIT_UNSAFE"
+msgstr "Unsafe contact; recruitment paused"
+
+msgid "GROWTH_WAIT_OUT_OF_SUPPLY"
+msgstr "Outside friendly supply coverage"
+
+msgid "GROWTH_WAIT_WINDOW"
+msgstr "Waiting for next recruitment window"
+
+msgid "GROWTH_WAIT_READY"
+msgstr "Ready to recruit in turn"
+
+msgid "GROWTH_WAIT_QUEUED"
+msgstr "Recruitment order queued"
+
+msgid "GROWTH_WAIT_POPULATION"
+msgstr "Population limit reached"
+
+msgid "GROWTH_WAIT_RESERVE"
+msgstr "Preserving minimum supply reserve"
+
+msgid "GROWTH_WAIT_SAVING"
+msgstr "Saving for the next soldier"
+
+msgid "GROWTH_WAIT_OTHER"
+msgstr "Waiting for another legion reservation"
+
+msgid "GROWTH_WAIT_FUNDS"
+msgstr "Waiting for supply income"
+
+msgid "GROWTH_WAIT_SPACE"
+msgstr "No birth space; retrying shortly"
+
+msgid "GROWTH_WAIT_RECHECK"
+msgstr "Recruitment conditions changed; retrying"
+
+msgid "GROWTH_SAVING_DETAIL"
+msgstr "Next soldier: %d / %d supply held"
+
+msgid "GROWTH_SAVING_HELP"
+msgstr "Holds existing supply above the minimum reserve; it creates no supply. Player support remains available and recruitment rechecks funds."
+
+msgid "LEGION_FORMATION_PENDING"
+msgstr "Escort standing by"
+
+msgid "LEGION_FORMATION_REGROUPING"
+msgstr "Regrouping at base"
+
+msgid "LEGION_FORMATION_PLAYER_CONTROL"
+msgstr "Commander under manual control"
+
+msgid "LEGION_FORMATION_COMMAND_HOLD"
+msgstr "Holding position"
+
+msgid "LEGION_FORMATION_NO_CORE"
+msgstr "No available escort core"
+
+msgid "LEGION_FORMATION_INVALID_PROFILE"
+msgstr "Invalid legion profile"
+
+msgid "LEGION_FORMATION_EXPOSED"
+msgstr "Protection positions under fire"
+
+msgid "LEGION_FORMATION_PATH_UNAVAILABLE"
+msgstr "Protection route blocked"
+
+msgid "LEGION_FORMATION_PROTECTED_TARGET"
+msgstr "Repositioning with escort"
+
+msgid "LEGION_FORMATION_IN_POSITION"
+msgstr "Escort position reached"
+
+msgid "LEGION_FORMATION_FORMING"
+msgstr "Forming escort"
+
+msgid "LEGION_FORMATION_SPEED"
+msgstr "Core pace limit: %.0f"
+
+msgid "LEGION_FORMATION_REJOIN_CORE"
+msgstr "Waiting for core relief"
+
+msgid "LEGION_SPATIAL_PROGRESS"
+msgstr "%s: near formation slots %d/%d (not a safety guarantee)"
+
+msgid "LEGION_SPATIAL_MOVE"
+msgstr "March formation"
+
+msgid "LEGION_SPATIAL_ATTACK"
+msgstr "Attack formation"
+
+msgid "LEGION_SPATIAL_DEFEND"
+msgstr "Defense formation"
+
+msgid "LEGION_SPATIAL_RETREAT"
+msgstr "Withdrawal formation"
+
+msgid "DEPLOYMENT_STANDARD"
+msgstr "Full deployment"
+
+msgid "DEPLOYMENT_COMPRESSED"
+msgstr "Compact deployment"
+
+msgid "DEPLOYMENT_TRANSIT_ONLY"
+msgstr "Crowded passage; +50% damage while overlapping"
+
+msgid "DEPLOYMENT_NO_SPACE"
+msgstr "No deployment space"
+
+msgid "DEPLOYMENT_UNCERTAIN"
+msgstr "Dynamic occupancy unknown"
+
+msgid "REFORMATION_DAMAGE_HINT"
+msgstr "Rapid reformation: +50% incoming damage"
+
+msgid "REFORMATION_ACTIVE_STATUS"
+msgstr "Reforming %d units · %.1fs left · +50%% damage taken"
+
+msgid "REFORMATION_SEPARATING_STATUS"
+msgstr "%d units awaiting separation · +50%% damage taken"
+
+msgid "REFORMATION_SEPARATION_ABNORMAL"
+msgstr "%d units still overlapping · +50%% damage taken"
+
+msgid "REFORMATION_SEPARATION_AGGREGATE"
+msgstr "Separation delayed: %d units for at least 3s · +50%% damage taken"
+
+msgid "REFORMATION_COMMANDER_PARTICIPATING"
+msgstr "Commander reforming or separating · +50% damage taken"
+
+msgid "LEGION_ARTILLERY_STATUS"
+msgstr "Artillery: %s · %d/%d"
+
+msgid "LEGION_ARTILLERY_TOOLTIP"
+msgstr "Artillery: %s | Prepared %d of %d available guns. Readiness does not guarantee a shot."
+
+msgid "LEGION_ARTILLERY_IDLE"
+msgstr "No available guns"
+
+msgid "LEGION_ARTILLERY_ASSEMBLING"
+msgstr "Taking positions"
+
+msgid "LEGION_ARTILLERY_DEPLOYING"
+msgstr "Preparing to fire"
+
+msgid "LEGION_ARTILLERY_DEPLOYED"
+msgstr "Emplaced; awaiting a target"
+
+msgid "LEGION_ARTILLERY_FULL"
+msgstr "Fully deployed"
+
+msgid "LEGION_ARTILLERY_PARTIAL"
+msgstr "Partially deployed"
+
+msgid "LEGION_ARTILLERY_BLOCKED"
+msgstr "No firing position"
+
+msgid "LEGION_ARTILLERY_PREEMPTED"
+msgstr "Current order takes priority"
+
+msgid "LEGION_ARTILLERY_GUARDS"
+msgstr "Forward guard: %d/%d in position"
+
+msgid "LEGION_MODE_FREE"
+msgstr "Free movement"
+
+msgid "LEGION_MODE_MOVE"
+msgstr "March formation"
+
+msgid "LEGION_MODE_ATTACK"
+msgstr "Attack formation"
+
+msgid "LEGION_MODE_DEFEND"
+msgstr "Defense formation"
+
+msgid "LEGION_MODE_RETREAT"
+msgstr "Retreat formation"
+
+msgid "LEGION_MODE_NO_SPACE"
+msgstr "Free movement · no formation footprint"
+
+msgid "LEGION_MODE_SPACE"
+msgstr "Formation: width %d × depth %d"
+
+msgid "LEGION_MODE_HELP"
+msgstr "Form up only on player request; select Free movement to cancel. This changes neither strategic objectives nor manual control. Width and depth use current living members and body bounds in world units; terrain may prevent full deployment."

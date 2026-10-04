@@ -11,7 +11,7 @@ const COLOR_DECISION := Color("ffe07a")
 
 var situation: BattlefieldSituationSnapshot
 var selected_unit_card_id: StringName
-var show_frontlines := true
+var show_frontlines := false
 var show_tasks := true
 var show_threats := true
 var show_intelligence := true
@@ -38,7 +38,7 @@ func set_selected_unit_card(unit_card_id: StringName) -> void:
 
 
 func set_layer_visibility(frontlines: bool, tasks: bool, threats: bool, intelligence: bool) -> void:
-	show_frontlines = frontlines
+	show_frontlines = false # Frontline design removed; signature retained for compatibility.
 	show_tasks = tasks
 	show_threats = threats
 	show_intelligence = intelligence
@@ -159,6 +159,8 @@ func _draw_frontlines() -> void:
 
 func _draw_task_axes() -> void:
 	for axis in situation.task_axes:
+		if situation.battlefield_bounds.size.x > 20000.0 and selected_unit_card_id != axis["card_id"]:
+			continue
 		var route := axis["route"] as PackedVector2Array
 		if route.size() < 2:
 			continue

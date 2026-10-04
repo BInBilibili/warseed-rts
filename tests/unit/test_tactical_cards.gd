@@ -49,7 +49,66 @@ func run() -> Array[String]:
 	_test_engineering_breakthrough_and_control(failures)
 	_test_suppression_and_agent(failures)
 	_test_projected_targets(failures)
+	_test_stable_card_event_order(failures)
 	return failures
+
+
+func _test_stable_card_event_order(failures: Array[String]) -> void:
+	# Shared observer positions isolate ordering from tactical geometry. Both
+	# insertion orders must choose the same optical source and interrupt order.
+	for reverse_insertion in [false, true]:
+		var world := sample_world()
+		_quiet(world)
+		var original := world.unit_cards[&"forward_observers"] as UnitCardState
+		_place(world, original, Vector2(2400, 3500))
+		var enemy := _enemy(world)
+		enemy.position = Vector2(2500, 3500)
+		enemy.enabled = true
+		world.current_tick = 100
+		world._update_faction_knowledge()
+		var names: Array[StringName] = [&"z_order_observer", &"a_order_observer", &"m_order_observer"]
+		if reverse_insertion: names.reverse()
+		for id in names:
+			var definition := original.definition.duplicate_deep(Resource.DEEP_DUPLICATE_ALL) as UnitCardDefinition
+			definition.definition_id = id
+			var card := UnitCardState.new(definition, 1, original.member_entity_ids)
+			card.formation_id = original.formation_id
+			card.tactical_command = TacticalAbilityCommand.new(world.allocate_command_id(), 1, GameCommand.IssuerKind.PLAYER, world.current_tick, id)
+			card.tactical_origin = UnitCardSnapshot.new(card, world.units).center_position
+			card.tactical_complete_tick = world.current_tick
+			card.tactical_until_tick = world.current_tick + 100
+			card.tactical_status_key = &"TACTICAL_PREPARING"
+			world.unit_cards[id] = card
+		var cursor := world.events.size()
+		world.tactical_ability_system.advance(world)
+		var completed: Array[String] = []
+		for index in range(cursor, world.events.size()):
+			var event := world.events[index]
+			if event.kind == SimulationEvent.Kind.TACTICAL_ACTION_COMPLETED:
+				completed.append(event.detail.split(";")[0])
+		var expected: Array[String] = ["card=a_order_observer", "card=m_order_observer", "card=z_order_observer"]
+		_expect(completed == expected, "simultaneous tactical completion uses lexical card order for either insertion order", failures)
+		var knowledge := world.faction_knowledge[1] as FactionKnowledge
+		_expect(knowledge.visible_hostile_unit_ids.has(enemy.entity_id), "optical ordering fixture uses a legitimately visible contact", failures)
+		world.tactical_ability_system.update_identification(world, knowledge)
+		world.current_tick += TacticalAbilitySystem.IDENTIFICATION_TICKS
+		cursor = world.events.size()
+		world.tactical_ability_system.update_identification(world, knowledge)
+		var identified: Array[String] = []
+		for index in range(cursor, world.events.size()):
+			var event := world.events[index]
+			if event.kind == SimulationEvent.Kind.TACTICAL_IDENTIFIED and event.entity_id == enemy.entity_id:
+				identified.append(event.detail)
+		_expect(identified.size() == 1 and identified[0].contains("card=a_order_observer;"), "overlapping observers deterministically credit the lexical first card exactly once", failures)
+		cursor = world.events.size()
+		var command := CommanderOrderCommand.new(world.allocate_command_id(), 1, world.current_tick, original.commander_definition_id, CommanderOrderCommand.OrderKind.ASSIGN_OBJECTIVE, Vector2(3000, 3500))
+		world.tactical_ability_system.cancel_for_order(world, command)
+		var interrupted: Array[String] = []
+		for index in range(cursor, world.events.size()):
+			var event := world.events[index]
+			if event.kind == SimulationEvent.Kind.TACTICAL_ACTION_INTERRUPTED:
+				interrupted.append(event.detail.split(";")[0])
+		_expect(interrupted == expected, "commander orders interrupt multiple cards in lexical order", failures)
 
 
 func _test_projected_targets(failures: Array[String]) -> void:

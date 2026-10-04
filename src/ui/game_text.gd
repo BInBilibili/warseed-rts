@@ -42,6 +42,8 @@ static func command_recovery(reason: CommandValidationResult.Reason) -> String:
 			key = &"RECOVERY_RECON_OR_LAST_SEEN"
 		CommandValidationResult.Reason.AGENT_OVERRIDE_BLOCKED:
 			key = &"RECOVERY_RETURN_AGENT_CONTROL"
+		CommandValidationResult.Reason.AUTHORITY_STALE:
+			key = &"RECOVERY_AI_AUTHORIZATION"
 		CommandValidationResult.Reason.INVALID_TASK:
 			key = &"RECOVERY_ACTIVE_TASK"
 		CommandValidationResult.Reason.INVALID_DISPOSITION:

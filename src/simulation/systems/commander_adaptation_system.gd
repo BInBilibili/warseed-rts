@@ -105,6 +105,8 @@ func _append_reserve(world: SimulationWorld, graph: CommanderTaskGraphSnapshot, 
 		node.phase = stage.phase
 		node.baseline_strength = card.available_strength if card.deployment_state == UnitCardState.DeploymentState.RESERVE else card.current_strength
 		node.timeout_ticks = stage.timeout_ticks
+		if world.battle_definition.map_definition != null:
+			node.timeout_ticks += ceili(card.center_position.distance_to(objective.position) / 60.0 * 10.0)
 		node.dwell_ticks = stage.dwell_ticks
 		node.arrival_radius = stage.arrival_radius
 		node.earliest_tick = world.current_tick

@@ -1,12 +1,22 @@
 class_name ArmyBoard
 extends PanelContainer
 
+var _commander_help: Dictionary = {}
+var _help_locale := ""
+var _indexed_feedback_snapshot: WorldSnapshot
+var _feedback_units: Dictionary = {}
+var _feedback_opponents: Dictionary = {}
+var _opponent_cells: Dictionary = {}
+const ACTIVITY_CELL_SIZE := 512.0
+
 @onready var title_label: Label = $Margin/Layout/Header/Title
 @onready var hint_label: Label = $Margin/Layout/Header/Hint
 @onready var commander_row: BoxContainer = $Margin/Layout/Scroll/CommanderRow
 
 @export var input_controller: InputController
 
+var battlegroup_overview := false
+var _expanded_commander: StringName
 var _snapshot: WorldSnapshot
 var _content_signature: String = ""
 var _unit_card_buttons: Dictionary = {}
@@ -20,6 +30,7 @@ var _commander_route_buttons: Dictionary = {}
 var _commander_route_submit_buttons: Dictionary = {}
 var _commander_route_undo_buttons: Dictionary = {}
 var _commander_status_labels: Dictionary = {}
+var _artillery_tactical_labels: Dictionary = {}
 var _pending_commander_drag_id: StringName
 var _pending_commander_drag_start: Vector2
 var _pending_reserve_drag_id: StringName
@@ -31,9 +42,12 @@ var _narrow_layout: bool = false
 var _commander_only: bool = false
 var _tactical_cards: bool = false
 var _posture_menus: Dictionary = {}
+var _formation_menus: Dictionary = {}
+var _formation_space_labels: Dictionary = {}
 var _overview_card_columns: int = 1
 var _overview_card_height: float = 40.0
 var _handoff_button: Button
+var _supply_priority_buttons: Dictionary = {}
 
 
 func _ready() -> void:
@@ -55,6 +69,7 @@ func _input(event: InputEvent) -> void:
 
 
 func refresh_locale() -> void:
+	_commander_help.clear()
 	_ensure_node_bindings()
 	if title_label == null or hint_label == null:
 		return
@@ -67,6 +82,7 @@ func refresh_locale() -> void:
 func update_snapshot(snapshot: WorldSnapshot) -> void:
 	_ensure_node_bindings()
 	_snapshot = snapshot
+	_indexed_feedback_snapshot = null
 	if _reserve_drag_active:
 		var dragged_card := _snapshot.get_unit_card(_reserve_drag_id)
 		if dragged_card == null or dragged_card.deployment_state != UnitCardState.DeploymentState.RESERVE:
@@ -130,6 +146,7 @@ func _rebuild_if_needed() -> void:
 		signature_parts.append("overview:%d:%s" % [_overview_card_columns, _overview_card_height])
 		for commander in _snapshot.commanders:
 			signature_parts.append("%s:%s" % [commander.definition_id, commander.subordinate_unit_card_ids])
+	signature_parts.append(str(_expanded_commander))
 	var signature := "%s:%s:%s" % ["|".join(signature_parts), TranslationServer.get_locale(), _commander_only]
 	if signature == _content_signature:
 		return
@@ -148,7 +165,11 @@ func _rebuild_if_needed() -> void:
 	_commander_route_submit_buttons.clear()
 	_commander_route_undo_buttons.clear()
 	_commander_status_labels.clear()
+	_artillery_tactical_labels.clear()
 	_posture_menus.clear()
+	_formation_menus.clear()
+	_formation_space_labels.clear()
+	_supply_priority_buttons.clear()
 	for commander in _snapshot.commanders:
 		if (_commander_only or _tactical_cards) and commander.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 			continue
@@ -167,7 +188,7 @@ func _create_commander_column(commander: CommanderSnapshot) -> VBoxContainer:
 	commander_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	commander_button.clip_text = true
 	commander_button.text = GameText.t(&"COMMANDER_CARD_HEADER") % [
-		GameText.t(commander.display_name_key), commander.capacity, GameText.t(commander.personality_key),
+		GameText.t(commander.display_name_key), commander.capacity, TacticalHelp.personality_name(commander.personality_key, _snapshot.growth_mode),
 	]
 	commander_button.tooltip_text = GameText.t(&"COMMANDER_CARD_TOOLTIP") % [
 		_localized_join(commander.specialty_keys), _localized_doctrine_join(commander.equipped_doctrine_ids),
@@ -179,14 +200,16 @@ func _create_commander_column(commander: CommanderSnapshot) -> VBoxContainer:
 
 	var status_label := Label.new()
 	status_label.custom_minimum_size = Vector2(0.0, 36.0)
-	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status_label.clip_text = true
+	status_label.max_lines_visible = 2
 	status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	status_label.add_theme_font_size_override("font_size", 9)
 	_apply_commander_status(status_label, commander)
 	column.add_child(status_label)
 	_commander_status_labels[commander.definition_id] = status_label
+	_add_formation_controls(column, commander)
 	if _commander_only:
-		status_label.custom_minimum_size.y = 52.0
 		status_label.add_theme_font_size_override("font_size", 10)
 		return column
 
@@ -328,6 +351,7 @@ func _update_dynamic_content() -> void:
 	_update_commander_route_buttons()
 	_update_unit_card_route_buttons()
 	for commander in _snapshot.commanders:
+		_update_formation_controls(commander)
 		var status_label := _commander_status_labels.get(commander.definition_id) as Label
 		if status_label != null:
 			_apply_commander_status(status_label, commander)
@@ -338,9 +362,12 @@ func _update_dynamic_content() -> void:
 		if card_button == null:
 			continue
 		card_button.text = _unit_card_body(unit_card)
+		var warning := _card_separation_warning(unit_card)
+		if not warning.is_empty(): card_button.text += "\n" + warning
 		var commander := _snapshot.get_commander(unit_card.commander_definition_id)
 		if commander != null:
 			card_button.tooltip_text = "" if _tactical_cards else _unit_card_tooltip(unit_card, commander) + "\n" + CompositionText.from_snapshot(unit_card)
+			if not warning.is_empty(): card_button.tooltip_text += "\n" + warning
 		card_button.disabled = unit_card.deployment_state in [
 			UnitCardState.DeploymentState.WITHDRAWN,
 			UnitCardState.DeploymentState.DISABLED,
@@ -365,6 +392,11 @@ func _apply_commander_status(label: Label, commander: CommanderSnapshot) -> void
 	var status_text := "%s\n%s" % [behavior_text, GameText.t(&"COMMANDER_OUTLOOK_LINE") % [
 		eta_text, GameText.t(commander.risk_key), GameText.t(commander.exit_condition_key),
 	]]
+	var artillery := commander.legion_artillery as LegionArtilleryState
+	if not _tactical_cards:
+		label.custom_minimum_size.y = 52.0 if _commander_only else 36.0
+	if artillery != null:
+		status_text += "\n" + _artillery_status_text(artillery)
 	label.tooltip_text = GameText.t(&"COMMANDER_OUTLOOK_TOOLTIP") % [
 		_commander_target_text(commander),
 		_commander_participants_text(commander),
@@ -375,6 +407,8 @@ func _apply_commander_status(label: Label, commander: CommanderSnapshot) -> void
 		GameText.t(commander.risk_reason_key),
 		GameText.t(commander.exit_condition_key),
 	]
+	if artillery != null:
+		label.tooltip_text += "\n" + _artillery_tooltip_text(artillery)
 	if _tactical_cards:
 		var state := _tactical_activity(commander)
 		status_text = GameText.t([&"CONTROL_STATE_IDLE", &"CONTROL_STATE_WORKING", &"CONTROL_STATE_CONTACT"][state])
@@ -382,6 +416,41 @@ func _apply_commander_status(label: Label, commander: CommanderSnapshot) -> void
 		if label.get_theme_color("font_color") != status_color:
 			label.add_theme_color_override("font_color", status_color)
 	label.text = status_text
+
+
+func _artillery_tooltip_text(artillery: LegionArtilleryState) -> String:
+	var result := GameText.t(&"LEGION_ARTILLERY_TOOLTIP") % [
+		_artillery_phase_text(artillery), artillery.prepared, artillery.actionable,
+	]
+	if artillery.guards_actionable > 0:
+		result += "\n" + GameText.t(&"LEGION_ARTILLERY_GUARDS") % [artillery.guards_positioned, artillery.guards_actionable]
+	return result
+
+
+func _artillery_status_text(artillery: LegionArtilleryState) -> String:
+	return GameText.t(&"LEGION_ARTILLERY_STATUS") % [
+		_artillery_phase_text(artillery), artillery.prepared, artillery.actionable,
+	]
+
+
+func _artillery_phase_text(artillery: LegionArtilleryState) -> String:
+	var key: StringName = &"LEGION_ARTILLERY_IDLE"
+	match artillery.phase:
+		LegionArtilleryState.Phase.ASSEMBLING:
+			key = &"LEGION_ARTILLERY_ASSEMBLING"
+		LegionArtilleryState.Phase.DEPLOYING:
+			key = &"LEGION_ARTILLERY_DEPLOYING"
+		LegionArtilleryState.Phase.DEPLOYED:
+			key = &"LEGION_ARTILLERY_DEPLOYED"
+		LegionArtilleryState.Phase.FULL:
+			key = &"LEGION_ARTILLERY_FULL"
+		LegionArtilleryState.Phase.PARTIAL:
+			key = &"LEGION_ARTILLERY_PARTIAL"
+		LegionArtilleryState.Phase.BLOCKED:
+			key = &"LEGION_ARTILLERY_BLOCKED"
+		LegionArtilleryState.Phase.PREEMPTED:
+			key = &"LEGION_ARTILLERY_PREEMPTED"
+	return GameText.t(key)
 
 
 func _commander_eta_text(commander: CommanderSnapshot) -> String:
@@ -566,6 +635,23 @@ func _set_unit_card_control(unit_card_id: StringName, action: UnitCardControlCom
 
 
 func _set_commander_posture(index: int, commander_id: StringName) -> void:
+	if _snapshot != null and _snapshot.growth_mode and input_controller != null:
+		var host := input_controller.simulation_host
+		if host == null: return
+		var commander := _snapshot.get_commander(commander_id)
+		var command: CommanderOrderCommand
+		if index == 5:
+			var use_player_goal := commander.intent_mode in [CommanderState.IntentMode.OBJECTIVE, CommanderState.IntentMode.FORCE_ATTACK]
+			command = host.create_commander_objective_command(commander_id, commander.player_target_position if use_player_goal else commander.target_position, commander.player_route if use_player_goal else commander.planned_route)
+			command.requested_intent_mode = CommanderState.IntentMode.FORCE_ATTACK
+		elif index == 6:
+			command = host.create_cancel_high_level_intent_command(commander_id)
+		elif index == 7:
+			command = host.create_return_commander_ai_command(commander_id)
+		if command != null:
+			var result := host.submit_command(command)
+			input_controller.last_command_status = GameText.t(&"AUTHORITY_RECEIPT_QUEUED") if result.is_accepted() else GameText.command_result(result)
+			return
 	if input_controller != null:
 		input_controller.set_commander_posture(commander_id, index)
 
@@ -796,6 +882,16 @@ func _unit_card_tooltip(unit_card: UnitCardSnapshot, commander: CommanderSnapsho
 	]
 
 
+func _card_separation_warning(unit_card: UnitCardSnapshot) -> String:
+	var affected := 0
+	for entity_id in unit_card.active_member_entity_ids:
+		var member := _snapshot.get_unit(entity_id)
+		if member==null or not member.enabled or member.reformation_phase!=LegionReformationState.Phase.SEPARATING: continue
+		if member.reformation_separating_since_tick<0 or _snapshot.tick-member.reformation_separating_since_tick<10: continue
+		affected+=1
+	return GameText.t(&"REFORMATION_SEPARATION_ABNORMAL") % affected if affected>0 else ""
+
+
 func _terrain_name(terrain_kind: UnitState.TerrainKind) -> String:
 	return GameText.t(StringName("TERRAIN_%s" % UnitState.TerrainKind.keys()[terrain_kind]))
 
@@ -849,7 +945,7 @@ func set_tactical_cards(enabled: bool) -> void:
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if enabled else ScrollContainer.SCROLL_MODE_AUTO
 	if enabled and _handoff_button == null:
 		_handoff_button = Button.new()
-		_handoff_button.custom_minimum_size.y = 32.0
+		_handoff_button.custom_minimum_size.y = 48.0 if _snapshot != null and _snapshot.growth_mode else 32.0
 		_handoff_button.custom_minimum_size.x = 210.0
 		_handoff_button.clip_text = true
 		_handoff_button.add_theme_font_size_override("font_size", 11)
@@ -865,6 +961,17 @@ func is_tactical_cards() -> bool:
 
 
 func get_overview_height(available_width: float) -> float:
+	if battlegroup_overview:
+		var header_height := 48.0
+		for button: Button in _commander_buttons.values():
+			header_height = maxf(header_height,button.get_minimum_size().y)
+		var reserved := (240.0 if _expanded_commander.is_empty() else 328.0)+maxf(0.0,header_height-48.0)
+		# Include the native fixed rows and header so the HUD places its bottom
+		# inside the viewport instead of growing past an obsolete height budget.
+		var header := get_node_or_null("Margin/Layout/Header") as Control
+		if commander_row != null and header != null:
+			reserved = maxf(reserved,commander_row.get_combined_minimum_size().y+header.get_combined_minimum_size().y+32.0)
+		return reserved
 	if _snapshot == null:
 		return 220.0
 	var local_commanders: Array[CommanderSnapshot] = []
@@ -897,12 +1004,22 @@ func _create_tactical_column(commander: CommanderSnapshot) -> BoxContainer:
 	column.add_child(details)
 	var button := Button.new()
 	button.clip_text = true
-	button.custom_minimum_size.y = 32.0
+	button.custom_minimum_size.y = 48.0 if _snapshot != null and _snapshot.growth_mode else 32.0
+	if _snapshot != null and _snapshot.growth_mode:
+		button.autowrap_mode = TextServer.AUTOWRAP_OFF
 	button.add_theme_font_size_override("font_size", 11)
 	button.pressed.connect(_select_commander.bind(commander.definition_id))
 	button.gui_input.connect(_handle_commander_button_input.bind(commander.definition_id))
 	details.add_child(button)
 	_commander_buttons[commander.definition_id] = button
+	if commander.profile_id == &"gunner":
+		var artillery_line := Label.new()
+		artillery_line.add_theme_font_size_override("font_size", 10)
+		artillery_line.clip_text = true
+		artillery_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		artillery_line.custom_minimum_size.y = 16.0
+		details.add_child(artillery_line)
+		_artillery_tactical_labels[commander.definition_id] = artillery_line
 	var controls := HBoxContainer.new()
 	controls.add_theme_constant_override("separation", 2)
 	details.add_child(controls)
@@ -920,12 +1037,46 @@ func _create_tactical_column(commander: CommanderSnapshot) -> BoxContainer:
 	posture.add_theme_font_size_override("font_size", 11)
 	for value in range(CommanderState.Posture.size()):
 		posture.add_item(GameText.enum_name("COMMANDER_POSTURE", CommanderState.Posture.keys()[value]), value)
-	posture.select(commander.posture)
+	if _snapshot.growth_mode:
+		posture.add_item(GameText.t(&"AUTHORITY_FORCE_ACTION"), 5)
+		posture.add_item(GameText.t(&"AUTHORITY_CANCEL_ACTION"), 6)
+		posture.add_item(GameText.t(&"AUTHORITY_RETURN_ACTION"), 7)
+		posture.tooltip_text = GameText.t(&"AUTHORITY_SCOPE_HELP")
+	posture.select(5 if _snapshot.growth_mode and commander.intent_mode == CommanderState.IntentMode.FORCE_ATTACK else commander.posture)
 	posture.item_selected.connect(_set_commander_posture.bind(commander.definition_id))
 	controls.add_child(posture)
 	_posture_menus[commander.definition_id] = posture
+	_add_formation_controls(details, commander)
+	if battlegroup_overview:
+		var priority := Button.new()
+		priority.name = "SupplyPriority_%s" % commander.definition_id
+		priority.text = GameText.t(&"GROWTH_PRIORITY")
+		priority.tooltip_text = GameText.t(&"GROWTH_PRIORITY_HELP")
+		priority.toggle_mode = true
+		priority.clip_text = true
+		priority.custom_minimum_size.y = 24.0
+		priority.add_theme_font_size_override("font_size", 10)
+		priority.pressed.connect(func() -> void:
+			if input_controller == null or input_controller.simulation_host == null:
+				return
+			var faction := _snapshot.get_faction(commander.faction_id)
+			var id := &"" if faction.priority_commander_id == commander.definition_id else commander.definition_id
+			input_controller.simulation_host.submit_command(input_controller.simulation_host.create_supply_priority_command(id)))
+		details.add_child(priority)
+		_supply_priority_buttons[commander.definition_id] = priority
+		var expand := Button.new()
+		expand.clip_text = true
+		expand.add_theme_font_size_override("font_size", 10)
+		expand.text = GameText.t(&"BATTLEGROUP_COLLAPSE" if _expanded_commander == commander.definition_id else &"BATTLEGROUP_EXPAND")
+		expand.pressed.connect(func() -> void:
+			_expanded_commander = &"" if _expanded_commander == commander.definition_id else commander.definition_id
+			_content_signature = ""
+			_rebuild_if_needed())
+		column.add_child(expand)
+		if _expanded_commander != commander.definition_id:
+			return column
 	var cards := GridContainer.new()
-	cards.columns = _overview_card_columns
+	cards.columns = 2 if battlegroup_overview else _overview_card_columns
 	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cards.add_theme_constant_override("v_separation", 4)
 	cards.add_theme_constant_override("h_separation", 4)
@@ -952,20 +1103,110 @@ func _display_strength(card: UnitCardSnapshot) -> int:
 
 
 func _update_tactical_commander(commander: CommanderSnapshot) -> void:
+	var priority := _supply_priority_buttons.get(commander.definition_id) as Button
+	if priority != null:
+		var faction := _snapshot.get_faction(commander.faction_id)
+		priority.set_pressed_no_signal(faction != null and faction.priority_commander_id == commander.definition_id)
 	var button := _commander_buttons.get(commander.definition_id) as Button
 	if button == null:
 		return
+	button.tooltip_text = ""
 	var menu := _posture_menus.get(commander.definition_id) as OptionButton
-	if menu != null and menu.selected != commander.posture and not menu.get_popup().visible and (input_controller == null or input_controller.simulation_host == null or input_controller.simulation_host.get_queue_size() == 0):
-		menu.select(commander.posture)
+	var selected_posture := 5 if _snapshot.growth_mode and commander.intent_mode == CommanderState.IntentMode.FORCE_ATTACK else commander.posture
+	if menu != null and menu.selected != selected_posture and not menu.get_popup().visible and (_snapshot.growth_mode or input_controller == null or input_controller.simulation_host == null or input_controller.simulation_host.get_queue_size() == 0):
+		menu.select(selected_posture)
 	var strength := 0
 	var capacity := 0
+	var organization := 0.0
 	for card_id in commander.subordinate_unit_card_ids:
 		var card := _snapshot.get_unit_card(card_id)
 		if card != null:
 			strength += _display_strength(card)
 			capacity += card.authorized_strength
-	button.text = "%s %d/%d\n%s" % [GameText.t(commander.display_name_key), strength, capacity, GameText.t(commander.personality_key)]
+			organization += card.organization * card.current_strength
+	var status_text := "%s %d/%d\n%s" % [GameText.t(commander.display_name_key), strength, capacity, TacticalHelp.personality_name(commander.personality_key, _snapshot.growth_mode)]
+	if _snapshot.growth_mode:
+		status_text = "%s %d/%d\n%s" % [GameText.t(commander.display_name_key), strength, capacity, GameText.t(&"LEGION_ORG_SHORT") % (organization / maxf(1, strength))]
+		status_text = "%s %d/%d\n%s" % [GameText.t(commander.display_name_key), strength, capacity, PlayerIntentPresenter.authority(commander)]
+		var faction := _snapshot.get_faction(commander.faction_id)
+		var rate: int = faction.recruitment_rates.get(commander.definition_id, 2 if commander.definition_id == faction.priority_commander_id else 1)
+		var recent := 0
+		var micro := false
+		for id in commander.subordinate_unit_card_ids:
+			var card := _snapshot.get_unit_card(id)
+			if card == null: continue
+			micro = micro or card.temporary_micro
+			for member in card.active_member_entity_ids:
+				var unit := _indexed_unit(_snapshot,member)
+				if unit != null and unit.reinforced_until_tick > _snapshot.tick: recent += 1
+		if priority != null:
+			priority.text = GameText.t(&"GROWTH_RECRUITING") % [recent, rate] if recent > 0 else GameText.t(&"GROWTH_QUOTA") % rate
+			priority.tooltip_text = GameText.t(&"GROWTH_PRIORITY_HELP") + "\n" + GameText.t(&"GROWTH_PLAN_HELP")
+			priority.tooltip_text += "\n" + TacticalHelp.recruitment_status(faction, commander.definition_id)
+		var wait_reason: StringName = faction.recruitment_arbitration.reasons.get(commander.definition_id, &"GROWTH_WAIT_READY")
+		if wait_reason not in [&"GROWTH_WAIT_READY", &"GROWTH_WAIT_WINDOW", &"GROWTH_WAIT_FULL", &"GROWTH_WAIT_QUEUED"]:
+			status_text += "\n" + GameText.t(wait_reason)
+		if micro: status_text += " · " + GameText.t(&"GROWTH_MICRO")
+		var hero := _indexed_unit(_snapshot,commander.hero_entity_id)
+		if commander.hero_respawn_tick >= 0:
+			status_text += "\n" + GameText.t(&"HERO_RESPAWN") % ceili(maxi(0, commander.hero_respawn_tick - _snapshot.tick) / 10.0)
+		elif commander.legion_regrouping:
+			status_text += "\n" + GameText.t(&"HERO_REGROUP")
+		elif hero != null:
+			status_text += "\n" + GameText.t(&"HERO_CURRENT_STATUS") % [roundi(hero.health),roundi(hero.max_health)]
+		button.tooltip_text = _commander_help_text(commander)
+		button.tooltip_text += "\n" + PlayerIntentPresenter.detail(commander, _snapshot)
+		if commander.legion_formation != null and commander.legion_formation.active:
+			var formation := commander.legion_formation
+			status_text += "\n" + GameText.t(formation.reason_key())
+			button.tooltip_text += "\n" + GameText.t(formation.reason_key())
+			button.tooltip_text += "\n" + GameText.t(&"LEGION_FORMATION_SPEED") % formation.core_speed
+			if formation.spatial.initialized:
+				var action_key := StringName("LEGION_SPATIAL_"+LegionSpatialState.Action.keys()[formation.spatial.action])
+				button.tooltip_text += "\n" + GameText.t(&"LEGION_SPATIAL_PROGRESS") % [GameText.t(action_key),formation.spatial.ready,formation.spatial.eligible]
+		var reforming := 0; var separating := 0; var remaining := 0; var long_separating := 0; var hero_active := false
+		var reform_ids := commander.growth_slot_entities.duplicate(); reform_ids.append(commander.hero_entity_id)
+		for entity_id in reform_ids:
+			var member := _snapshot.get_unit(entity_id)
+			if member==null or not member.enabled: continue
+			if member.reformation_phase==LegionReformationState.Phase.REFORMING:
+				reforming+=1; remaining=maxi(remaining,member.reformation_deadline_tick-_snapshot.tick)
+				hero_active=hero_active or entity_id==commander.hero_entity_id
+			elif member.reformation_phase==LegionReformationState.Phase.SEPARATING:
+				separating+=1
+				hero_active=hero_active or entity_id==commander.hero_entity_id
+				if member.reformation_separating_since_tick>=0 and _snapshot.tick-member.reformation_separating_since_tick>=30: long_separating+=1
+		if reforming>0:
+			var label := GameText.t(&"REFORMATION_ACTIVE_STATUS") % [reforming,maxi(0,remaining)*0.1]
+			status_text+="\n"+label; button.tooltip_text+="\n"+label
+		if separating>0:
+			var label := GameText.t(&"REFORMATION_SEPARATION_AGGREGATE") % long_separating if long_separating>0 else GameText.t(&"REFORMATION_SEPARATING_STATUS") % separating
+			status_text+="\n"+label; button.tooltip_text+="\n"+label
+		if hero_active:
+			var hero_label := GameText.t(&"REFORMATION_COMMANDER_PARTICIPATING")
+			status_text+="\n"+hero_label; button.tooltip_text+="\n"+hero_label
+	button.tooltip_text += "\n" + status_text
+	button.text = "\n".join(status_text.split("\n").slice(0, 3))
+	var artillery_line := _artillery_tactical_labels.get(commander.definition_id) as Label
+	if artillery_line != null:
+		var artillery := commander.legion_artillery as LegionArtilleryState
+		artillery_line.text = ""
+		artillery_line.tooltip_text = ""
+		if artillery != null:
+			artillery_line.text = _artillery_phase_text(artillery)
+			artillery_line.tooltip_text = _artillery_tooltip_text(artillery)
+			button.tooltip_text += "\n" + artillery_line.tooltip_text
+
+
+func _commander_help_text(commander: CommanderSnapshot) -> String:
+	var locale := TranslationServer.get_locale()
+	if locale != _help_locale:
+		_help_locale = locale
+		_commander_help.clear()
+	var key := [commander.profile_id, commander.personality_key, _snapshot.growth_mode]
+	if not _commander_help.has(key):
+		_commander_help[key] = (CommanderProfile.find(commander.profile_id).description() + "\n" if not commander.profile_id.is_empty() else "") + TacticalHelp.personality(commander.personality_key, _snapshot.growth_mode) + "\n" + GameText.t(&"LEGION_ORG_HELP") + "\n" + GameText.t(&"LEGION_AUTO_HELP") + "\n" + TacticalHelp.growth_hero(commander.profile_id) + "\n" + GameText.t(&"GROWTH_RECOVERY_HELP")
+	return _commander_help[key]
 
 
 func _tactical_activity(commander: CommanderSnapshot) -> int:
@@ -977,16 +1218,14 @@ func _tactical_activity(commander: CommanderSnapshot) -> int:
 		working = working or card.deployment_state == UnitCardState.DeploymentState.DEPLOYING
 		working = working or not card.tactical_ability_id.is_empty() and card.tactical_status_key in [&"TACTICAL_PREPARING", &"TACTICAL_ACTIVE"]
 		for unit_id in card.active_member_entity_ids:
-			var unit := _snapshot.get_unit(unit_id)
+			var unit := _indexed_unit(_snapshot,unit_id)
 			if unit == null:
 				continue
 			if unit.is_attacking:
 				return 2
 			var task := _snapshot.get_task(unit.assigned_task_id)
 			working = working or unit.is_moving or (task != null and task.lifecycle in [TaskState.Lifecycle.PREPARING, TaskState.Lifecycle.EXECUTING])
-			for enemy in _snapshot.units:
-				if enemy.enabled and enemy.faction_id != commander.faction_id and enemy.is_visible_to_local_player and unit.position.distance_squared_to(enemy.position) <= unit.sight_range * unit.sight_range:
-					return 2
+			if _has_opponent_in_sight(unit, commander.faction_id): return 2
 	if commander.behavior_state_key == &"COMMANDER_BEHAVIOR_ENGAGING":
 		return 2
 	return 1 if working or not commander.active_intent_id.is_empty() else 0
@@ -1012,17 +1251,17 @@ func get_hover_context(mouse_position: Vector2) -> Dictionary:
 		elif not menu.get_global_rect().has_point(mouse_position):
 			continue
 		if index >= 0:
-			return {"key": "army-posture:%s:%d:%s" % [commander_id, index, popup.visible], "text": TacticalHelp.posture(menu.get_item_id(index)), "avoid": Rect2(popup.position, popup.size) if popup.visible else Rect2(), "anchor": Vector2(popup.position) + Vector2(-18, popup.size.y) if popup.visible else mouse_position}
+			return {"key": "army-posture:%s:%d:%s" % [commander_id, index, popup.visible], "text": GameText.t(&"AUTHORITY_SCOPE_HELP") if menu.get_item_id(index) >= 5 else TacticalHelp.posture(menu.get_item_id(index)), "avoid": Rect2(popup.position, popup.size) if popup.visible else Rect2(), "anchor": Vector2(popup.position) + Vector2(-18, popup.size.y) if popup.visible else mouse_position}
 	for commander_id in _commander_buttons:
 		var button := _commander_buttons[commander_id] as Button
 		if button.get_global_rect().has_point(mouse_position):
 			var commander := _snapshot.get_commander(commander_id)
-			return {"key": "army-personality:%s" % commander_id, "text": button.text + "\n" + TacticalHelp.personality(commander.personality_key)}
+			return {"key": "army-personality:%s" % commander_id, "text": button.text + "\n" + button.tooltip_text}
 	for card_id in _unit_card_buttons:
 		var button := _unit_card_buttons[card_id] as Button
 		if button.get_global_rect().has_point(mouse_position):
 			var card := _snapshot.get_unit_card(card_id)
-			return {"key": "army-card:%s" % card_id, "text": button.text + "\n" + _unit_card_tooltip(card, _snapshot.get_commander(card.commander_definition_id)) + "\n" + CompositionText.from_snapshot(card)}
+			return {"key": "army-card:%s" % card_id, "text": button.text + "\n" + _unit_card_tooltip(card, _snapshot.get_commander(card.commander_definition_id)) + "\n" + CompositionText.from_snapshot(card) + _numeric_help(card)}
 	return {}
 
 
@@ -1031,3 +1270,115 @@ func has_open_help_popup() -> bool:
 		if menu.get_popup().visible:
 			return true
 	return false
+
+func _numeric_help(card: UnitCardSnapshot) -> String:
+	if not _snapshot.growth_mode or input_controller == null or input_controller.simulation_host == null: return ""
+	var battle := input_controller.simulation_host.get_battle_definition()
+	var definition := battle.unit_card_dictionary().get(card.definition_id) as UnitCardDefinition
+	if definition == null: return ""
+	var unit: UnitSnapshot
+	for id in card.active_member_entity_ids:
+		unit = _indexed_unit(_snapshot,id)
+		if unit != null: break
+	var profile := CommanderProfile.find(_snapshot.get_commander(card.commander_definition_id).profile_id)
+	var text := "\n" + TacticalHelp.growth_unit(definition, profile)
+	if unit != null:
+		text += "\n" + TacticalHelp.current_unit(unit, definition)
+	return text
+
+
+func _indexed_unit(snapshot: WorldSnapshot, entity_id: int) -> UnitSnapshot:
+	if snapshot != _indexed_feedback_snapshot:
+		_indexed_feedback_snapshot = snapshot
+		_feedback_units.clear()
+		_feedback_opponents.clear()
+		_opponent_cells.clear()
+		if snapshot != null:
+			for unit in snapshot.units:
+				if not _feedback_units.has(unit.entity_id): _feedback_units[unit.entity_id] = unit
+	return _feedback_units.get(entity_id) as UnitSnapshot
+
+
+func _visible_opponents(faction_id: int) -> Array[UnitSnapshot]:
+	if _snapshot != _indexed_feedback_snapshot: _indexed_unit(_snapshot, 0)
+	if not _feedback_opponents.has(faction_id):
+		var opponents: Array[UnitSnapshot] = []
+		for unit in _snapshot.units:
+			if unit.enabled and unit.faction_id != faction_id and unit.is_visible_to_local_player:
+				opponents.append(unit)
+		_feedback_opponents[faction_id] = opponents
+	return _feedback_opponents[faction_id]
+
+
+func _has_opponent_in_sight(unit: UnitSnapshot, faction_id: int) -> bool:
+	if _snapshot != _indexed_feedback_snapshot: _indexed_unit(_snapshot, 0)
+	if not _opponent_cells.has(faction_id):
+		var cells := {}
+		for enemy in _visible_opponents(faction_id):
+			var cell := Vector2i(floori(enemy.position.x / ACTIVITY_CELL_SIZE), floori(enemy.position.y / ACTIVITY_CELL_SIZE))
+			if not cells.has(cell): cells[cell] = []
+			cells[cell].append(enemy)
+		_opponent_cells[faction_id] = cells
+	var cells: Dictionary = _opponent_cells[faction_id]
+	var radius := absf(unit.sight_range)
+	var first := Vector2i(floori((unit.position.x-radius)/ACTIVITY_CELL_SIZE), floori((unit.position.y-radius)/ACTIVITY_CELL_SIZE))
+	var last := Vector2i(floori((unit.position.x+radius)/ACTIVITY_CELL_SIZE), floori((unit.position.y+radius)/ACTIVITY_CELL_SIZE))
+	for y in range(first.y,last.y+1):
+		for x in range(first.x,last.x+1):
+			for enemy: UnitSnapshot in cells.get(Vector2i(x,y),[]):
+				if unit.position.distance_squared_to(enemy.position) <= unit.sight_range * unit.sight_range: return true
+	return false
+
+
+func _add_formation_controls(parent: VBoxContainer, commander: CommanderSnapshot) -> void:
+	if _snapshot == null or not _snapshot.growth_mode or commander.faction_id != SimulationWorld.LOCAL_PLAYER_ID: return
+	var menu := OptionButton.new()
+	menu.name = "FormationMode_%s" % commander.definition_id
+	menu.fit_to_longest_item = false
+	menu.clip_text = true
+	menu.custom_minimum_size.y = 26.0
+	menu.add_theme_font_size_override("font_size", 10)
+	for mode in CommanderState.FormationMode.size():
+		menu.add_item(GameText.t(StringName("LEGION_MODE_" + CommanderState.FormationMode.keys()[mode])), mode)
+	menu.tooltip_text = GameText.t(&"LEGION_MODE_HELP")
+	menu.select(commander.formation_mode)
+	menu.item_selected.connect(_select_formation_mode.bind(commander.definition_id))
+	parent.add_child(menu)
+	_formation_menus[commander.definition_id] = menu
+	var space := Label.new()
+	space.name = "FormationSpace_%s" % commander.definition_id
+	space.custom_minimum_size.y = 16.0
+	space.add_theme_font_size_override("font_size", 10)
+	space.clip_text = true
+	space.max_lines_visible = 1
+	parent.add_child(space)
+	_formation_space_labels[commander.definition_id] = space
+	_update_formation_controls(commander)
+
+func _select_formation_mode(index: int, commander_id: StringName) -> void:
+	if input_controller == null or input_controller.simulation_host == null: return
+	var host := input_controller.simulation_host
+	var result := host.submit_command(host.create_legion_formation_command(commander_id,index as CommanderState.FormationMode))
+	input_controller.last_command_status = GameText.command_result(result)
+
+func _update_formation_controls(commander: CommanderSnapshot) -> void:
+	var menu := _formation_menus.get(commander.definition_id) as OptionButton
+	var label := _formation_space_labels.get(commander.definition_id) as Label
+	if menu == null or label == null: return
+	menu.disabled = commander.legion_regrouping
+	if not menu.get_popup().visible: menu.select(commander.formation_mode)
+	label.text = GameText.t(&"LEGION_MODE_NO_SPACE")
+	if commander.formation_mode != CommanderState.FormationMode.FREE:
+		var offsets := LegionDeploymentPlanner.offsets(commander.profile_id,(commander.formation_mode-1) as LegionSpatialState.Action,48.0)
+		var bounds := Rect2()
+		var first := true
+		for identity in range(61):
+			var entity_id: int = commander.hero_entity_id if identity==60 else commander.growth_slot_entities[identity]
+			var unit := _snapshot.get_unit(entity_id)
+			if unit == null or not unit.enabled: continue
+			var point := offsets[identity]
+			bounds = Rect2(point,Vector2.ZERO) if first else bounds.expand(point)
+			first = false
+		var extent := bounds.size + Vector2(64,64) if not first else Vector2.ZERO
+		label.text = GameText.t(&"LEGION_MODE_SPACE") % [ceili(extent.y),ceili(extent.x)]
+	label.tooltip_text = label.text + "\n" + GameText.t(&"LEGION_MODE_HELP")

@@ -1,6 +1,11 @@
 class_name WorldSnapshot
 extends RefCounted
 
+# Public authored geography; contains no entity or faction intelligence.
+var navigation_map_id: StringName
+var growth_mode: bool = false
+var area_support_effects: Array[AreaSupportEffect] = []
+
 var enemy_action_audit: Array[EnemyActionAuditRecord] = []
 var enemy_observed_actions: Array[EnemyObservedAction] = []
 

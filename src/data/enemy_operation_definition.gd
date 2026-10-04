@@ -38,6 +38,18 @@ func validate(battle: BattleDefinition) -> DataValidationResult:
 			opening_roles.append(phase.formation_role_id)
 			var formation := battle.enemy_formation_by_role(phase.formation_role_id)
 			if formation != null: initial_strength += formation.strength
+	var completed: Array[StringName] = []
+	for iteration in range(phases.size()):
+		for phase in phases:
+			if phase == null or completed.has(phase.phase_id):
+				continue
+			var ready := true
+			for dependency in phase.prerequisite_phase_ids:
+				ready = ready and completed.has(dependency)
+			if ready:
+				completed.append(phase.phase_id)
+	if completed.size() != phases.size():
+		result.add(DataValidationResult.Reason.INVALID_REFERENCE, "enemy phase dependencies are missing or cyclic")
 	if opening_roles.is_empty() or doctrine != null and initial_strength > doctrine.max_committed_strength:
 		result.add(DataValidationResult.Reason.INVALID_VALUE, "enemy opening exceeds doctrine commitment")
 	if not reserve_roles.is_empty():

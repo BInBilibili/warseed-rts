@@ -11,6 +11,9 @@ var attack_power: float
 var spawn_tick: int
 var damage_tag: int = TacticalWeaponDefinition.DamageTag.KINETIC
 var suppression_power: float = 0.0
+var weapon_mode: int = 0 # 0 legacy, 1 missile, 2 fallback cannon.
+var damage_multiplier: float = 1.0
+var health_only_damage: bool = false
 
 
 func _init(

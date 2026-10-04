@@ -17,6 +17,7 @@ var _visible_indices: PackedInt32Array = PackedInt32Array()
 var identification_until_by_entity: Dictionary = {}
 var _reveal_offsets_by_radius: Dictionary = {}
 var _revealed_circles: Dictionary = {}
+var _reveal_half_widths_by_radius: Dictionary = {}
 
 
 func _init(new_faction_id: int, new_grid_size: Vector2i) -> void:
@@ -67,6 +68,59 @@ func reveal(center: Vector2i, radius_cells: int) -> void:
 			if cells[index] != CellState.VISIBLE:
 				cells[index] = CellState.VISIBLE
 				_visible_indices.append(index)
+
+
+func reveal_circles(sources: Array[Vector3i]) -> void:
+	# Merge overlapping scanline intervals before writing cells. The discrete
+	# circle is identical to reveal(), including clipping at map boundaries.
+	var rows: Dictionary = {}
+	var stride := grid_size.x + 1
+	for circle in sources:
+		if _revealed_circles.has(circle): continue
+		_revealed_circles[circle] = true
+		var radius := circle.z
+		if not _reveal_half_widths_by_radius.has(radius):
+			var widths := PackedInt32Array()
+			for dy in range(-radius, radius + 1):
+				widths.append(floori(sqrt(float(radius * radius - dy * dy))))
+			_reveal_half_widths_by_radius[radius] = widths
+		var widths: PackedInt32Array = _reveal_half_widths_by_radius[radius]
+		for y in range(maxi(0, circle.y - radius), mini(grid_size.y, circle.y + radius + 1)):
+			var half := widths[y - circle.y + radius]
+			var left := maxi(0, circle.x - half)
+			var right := mini(grid_size.x, circle.x + half + 1)
+			if left >= right: continue
+			if not rows.has(y): rows[y] = []
+			rows[y].append(left * stride + right)
+	var row_ids := rows.keys()
+	row_ids.sort()
+	for y: int in row_ids:
+		var intervals: Array = rows[y]
+		intervals.sort()
+		var left := -1
+		var right := -1
+		for packed: int in intervals:
+			var start := packed / stride
+			var end := packed % stride
+			if left < 0:
+				left = start
+				right = end
+			elif start <= right:
+				right = maxi(right, end)
+			else:
+				_reveal_row(y, left, right)
+				left = start
+				right = end
+		if left >= 0: _reveal_row(y, left, right)
+
+
+func _reveal_row(y: int, left: int, right: int) -> void:
+	var offset := y * grid_size.x
+	for x in range(left, right):
+		var index := offset + x
+		if cells[index] != CellState.VISIBLE:
+			cells[index] = CellState.VISIBLE
+			_visible_indices.append(index)
 
 
 func get_cell_state(cell: Vector2i) -> CellState:

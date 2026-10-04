@@ -14,13 +14,15 @@ func update_snapshot(snapshot: WorldSnapshot) -> void:
 	if snapshot == null or not visible:
 		return
 	var faction := snapshot.get_faction(SimulationWorld.LOCAL_PLAYER_ID)
-	var battle := simulation_host.world.battle_definition if simulation_host != null else null
+	var battle := simulation_host.get_battle_definition() if simulation_host != null else null
 	var time_limit := battle.time_limit_ticks if battle != null else SimulationWorld.GREY_RIDGE_TIME_LIMIT_TICKS
 	var remaining_ticks := maxi(0, time_limit - snapshot.tick)
 	var remaining_seconds := ceili(remaining_ticks * SimulationWorld.TICK_SECONDS)
 	var state_key: StringName = &"GREY_RIDGE_ACTIVE"
 	if snapshot.outcome != null and snapshot.outcome.result == BattleOutcome.Result.ORDERED_WITHDRAWAL:
 		state_key = &"BATTLE_OUTCOME_ORDERED_WITHDRAWAL"
+	elif snapshot.outcome != null and snapshot.outcome.result == BattleOutcome.Result.DRAW:
+		state_key = &"BATTLE_OUTCOME_DRAW"
 	elif faction != null and faction.victorious:
 		state_key = &"GREY_RIDGE_VICTORY"
 	elif faction != null and faction.defeated:

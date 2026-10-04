@@ -31,6 +31,7 @@ var persistent_order: bool
 var activation_tick: int
 var doctrine_effect: DoctrineTaskParameters
 var final_target_position: Vector2
+var remaining_staged_route: PackedVector2Array
 var has_staged_target: bool
 var requires_observed_contact: bool
 var reinforcement_committed: bool
@@ -67,6 +68,7 @@ func _init(task: TaskState) -> void:
 	doctrine_effect = task.doctrine_effect.duplicate_value() if task.doctrine_effect != null else null
 	final_target_position = task.final_target_position
 	has_staged_target = task.has_staged_target
+	remaining_staged_route = task.remaining_staged_route.duplicate()
 	requires_observed_contact = task.requires_observed_contact
 	reinforcement_committed = task.reinforcement_committed
 

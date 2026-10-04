@@ -1,6 +1,9 @@
 class_name StaffCourseOfAction
 extends RefCounted
 
+var coordination: StaffPlanRequest.Coordination = StaffPlanRequest.Coordination.INDEPENDENT
+var formation: StaffPlanRequest.Formation = StaffPlanRequest.Formation.LINE
+
 var plan_id: StringName
 var profile_id: StringName
 var kind: int
@@ -42,7 +45,7 @@ func to_dictionary() -> Dictionary:
 	var assigned: Array[Dictionary] = []
 	for assignment in assignments:
 		assigned.append(assignment.to_dictionary())
-	return {"plan_id": String(plan_id), "profile_id": String(profile_id), "kind": kind,
+	var result := {"plan_id": String(plan_id), "profile_id": String(profile_id), "kind": kind,
 		"name_key": String(name_key), "source_tick": source_tick, "objective_region_id": String(objective_region_id),
 		"assignments": assigned, "reserve_card_ids": reserve_card_ids.duplicate(),
 		"evidence_fact_ids": evidence_fact_ids.duplicate(), "reason_keys": reason_keys.duplicate(),
@@ -51,6 +54,10 @@ func to_dictionary() -> Dictionary:
 		"known_threat_score": known_threat_score, "uncertainty_score": uncertainty_score,
 		"readiness_penalty": readiness_penalty, "risk_score": risk_score, "objective_value": objective_value,
 		"utility_score": utility_score, "route_is_navigation_path": route_is_navigation_path}
+	if coordination != StaffPlanRequest.Coordination.INDEPENDENT:
+		result["coordination"] = int(coordination)
+		result["formation"] = int(formation)
+	return result
 
 
 func fingerprint() -> String:

@@ -13,6 +13,16 @@ var issued_tick: int
 var target_entity_id: int
 var agent_id: int = 0
 var task_id: int = 0
+# Stamped on the queued value by the unified pipeline, never supplied by AI.
+var authority_commander_id: StringName
+var authority_card_id: StringName
+var expected_commander_version: int = -1
+var expected_card_version: int = -1
+var preserve_queue_order: bool = false
+var application_rejection: CommandValidationResult.Reason = CommandValidationResult.Reason.NONE
+var scoped_card_ids: Array[StringName] = []
+var scoped_card_versions := PackedInt32Array()
+var scoped_commander_versions := PackedInt32Array()
 
 
 func get_priority() -> int:

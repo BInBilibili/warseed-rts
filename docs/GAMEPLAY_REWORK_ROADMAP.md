@@ -1,5 +1,7 @@
 # WARSEED 玩法优先改写路线图
 
+> 2026-09-21 进度范围：R1–R5 已完成并接受，R6/R7 未开始。本文仍决定后续阶段顺序；历史任务状态以[实时控制块](AI_DEVELOPMENT_STATE.md)覆盖。大地图来自已授权维护，不能把旧“R6 前不新增地图”当作撤销其实现的指令。
+
 > 当前性能政策：D-028（2026-09-16，Accepted）暂缓性能通过要求，优先完成整体逻辑；下文历史性能门仅作参考。功能、确定性、公平知识、存档、UI与导出仍须验证。
 
 > 路线版本：1.0
@@ -23,7 +25,7 @@ R2-R7 的优先顺序改为：
  -> 内容生产和最终表现
 ```
 
-旧 [`EXPANSION_IMPLEMENTATION_ROADMAP.md`](EXPANSION_IMPLEMENTATION_ROADMAP.md) 继续提供地图、混成卡、存档、补给与战役模块的技术参考，但其中原 R2-R7 顺序不再决定任务领取。
+旧 [`archive/design/EXPANSION_IMPLEMENTATION_ROADMAP.md`](archive/design/EXPANSION_IMPLEMENTATION_ROADMAP.md) 继续提供地图、混成卡、存档、补给与战役模块的技术参考，但其中原 R2-R7 顺序不再决定任务领取。
 
 ## 2. 验证政策
 

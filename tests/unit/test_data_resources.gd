@@ -70,10 +70,10 @@ func _test_battle_content_loader(failures: Array[String]) -> void:
 	var grey_ridge_result := BattleContentLoader.load_battle(&"grey_ridge")
 	_expect(grey_ridge_result.is_valid(), "Grey Ridge should load through the validated battle content catalog (issues=%s)" % [grey_ridge_result.validation.issues], failures)
 	if grey_ridge_result.battle != null:
-		_expect(grey_ridge_result.catalog.battles.size() == 5, "the shared battle loader should expose four playable battles and the minimal loader fixture", failures)
+		_expect(grey_ridge_result.catalog.battles.size() == 6, "the shared battle loader should expose five playable battles and the minimal loader fixture", failures)
 		var selectable := grey_ridge_result.catalog.get_selectable_battles()
-		_expect(selectable.size() == 4, "the operation selector should expose exactly the four playable battles", failures)
-		if selectable.size() == 4:
+		_expect(selectable.size() == 5, "the operation selector should expose exactly the four playable battles", failures)
+		if selectable.size() == 5:
 			_expect(selectable[0].scenario_id == &"grey_ridge" and selectable[1].scenario_id == &"broken_bridge" and selectable[2].scenario_id == &"fog_forest" and selectable[3].scenario_id == &"black_well", "selectable battles should be ordered by operation number", failures)
 			var scenes_load := true
 			for battle in selectable:

@@ -36,6 +36,10 @@ static func build_battle_record(snapshot: WorldSnapshot, previous_record: Dictio
 	for card in snapshot.unit_cards:
 		if card.faction_id != SimulationWorld.LOCAL_PLAYER_ID:
 			continue
+		# Unfielded growth roles have no roster entry. Keep any prior historical
+		# entry rather than emitting a zero-capacity card forbidden by v4.
+		if snapshot.growth_mode and card.authorized_strength == 0:
+			continue
 		var previous := previous_cards.get(String(card.definition_id), {}) as Dictionary
 		var entry_records: Dictionary = {}
 		var available_strength := 0
@@ -47,7 +51,7 @@ static func build_battle_record(snapshot: WorldSnapshot, previous_record: Dictio
 			var entry_available := entry.current_strength
 			if card.deployment_state in [UnitCardState.DeploymentState.RESERVE, UnitCardState.DeploymentState.DEPLOYING]:
 				entry_available = entry.available_strength
-			var losses := maxi(0, int(old_entry.get("available_strength", entry.authorized_strength)) - entry_available)
+			var losses := entry.cumulative_losses if snapshot.growth_mode else maxi(0, int(old_entry.get("available_strength", entry.authorized_strength)) - entry_available)
 			var cumulative := int(old_entry.get("cumulative_losses", 0)) + losses
 			entry_records[String(entry.entry_id)] = {
 				"unit_definition_id": String(entry.unit_definition_id),
@@ -87,7 +91,7 @@ static func build_battle_record(snapshot: WorldSnapshot, previous_record: Dictio
 	if result_key == "victory":
 		replacement_award = VICTORY_REPLACEMENT_AWARD
 		merit_award = VICTORY_MERIT_AWARD
-	elif result_key == "ordered_withdrawal":
+	elif result_key in ["ordered_withdrawal", "draw"]:
 		replacement_award = ORDERED_WITHDRAWAL_REPLACEMENT_AWARD
 		merit_award = ORDERED_WITHDRAWAL_MERIT_AWARD
 	return {
@@ -116,6 +120,9 @@ static func apply_to_world(world: SimulationWorld, record: Dictionary) -> bool:
 	if not normalized.is_success():
 		push_error("Roster apply refused: " + "; ".join(normalized.errors))
 		return false
+	# Independent matches keep history but always start with equal armies and no inherited buffs.
+	if world.battle_definition != null and world.battle_definition.growth_mode:
+		return true
 	record = normalized.record
 	var records := record.get("cards", {}) as Dictionary
 	# Validate every affected card before changing any authority state.
@@ -433,7 +440,7 @@ static func normalize_playtest_session_id(value: String) -> String:
 
 
 static func campaign_record_path_for_session(session_id: String, scenario_id: StringName = &"grey_ridge") -> String:
-	var filename := "grey_ridge_roster.json"
+	var filename := "final_decision_roster.json" if scenario_id == &"final_decision" else "grey_ridge_roster.json"
 	if session_id.is_empty():
 		return "user://%s" % filename
 	return "%s/%s/%s" % [ISOLATED_PLAYTEST_ROOT, normalize_playtest_session_id(session_id), filename]

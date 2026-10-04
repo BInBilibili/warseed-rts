@@ -59,6 +59,9 @@ func _run_resolution(resolution: Vector2i) -> void:
 	root.add_child(selector)
 	current_scene = selector
 	await _wait_frames(10)
+	if selector.get_selected_battle().scenario_id != &"final_decision" or not selector.get_battle_button(&"final_decision").visible or selector.get_battle_button(&"grey_ridge").visible:
+		_fail("large growth match is the isolated default mode")
+	await _click_control(selector._mode_buttons[1])
 	_validate_selector(selector, viewport_rect)
 	await _save_screenshot(resolution, "operation_selector")
 	resolution_report["screens"]["operation_selector"] = _screen_report([
@@ -701,7 +704,7 @@ func _verify_tactical_cards(resolution: Vector2i) -> Dictionary:
 
 
 func _validate_selector(selector: BattleSelector, viewport_rect: Rect2) -> void:
-	if selector == null or selector.get_selectable_battle_count() != 4:
+	if selector == null or selector.get_selectable_battle_count() != 5:
 		_fail("operation selector did not expose four battles")
 		return
 	for control in [

@@ -69,7 +69,7 @@ func _ready() -> void:
 		battle_feedback_director = get_node_or_null("BattleFeedbackDirector") as BattleFeedbackDirector
 	var viewport := get_viewport()
 	if viewport != null and not viewport.size_changed.is_connected(_apply_grey_ridge_hud_layout):
-		viewport.size_changed.connect(_apply_grey_ridge_hud_layout)
+		viewport.size_changed.connect(_apply_grey_ridge_hud_layout, CONNECT_DEFERRED)
 	if not prebattle_planner.visibility_changed.is_connected(_update_grey_ridge_panel_visibility):
 		prebattle_planner.visibility_changed.connect(_update_grey_ridge_panel_visibility)
 	if overlay_controls != null and not overlay_controls.layer_visibility_changed.is_connected(_on_overlay_visibility_changed):
@@ -130,7 +130,8 @@ func _ready() -> void:
 	if contact_alert != null and not simulation_host.command_evaluated.is_connected(contact_alert.show_command_result):
 		simulation_host.command_evaluated.connect(contact_alert.show_command_result)
 	if battle_feedback_director != null:
-		battle_feedback_director.reset(simulation_host.world.events.size())
+		battle_feedback_director.reset(simulation_host.get_published_events().size())
+		world_presentation.reset_art_feedback(simulation_host.get_published_events().size())
 		if not battle_feedback_director.feedback_emitted.is_connected(contact_alert.show_battle_feedback):
 			battle_feedback_director.feedback_emitted.connect(contact_alert.show_battle_feedback)
 		if not battle_feedback_director.effect_requested.is_connected(world_presentation.play_battle_feedback_effect):
@@ -158,10 +159,12 @@ func _open_pause_menu() -> void:
 func _configure_scenario_ui() -> void:
 	var is_grey_ridge := SimulationWorld.is_card_battle_kind(simulation_host.scenario_kind)
 	battlefield.scenario_kind = simulation_host.scenario_kind
-	battlefield.battle_definition = simulation_host.world.battle_definition
-	battlefield.logic_grid = simulation_host.world.logic_grid
-	minimap.logic_grid = simulation_host.world.logic_grid
-	var world_rect := simulation_host.world.battle_definition.battlefield_bounds if simulation_host.world.battle_definition != null else SimulationWorld.BATTLEFIELD_BOUNDS
+	battlefield.map_definition = simulation_host.get_battle_definition().map_definition if simulation_host.get_battle_definition() != null else null
+	battlefield.battle_definition = simulation_host.get_battle_definition()
+	battlefield.map_definition = battlefield.battle_definition.map_definition if battlefield.battle_definition != null else null
+	battlefield.logic_grid = simulation_host.get_presentation_grid()
+	minimap.logic_grid = simulation_host.get_presentation_grid()
+	var world_rect := simulation_host.get_battle_definition().battlefield_bounds if simulation_host.get_battle_definition() != null else SimulationWorld.BATTLEFIELD_BOUNDS
 	camera_controller.set_world_rect(world_rect)
 	minimap.set_world_rect(world_rect)
 	battlefield.queue_redraw()
@@ -184,8 +187,8 @@ func _configure_scenario_ui() -> void:
 	if not is_grey_ridge:
 		camera_controller.clear_active_screen_rect()
 		return
-	camera_controller.position = logic_grid_position(Vector2i(48, 45))
-	camera_controller.zoom = Vector2.ONE * 0.75
+	camera_controller.position = battlefield.map_definition.cell_to_world(battlefield.map_definition.camera_start_cell) if battlefield.map_definition != null else logic_grid_position(Vector2i(48, 45))
+	camera_controller.zoom = Vector2.ONE * (0.45 if battlefield.map_definition != null else 0.75)
 	var layout := task_panel.get_node("Margin/Layout")
 	for node_name in ["OperationsSeparator", "Operations", "ProductionSeparator", "ProductionSection"]:
 		var section := layout.get_node_or_null(node_name) as CanvasItem
@@ -232,7 +235,8 @@ func _apply_grey_ridge_hud_layout() -> void:
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
 	var planning := prebattle_planner != null and prebattle_planner.visible
-	var layout_signature := "%s:%s:%s:%s:%s" % [viewport_size, planning, tutorial_panel.visible, TranslationServer.get_locale(), army_board._content_signature]
+	var overview_height := army_board.get_overview_height(0.0) if army_board.battlegroup_overview else 0.0
+	var layout_signature := "%s:%s:%s:%s:%s:%s" % [viewport_size, planning, tutorial_panel.visible, TranslationServer.get_locale(), army_board._content_signature, overview_height]
 	if layout_signature == _hud_layout_signature and _grey_ridge_fitted_map_rect.has_area():
 		return
 	_hud_layout_signature = layout_signature
@@ -247,7 +251,10 @@ func _apply_grey_ridge_hud_layout() -> void:
 	_update_tutorial_layout()
 	camera_controller.set_active_screen_rect(_grey_ridge_map_rect)
 	if not _grey_ridge_fitted_map_rect.is_equal_approx(_grey_ridge_map_rect):
-		camera_controller.fit_world_in_screen_rect(_grey_ridge_map_rect)
+		if battlefield.map_definition == null:
+			camera_controller.fit_world_in_screen_rect(_grey_ridge_map_rect)
+		else:
+			camera_controller.clamp_to_bounds()
 		_grey_ridge_fitted_map_rect = _grey_ridge_map_rect
 	else:
 		camera_controller.clamp_to_bounds()
@@ -266,8 +273,10 @@ func _apply_grey_ridge_desktop_layout(viewport_size: Vector2) -> void:
 	_set_grey_ridge_compact_panels(false)
 	var margin := GREY_RIDGE_OUTER_MARGIN
 	var gap := GREY_RIDGE_GUTTER
-	var left_width := 180.0
-	var right_width := clampf(viewport_size.x * 0.28, 340.0, 480.0)
+	var large_battle := battlefield.map_definition != null
+	army_board.battlegroup_overview = large_battle
+	var left_width := 240.0 if large_battle else 180.0
+	var right_width := 300.0 if large_battle else clampf(viewport_size.x * 0.28, 340.0, 480.0)
 	var right_left := viewport_size.x - margin - right_width
 	var center_left := margin + left_width + gap
 	var center_width := right_left - gap - center_left
@@ -284,6 +293,7 @@ func _apply_grey_ridge_desktop_layout(viewport_size: Vector2) -> void:
 
 
 func _apply_grey_ridge_narrow_layout(viewport_size: Vector2) -> void:
+	army_board.battlegroup_overview = battlefield.map_definition != null
 	_set_narrow_header_typography(true)
 	_set_grey_ridge_compact_panels(true)
 	var margin := 8.0
@@ -292,6 +302,23 @@ func _apply_grey_ridge_narrow_layout(viewport_size: Vector2) -> void:
 	var upper_height := viewport_size.y - margin * 2.0 - card_height - gap
 	var right_width := maxf(248.0, viewport_size.x * 0.46)
 	var left_width := viewport_size.x - margin * 2.0 - gap - right_width
+	if battlefield.map_definition != null:
+		var map_height := upper_height * 0.52
+		var control_top := margin + map_height + gap
+		var control_height := upper_height - map_height - gap
+		_grey_ridge_map_rect = Rect2(margin, margin, viewport_size.x - margin * 2.0, map_height)
+		_set_hud_rect(map_frame, _grey_ridge_map_rect)
+		_set_hud_rect(task_panel, Rect2(margin + left_width + gap, control_top, right_width, control_height))
+		_set_hud_rect(army_board, Rect2(margin, margin + upper_height + gap, viewport_size.x - margin * 2.0, card_height))
+		for panel in [support_panel, minimap, army_board]:
+			panel.custom_minimum_size = Vector2.ZERO
+			panel.clip_contents = true
+		var minimap_height := minf(96.0, control_height * 0.35)
+		_set_hud_rect(support_panel, Rect2(margin, control_top, left_width, control_height - minimap_height - gap))
+		_set_hud_rect(minimap, Rect2(margin, control_top + control_height - minimap_height, left_width, minimap_height))
+		minimap.visible = true
+		_layout_pause_button()
+		return
 	_set_hud_rect(task_panel, Rect2(margin + left_width + gap, margin, right_width, upper_height))
 	_set_hud_rect(army_board, Rect2(margin, margin + upper_height + gap, viewport_size.x - margin * 2.0, card_height))
 	for panel in [support_panel, minimap, army_board]:
@@ -580,25 +607,37 @@ func _on_scenario_restarted(_snapshot: WorldSnapshot) -> void:
 	_visible_hostile_ids.clear()
 	_last_contact_alert_tick.clear()
 	if battle_feedback_director != null:
-		battle_feedback_director.reset(simulation_host.world.events.size())
+		battle_feedback_director.reset(simulation_host.get_published_events().size())
+		world_presentation.reset_art_feedback(simulation_host.get_published_events().size())
 	_grey_ridge_fitted_map_rect = Rect2()
-	battlefield.battle_definition = simulation_host.world.battle_definition
-	battlefield.logic_grid = simulation_host.world.logic_grid
-	minimap.logic_grid = simulation_host.world.logic_grid
-	var world_rect := simulation_host.world.battle_definition.battlefield_bounds if simulation_host.world.battle_definition != null else SimulationWorld.BATTLEFIELD_BOUNDS
+	battlefield.battle_definition = simulation_host.get_battle_definition()
+	battlefield.map_definition = battlefield.battle_definition.map_definition if battlefield.battle_definition != null else null
+	battlefield.logic_grid = simulation_host.get_presentation_grid()
+	minimap.logic_grid = simulation_host.get_presentation_grid()
+	var world_rect := simulation_host.get_battle_definition().battlefield_bounds if simulation_host.get_battle_definition() != null else SimulationWorld.BATTLEFIELD_BOUNDS
 	camera_controller.set_world_rect(world_rect)
 	minimap.set_world_rect(world_rect)
 	battlefield.queue_redraw()
 	minimap.queue_redraw()
 	battlefield_overlay.set_situation(null)
-	camera_controller.position = logic_grid_position(Vector2i(48, 45))
-	camera_controller.zoom = Vector2.ONE * 0.75
+	camera_controller.position = battlefield.map_definition.cell_to_world(battlefield.map_definition.camera_start_cell) if battlefield.map_definition != null else logic_grid_position(Vector2i(48, 45))
+	camera_controller.zoom = Vector2.ONE * (0.45 if battlefield.map_definition != null else 0.75)
 
 
 func _process(delta: float) -> void:
+	var measure_start := RuntimeMeasurement.begin()
+	_process_measured(delta)
+	RuntimeMeasurement.end(&"frame.root_usec", measure_start)
+
+
+func _process_measured(delta: float) -> void:
 	_update_unit_presentation_for_zoom()
+	var measure_selection := RuntimeMeasurement.begin()
 	input_controller.prune_selection()
+	RuntimeMeasurement.end(&"frame.selection_usec",measure_selection)
+	var measure_handoff := RuntimeMeasurement.begin()
 	_update_control_handoff_hint()
+	RuntimeMeasurement.end(&"frame.handoff_usec",measure_handoff)
 	world_presentation.set_snapshots(
 		simulation_host.previous_snapshot,
 		simulation_host.current_snapshot,
@@ -611,31 +650,51 @@ func _process(delta: float) -> void:
 	var snapshot_changed := snapshot != null and snapshot.tick != _last_ui_snapshot_tick and _pending_ui_snapshot == null
 	if snapshot_changed:
 		_last_ui_snapshot_tick = snapshot.tick
+		battlefield.logic_grid = simulation_host.get_presentation_grid()
+		minimap.logic_grid = battlefield.logic_grid
+		var measure_feedback := RuntimeMeasurement.begin()
 		if battle_feedback_director != null:
-			battle_feedback_director.process_events(simulation_host.world.events, snapshot)
+			battle_feedback_director.process_events(simulation_host.get_published_events(), snapshot)
+		RuntimeMeasurement.end(&"frame.feedback_usec",measure_feedback)
+		measure_feedback = RuntimeMeasurement.begin()
+		world_presentation.consume_art_events(simulation_host.get_published_events(), snapshot)
+		RuntimeMeasurement.end(&"frame.art_events_usec",measure_feedback)
+		measure_feedback = RuntimeMeasurement.begin()
 		_process_new_contacts(snapshot)
+		RuntimeMeasurement.end(&"frame.contacts_usec",measure_feedback)
 		_pending_ui_snapshot = snapshot
 		_pending_ui_phase = 0
 	# Leave the authoritative tick frame free of expensive HUD projection/layout.
 	if not snapshot_changed:
 		_advance_pending_ui_refresh()
+	var measure_hover := RuntimeMeasurement.begin()
 	_update_hover_tooltip(delta)
+	RuntimeMeasurement.end(&"frame.hover_usec",measure_hover)
 
 
 func _update_unit_presentation_for_zoom() -> void:
 	var is_card_battle := SimulationWorld.is_card_battle_kind(simulation_host.scenario_kind)
-	world_presentation.set_unit_labels_visible(not is_card_battle or camera_controller.zoom.x >= 0.42)
+	world_presentation.set_unit_labels_visible(not is_card_battle or (battlefield.map_definition == null and camera_controller.zoom.x >= 0.42))
 
 
 func _advance_pending_ui_refresh() -> void:
+	var measure_start := RuntimeMeasurement.begin()
+	var phase := _pending_ui_phase
+	_advance_pending_ui_refresh_measured()
+	if phase >= 0: RuntimeMeasurement.end(StringName("hud.phase_%d_usec" % phase), measure_start)
+
+
+func _advance_pending_ui_refresh_measured() -> void:
 	if _pending_ui_snapshot == null or _pending_ui_phase < 0:
 		return
 	match _pending_ui_phase:
 		0:
-			_pending_situation = _project_situation(_pending_ui_snapshot)
-			_pending_command_situation = _command_situation_projector.project(
-				_pending_ui_snapshot, _pending_situation, SimulationWorld.LOCAL_PLAYER_ID
-			) if _pending_situation != null else null
+			_pending_situation = null
+			_pending_command_situation = null
+			if SimulationWorld.is_card_battle_kind(simulation_host.scenario_kind):
+				var view := simulation_host.get_presentation_view(_pending_ui_snapshot)
+				_pending_situation = view.situation
+				_pending_command_situation = view.command_situation
 		1:
 			command_desk.update_command_situation(_pending_ui_snapshot, _pending_command_situation)
 		2:
@@ -648,11 +707,21 @@ func _advance_pending_ui_refresh() -> void:
 			minimap.set_situation(_pending_situation)
 			minimap.set_state(_pending_ui_snapshot, camera_controller, input_controller.selected_entity_ids)
 		3:
+			var measure_task := RuntimeMeasurement.begin()
 			task_panel.update_snapshot(_pending_ui_snapshot)
+			RuntimeMeasurement.end(&"hud.task_usec",measure_task)
+			var measure_workflow := RuntimeMeasurement.begin()
 			workflow_panel.update_snapshot(_pending_ui_snapshot)
+			RuntimeMeasurement.end(&"hud.workflow_usec",measure_workflow)
+			var measure_support := RuntimeMeasurement.begin()
 			support_panel.update_snapshot(_pending_ui_snapshot)
+			RuntimeMeasurement.end(&"hud.support_usec",measure_support)
+			var measure_army := RuntimeMeasurement.begin()
 			army_board.update_snapshot(_pending_ui_snapshot)
+			RuntimeMeasurement.end(&"hud.army_usec",measure_army)
+			var measure_layout := RuntimeMeasurement.begin()
 			_apply_grey_ridge_hud_layout()
+			RuntimeMeasurement.end(&"hud.layout_usec",measure_layout)
 			if debug_layer.visible:
 				debug_layer.update_status(
 					_pending_ui_snapshot,
@@ -678,7 +747,7 @@ func _advance_pending_ui_refresh() -> void:
 func _project_situation(snapshot: WorldSnapshot) -> BattlefieldSituationSnapshot:
 	if snapshot == null or simulation_host == null or not SimulationWorld.is_card_battle_kind(simulation_host.scenario_kind):
 		return null
-	var battle := simulation_host.world.battle_definition
+	var battle := simulation_host.get_battle_definition()
 	var bounds := battle.battlefield_bounds if battle != null else SimulationWorld.BATTLEFIELD_BOUNDS
 	var base_interval := battle.base_supply_interval_ticks if battle != null else BattlefieldSituationProjector.DEFAULT_BASE_SUPPLY_INTERVAL_TICKS
 	var region_interval := battle.region_settlement_interval_ticks if battle != null else BattlefieldSituationProjector.DEFAULT_REGION_SETTLEMENT_INTERVAL_TICKS
@@ -686,7 +755,7 @@ func _project_situation(snapshot: WorldSnapshot) -> BattlefieldSituationSnapshot
 	if battle != null:
 		for support in battle.support_abilities:
 			support_costs[String(support.support_id)] = support.supply_cost
-	return _situation_projector.project(snapshot, SimulationWorld.LOCAL_PLAYER_ID, bounds, base_interval, region_interval, support_costs)
+	return _situation_projector.project(snapshot, SimulationWorld.LOCAL_PLAYER_ID, bounds, base_interval, region_interval, support_costs, battle.base_supply_amount if battle != null else 1)
 
 
 func _on_overlay_visibility_changed(frontlines: bool, tasks: bool, threats: bool, intelligence: bool) -> void:

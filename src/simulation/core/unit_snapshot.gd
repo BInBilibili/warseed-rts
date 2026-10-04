@@ -1,6 +1,17 @@
 class_name UnitSnapshot
 extends RefCounted
 
+var hero_commander_id: StringName
+var scout_capture_allowed := false
+var hero_lane_id: StringName
+var legion_returning: bool
+var reformation_phase: int = LegionReformationState.Phase.SOLID
+var reformation_deadline_tick := -1
+var reformation_separating_since_tick := -1
+var reformation_damage_multiplier := 1.0
+var deployment_progress := 0.0
+var move_speed := 0.0
+var reinforced_until_tick: int = -1
 var entity_id: int
 var position: Vector2
 var move_target: Vector2
@@ -65,6 +76,7 @@ var terrain_kind: UnitState.TerrainKind
 var terrain_effect_key: StringName
 var intel_freshness: float = 1.0
 var damage_tag: int = TacticalWeaponDefinition.DamageTag.KINETIC
+var using_fallback_weapon: bool = false
 var target_tag: int = TacticalWeaponDefinition.TargetTag.LIGHT
 var ammunition_capacity: int = 0
 var ammunition: int = 0
@@ -72,19 +84,40 @@ var minimum_attack_range: float = 0.0
 var weapon_reason_key: StringName = &"TACTICAL_READY"
 
 
-func _init(unit: UnitState = null, contact: KnowledgeContact = null) -> void:
+func _init(unit: UnitState = null, contact: KnowledgeContact = null, logistics_only: bool = false) -> void:
 	if contact != null:
 		_apply_contact(contact)
 		return
+	if logistics_only:
+		entity_id = unit.entity_id
+		faction_id = unit.faction_id
+		position = unit.position
+		enabled = unit.enabled
+		is_visible_to_local_player = true
+		return
+	move_speed = unit.move_speed
+	deployment_progress = clampf(float(unit.weapon_prepared_ticks) / maxf(1, unit.weapon_preparation_ticks), 0, 1) if unit.weapon_preparation_ticks > 0 and not unit.using_fallback_weapon else 0.0
+	if not unit.hero_commander_id.is_empty(): deployment_progress = 0.0 if unit.has_move_target else 1.0
+	reinforced_until_tick = unit.reinforced_until_tick
+	hero_commander_id = unit.hero_commander_id
+	scout_capture_allowed = unit.scout_capture_allowed
+	hero_lane_id = unit.hero_lane_id
+	legion_returning = unit.legion_returning
+	if unit.reformation!=null:
+		reformation_phase=unit.reformation.phase
+		if unit.reformation.forced_overlap and reformation_phase==LegionReformationState.Phase.SOLID: reformation_phase=LegionReformationState.Phase.SEPARATING
+		reformation_deadline_tick=unit.reformation.deadline_tick
+		reformation_separating_since_tick=unit.reformation.separating_since_tick
+		reformation_damage_multiplier=LegionReformationSystem.damage_factor(unit)
 	entity_id = unit.entity_id
 	position = unit.position
 	move_target = unit.move_target
-	path = unit.path.duplicate()
-	if unit.has_move_target and not path.is_empty():
-		var snapshot_path_index := clampi(unit.path_index - 1, 0, path.size() - 1)
-		path = path.slice(snapshot_path_index)
-		if not path.is_empty():
-			path[0] = unit.position
+	if unit.has_move_target and not unit.path.is_empty():
+		var snapshot_path_index := clampi(unit.path_index - 1, 0, unit.path.size() - 1)
+		path = unit.path.slice(snapshot_path_index)
+		path[0] = unit.position
+	else:
+		path = unit.path.duplicate()
 	is_moving = unit.has_move_target
 	controller_id = unit.controller_id
 	enabled = unit.enabled
@@ -144,6 +177,7 @@ func _init(unit: UnitState = null, contact: KnowledgeContact = null) -> void:
 	terrain_kind = unit.terrain_kind
 	terrain_effect_key = unit.terrain_effect_key
 	damage_tag = unit.damage_tag
+	using_fallback_weapon = unit.using_fallback_weapon
 	target_tag = unit.target_tag
 	ammunition_capacity = unit.ammunition_capacity
 	ammunition = unit.ammunition

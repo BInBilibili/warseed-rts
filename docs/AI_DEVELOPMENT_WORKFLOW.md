@@ -8,7 +8,7 @@
 > 实时状态：[`AI_DEVELOPMENT_STATE.md`](AI_DEVELOPMENT_STATE.md)
 > 目标命令：[`AI_GOAL_COMMANDS.md`](AI_GOAL_COMMANDS.md)
 > 当前路线：[`GAMEPLAY_REWORK_ROADMAP.md`](GAMEPLAY_REWORK_ROADMAP.md)
-> 架构参考：[`EXPANSION_IMPLEMENTATION_ROADMAP.md`](EXPANSION_IMPLEMENTATION_ROADMAP.md)
+> 架构参考：[`archive/design/EXPANSION_IMPLEMENTATION_ROADMAP.md`](archive/design/EXPANSION_IMPLEMENTATION_ROADMAP.md)
 > 代理分工：[`AI_AGENT_PLAYBOOK.md`](AI_AGENT_PLAYBOOK.md)；委派契约：[`AI_DELEGATION_TEMPLATE.md`](AI_DELEGATION_TEMPLATE.md)
 
 ## 1. 工作流目的
@@ -29,7 +29,7 @@ AI 必须按以下优先级判断事实：
 
 1. 当前代码、`.tres` 数据、场景和自动测试：决定“现在实际怎样运行”；
 2. `DECISIONS.md` 中 Accepted 决策：决定不可绕过的产品与技术边界；
-3. `PRODUCT_VISION.md`、`GAME_DESIGN_DOCUMENT.md`：决定核心体验；
+3. `PRODUCT_VISION.md`、`archive/design/GAME_DESIGN_DOCUMENT.md`：决定核心体验；
 4. `AI_DEVELOPMENT_STATE.md`：决定当前阶段、门禁和任务状态；
 5. 本工作流：决定任务执行方式；
 6. 扩充规格、战役圣经和实施路线图：决定目标设计；
@@ -42,12 +42,12 @@ AI 必须按以下优先级判断事实：
 - 核心玩法是“常驻军团卡牌 + 将领 Agent + 部队卡级直接控制”；
 - 卡牌不抽取、不洗牌，不引入随机手牌和卡包稀有度；
 - 玩家与 Agent 使用相同命令、资源、视野和战斗规则；
-- 玩家接管优先，只有明确归还后 Agent 才恢复控制；2026-09-10 用户明确要求将新的玩家将领执行决策、路线和姿态视为交还该将领部队的授权，后台 Agent 更新仍不得抢回控制；
+- 玩家接管优先；旧四关按明确归还或 2026-09-10 授权的玩家将领决策/路线/姿态恢复控制。最终决战按 D-040 和 [执行契约](PLAYER_AI_CONTROL_CONTRACT_20261004.md)持续持有将领意图及整卡控制，取消转坚守，显式交还才恢复自主；D-036计时交还仅为历史。入队不改权威状态，应用前复验硬规则和授权版本；
 - 敌方开局计划在读取玩家本局行为前锁定，后续反应只读取合法阵营知识；
 - `SimulationWorld` 只保留权威顺序、状态所有权和系统协调，不继续吸收关卡特判；
 - 内容使用稳定 ID、typed Resource、加载验证和显式迁移；
 - 战中只有 `Supply` 是可消费货币，人口、组织和弹药是约束或状态；
-- 近期正式内容以 60-80 个活跃实体为硬门；
+- 60-80 实体是旧四关基准；D-030 至 D-037 已接受最终决战五团每方 300 士兵加 5 将领、双方峰值 610 的内容范围。下文历史规模表不覆盖该范围，性能通过要求按 D-028 暂缓，其他验证不取消；
 - 核心战斗完全离线，不以 LLM 或网络服务作为运行依赖。
 
 ## 4. 角色与权限
@@ -222,7 +222,7 @@ depends_on:
   - WS-R0-006
 source_documents:
   - docs/EXPANSION_SYSTEMS_AND_CONTENT_SPEC.md
-  - docs/EXPANSION_IMPLEMENTATION_ROADMAP.md
+  - docs/archive/design/EXPANSION_IMPLEMENTATION_ROADMAP.md
 current_evidence:
   - path and exact fact proving current behavior
 in_scope:
@@ -326,7 +326,7 @@ git diff --check
 | WS-R1-007 | 建立撤离结果测试场景 | content_test | R1-005 | 有序撤离与失败能稳定区分 |
 | WS-R1-008 | 运行 R1 阶段出口 | verification | R1-006、R1-007 | 四关无回归、非总部结局、发布门全部通过 |
 
-R0真人工作项由D-026取消，R1/R2/R3已完成，D-021/D-022已接受。当前R4具体队列与用户暂停以 `AI_DEVELOPMENT_STATE.md` 为准，只有明确恢复后才继续原目标。R4以后按 `GAMEPLAY_REWORK_ROADMAP.md` 的依赖生成同格式工作项，不能合并整个阶段为巨型任务，也不能重新请求已接受的产品决定。
+R0 真人工作项由 D-026 取消，R1–R5 已完成并接受，D-021/D-022 已接受。上述队列保留历史依赖含义，不再领取；旧 R4 暂停已经结束。当前活动维护和下一任务以 `AI_DEVELOPMENT_STATE.md` 为准，R6/R7 未开始。未来工作按 `GAMEPLAY_REWORK_ROADMAP.md` 的依赖生成同格式工作项，不能合并整个阶段为巨型任务，也不能重新请求已接受的产品决定。
 
 ## 12. 阶段出口判定
 

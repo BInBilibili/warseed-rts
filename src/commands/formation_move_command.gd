@@ -7,6 +7,8 @@ var route_points: PackedVector2Array = PackedVector2Array()
 var deployment_line_start: Vector2
 var deployment_line_end: Vector2
 var has_deployment_line: bool = false
+var deployment_facing := Vector2.ZERO
+var allow_compression := true
 
 
 func _init(
@@ -35,3 +37,18 @@ func get_supersession_key() -> String:
 	if formation_id == 0:
 		return super()
 	return "F%d" % formation_id
+
+
+func duplicate_value() -> FormationMoveCommand:
+	var result: FormationMoveCommand
+	if self is AttackMoveCommand:
+		result = AttackMoveCommand.new(command_id, issuer_id, issuer_kind, issued_tick, target_entity_id,
+			formation_id, target_position, route_points, deployment_line_start, deployment_line_end, has_deployment_line)
+	else:
+		result = FormationMoveCommand.new(command_id, issuer_id, issuer_kind, issued_tick, target_entity_id,
+			formation_id, target_position, route_points, deployment_line_start, deployment_line_end, has_deployment_line)
+	result.agent_id = agent_id
+	result.task_id = task_id
+	result.deployment_facing = deployment_facing
+	result.allow_compression = allow_compression
+	return result

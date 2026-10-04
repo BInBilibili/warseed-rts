@@ -2,6 +2,7 @@ class_name FormationSnapshot
 extends RefCounted
 
 var formation_id: int
+var legion_deployment: LegionDeploymentPlan
 var leader_entity_id: int
 var member_entity_ids: Array[int]
 var anchor_position: Vector2
@@ -21,6 +22,7 @@ var deployment_line_end: Vector2
 
 func _init(formation: FormationState) -> void:
 	formation_id = formation.formation_id
+	legion_deployment=formation.legion_deployment.duplicate_value() if formation.legion_deployment!=null else null
 	leader_entity_id = formation.leader_entity_id
 	member_entity_ids = formation.member_entity_ids.duplicate()
 	anchor_position = formation.anchor_position

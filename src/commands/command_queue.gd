@@ -5,16 +5,19 @@ var _commands: Array[GameCommand] = []
 
 
 func enqueue(command: GameCommand) -> void:
-	if _is_unit_order(command):
+	if _is_unit_order(command) and not command.preserve_queue_order:
 		var supersession_key := command.get_supersession_key()
 		for index in range(_commands.size() - 1, -1, -1):
 			var queued := _commands[index]
-			if not _is_unit_order(queued) or queued.get_supersession_key() != supersession_key:
+			if queued.preserve_queue_order or not _is_unit_order(queued) or queued.get_supersession_key() != supersession_key:
 				continue
 			if queued.get_priority() > command.get_priority():
+				RuntimeMeasurement.count("queue.suppressed")
 				return
+			RuntimeMeasurement.count("queue.replaced")
 			_commands.remove_at(index)
 			break
+	RuntimeMeasurement.count("queue.enqueued")
 	_commands.append(command)
 
 
@@ -39,6 +42,7 @@ func remove_if(predicate: Callable) -> int:
 		if predicate.call(_commands[index]):
 			_commands.remove_at(index)
 			removed += 1
+	RuntimeMeasurement.count("queue.cancelled", removed)
 	return removed
 
 

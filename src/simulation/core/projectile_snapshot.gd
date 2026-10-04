@@ -8,6 +8,8 @@ var faction_id: int
 var position: Vector2
 var speed: float
 var attack_power: float
+var weapon_mode: int = 0
+var damage_multiplier: float = 1.0
 
 
 func _init(projectile: ProjectileState) -> void:
@@ -18,3 +20,5 @@ func _init(projectile: ProjectileState) -> void:
 	position = projectile.position
 	speed = projectile.speed
 	attack_power = projectile.attack_power
+	weapon_mode = projectile.weapon_mode
+	damage_multiplier = projectile.damage_multiplier

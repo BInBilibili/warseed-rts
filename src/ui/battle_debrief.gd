@@ -72,7 +72,7 @@ func show_debrief(record: Dictionary) -> void:
 
 func refresh_locale() -> void:
 	_resolve_nodes()
-	var battle_name := GameText.t(simulation_host.world.battle_definition.display_name_key) if simulation_host != null and simulation_host.world != null and simulation_host.world.battle_definition != null else GameText.t(&"GREY_RIDGE_TITLE")
+	var battle_name := GameText.t(simulation_host.get_battle_definition().display_name_key) if simulation_host != null and simulation_host.get_battle_definition() != null else GameText.t(&"GREY_RIDGE_TITLE")
 	$Backdrop/Panel/Margin/Layout/Title.text = GameText.t(&"DEBRIEF_TITLE") % battle_name
 	$Backdrop/Panel/Margin/Layout/Columns/Card.text = GameText.t(&"DEBRIEF_COLUMN_CARD")
 	$Backdrop/Panel/Margin/Layout/Columns/Strength.text = GameText.t(&"DEBRIEF_COLUMN_STRENGTH")
@@ -125,6 +125,9 @@ func _refresh() -> void:
 	if result_key == "victory":
 		result_label.text = GameText.t(&"GREY_RIDGE_VICTORY")
 		result_label.modulate = Color(0.42, 0.86, 0.68)
+	elif result_key == "draw":
+		result_label.text = GameText.t(&"BATTLE_OUTCOME_DRAW")
+		result_label.modulate = Color(0.7, 0.8, 0.86)
 	elif result_key == "ordered_withdrawal":
 		result_label.text = GameText.t(&"BATTLE_OUTCOME_ORDERED_WITHDRAWAL")
 		result_label.modulate = Color(0.88, 0.76, 0.38)
@@ -139,6 +142,8 @@ func _refresh() -> void:
 		int(_record.get("campaign_days", 0)),
 	]
 	_refresh_playtest_summary()
+	if simulation_host != null and simulation_host.get_battle_definition() != null and simulation_host.get_battle_definition().growth_mode:
+		summary_label.text = GameText.t(&"GROWTH_MATCH_HELP")
 	_review = null
 	if simulation_host != null:
 		var source_report := simulation_host.get_gameplay_observability_report()
@@ -413,6 +418,8 @@ func _create_card_row(card_id: StringName, card_record: Dictionary) -> Control:
 	strength_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	strength_label.add_theme_color_override("font_color", Color(0.72, 0.79, 0.76))
 	row.add_child(strength_label)
+	if simulation_host != null and simulation_host.get_battle_definition() != null and simulation_host.get_battle_definition().growth_mode:
+		return row
 
 	var actions := BoxContainer.new()
 	actions.vertical = _compact_actions

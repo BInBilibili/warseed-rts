@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="MapContentCatalog" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/data/map_content_catalog.gd" id="1"]
+[ext_resource type="Resource" path="res://data/maps/final_decision.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+maps = Array[ExtResource("2")]([ExtResource("2")])

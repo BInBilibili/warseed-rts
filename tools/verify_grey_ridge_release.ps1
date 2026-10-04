@@ -138,6 +138,10 @@ Write-Host "Session: $SessionId"
 Invoke-ExternalStep "Editor import" $godot @("--headless", "--editor", "--path", $repositoryRoot, "--quit")
 Invoke-ExternalStep "Godot test suites" $godot @("--headless", "--path", $repositoryRoot, "--script", "res://tests/test_runner.gd")
 Invoke-ExternalStep "Godot test suites with isolated session" $godot @("--headless", "--path", $repositoryRoot, "--script", "res://tests/test_runner.gd", "--", "--playtest-session=$SessionId")
+[IO.Directory]::CreateDirectory((Join-Path $repositoryRoot "artifacts\control-contract")) | Out-Null
+Invoke-ExternalStep "Final battle player intent authority" $godot @("--headless", "--path", $repositoryRoot, "--script", "res://tests/tools/player_intent_authority_contract.gd", "--", "--output=res://artifacts/control-contract/$SessionId-authority.json")
+Invoke-ExternalStep "Final battle authority boundaries" $godot @("--headless", "--path", $repositoryRoot, "--script", "res://tests/tools/player_intent_authority_boundaries.gd", "--", "--output=res://artifacts/control-contract/$SessionId-boundaries.json")
+Invoke-ExternalStep "Final battle authority UI" $godot @("--headless", "--path", $repositoryRoot, "--script", "res://tests/tools/player_intent_authority_ui.gd", "--", "--output=res://artifacts/control-contract/$SessionId-ui.json")
 Invoke-ExternalStep "Legacy vertical-slice smoke" $godot @("--headless", "--path", $repositoryRoot, "--script", "res://tests/vertical_slice_smoke.gd")
 Invoke-ExternalStep "Grey Ridge smoke" $godot @("--headless", "--path", $repositoryRoot, "--script", "res://tests/grey_ridge_smoke.gd")
 Invoke-ExternalStep "Grey Ridge decision matrix" $godot @("--headless", "--path", $repositoryRoot, "--script", "res://tests/scenarios/grey_ridge_decision_matrix.gd")
@@ -180,7 +184,8 @@ Invoke-ExternalStep "tests\tools\feedback_delivery_smoke.ps1" $powershell @(
 Invoke-ExternalStep "Windows debug export" $godot @(
     "--headless",
     "--path", $repositoryRoot,
-    "--export-debug", "Windows Desktop", $resolvedExportPath
+    "--export-debug", "Windows Desktop", $resolvedExportPath,
+    "--quit"
 )
 
 $exportPckPath = [IO.Path]::ChangeExtension($resolvedExportPath, ".pck")

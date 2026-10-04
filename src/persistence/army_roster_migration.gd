@@ -118,7 +118,11 @@ static func definition_mismatch(card: Dictionary, definition: UnitCardDefinition
 		return "composition entry set changed without a content migration"
 	for entry in entries:
 		var item: Dictionary = saved.get(String(entry.entry_id), {})
-		if item.is_empty() or item.get("unit_definition_id") != String(entry.unit_definition_id) or int(item.get("authorized_strength", -1)) != entry.authorized_count or int(item.get("replacement_priority", 0)) != entry.replacement_priority:
+		var saved_strength: Variant = item.get("authorized_strength", -1)
+		var count_matches := int(saved_strength) == entry.authorized_count
+		if definition.configurable_max_strength > 0 and definition.composition.is_empty():
+			count_matches = integer_in_range(saved_strength, 1, definition.configurable_max_strength)
+		if item.is_empty() or item.get("unit_definition_id") != String(entry.unit_definition_id) or not count_matches or int(item.get("replacement_priority", 0)) != entry.replacement_priority:
 			return "composition.%s does not match current content" % entry.entry_id
 	return ""
 

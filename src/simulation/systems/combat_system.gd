@@ -17,12 +17,12 @@ func advance(
 		if unit.enabled and unit.attack_cooldown_remaining_ticks > 0:
 			unit.attack_cooldown_remaining_ticks -= 1
 		if unit.enabled and unit.weapon_preparation_ticks > 0:
-			unit.weapon_prepared_ticks = 0 if unit.has_move_target else mini(unit.weapon_preparation_ticks, unit.weapon_prepared_ticks + 1)
+			unit.weapon_prepared_ticks = 0 if unit.has_move_target or not _emplacement_clear(unit,units) else mini(unit.weapon_preparation_ticks, unit.weapon_prepared_ticks + 1)
 
 	var projectile_id := next_projectile_id
 	for entity_id in entity_ids:
 		var attacker := units[entity_id] as UnitState
-		if not attacker.enabled or not attacker.can_attack or attacker.attack_target_entity_id == 0:
+		if attacker.legion_returning or not attacker.enabled or not attacker.can_attack or attacker.attack_target_entity_id == 0:
 			continue
 		var target_id := attacker.attack_target_entity_id
 		if not attacker.can_accept_attack_orders or attacker.organization_attack_restricted:
@@ -44,7 +44,7 @@ func advance(
 		if attacker.position.distance_squared_to(target_position) > attacker.attack_range * attacker.attack_range:
 			continue
 		attacker.weapon_reason_key = &"TACTICAL_READY"
-		if attacker.ammunition_capacity > 0 and attacker.ammunition <= 0:
+		if attacker.ammunition_capacity > 0 and attacker.ammunition <= 0 and not attacker.using_fallback_weapon:
 			attacker.weapon_reason_key = &"TACTICAL_NO_AMMO"
 			continue
 		if not attacker.weapon_action_ready:
@@ -53,7 +53,7 @@ func advance(
 		if attacker.identification_required and not attacker.target_identified:
 			attacker.weapon_reason_key = &"TACTICAL_NEEDS_IDENTIFICATION"
 			continue
-		if attacker.weapon_prepared_ticks < attacker.weapon_preparation_ticks:
+		if attacker.weapon_prepared_ticks < attacker.weapon_preparation_ticks or not _emplacement_clear(attacker,units):
 			attacker.weapon_reason_key = &"TACTICAL_PREPARING"
 			continue
 		if attacker.position.distance_squared_to(target_position) < attacker.minimum_attack_range * attacker.minimum_attack_range:
@@ -74,9 +74,17 @@ func advance(
 			current_tick
 		)
 		projectiles[projectile_id] = projectile
+		if attacker.fallback_weapon != null:
+			projectile.weapon_mode = 2 if attacker.using_fallback_weapon else 1
+		if attacker.primary_weapon != null and attacker.primary_weapon.health_only_damage:
+			projectile.weapon_mode = 1
+			projectile.health_only_damage = true
+		projectile.damage_multiplier = DualWeaponSystem.multiplier(attacker)
+		projectile.attack_power *= projectile.damage_multiplier
+		attacker.weapon_shots_fired += 1
 		projectile.damage_tag = attacker.damage_tag
 		projectile.suppression_power = attacker.suppression_power
-		if attacker.ammunition_capacity > 0:
+		if attacker.ammunition_capacity > 0 and not attacker.using_fallback_weapon:
 			attacker.ammunition -= 1
 		projectile_id += 1
 		attacker.attack_cooldown_remaining_ticks = attacker.attack_cooldown_ticks
@@ -120,6 +128,9 @@ func advance(
 		var projectile := projectiles[impact_id] as ProjectileState
 		if projectile.damage_tag == TacticalWeaponDefinition.DamageTag.SUPPRESSION:
 			amount = 0.0
+		var ordinary_damage := amount
+		var reformation_multiplier := LegionReformationSystem.damage_factor(units[target_id] as UnitState) if units.has(target_id) else 1.0
+		amount *= reformation_multiplier
 		if units.has(target_id) and projectile.suppression_power > 0.0:
 			(units[target_id] as UnitState).pending_suppression += projectile.suppression_power
 			var suppression_event := SimulationEvent.new(current_tick, SimulationEvent.Kind.SUPPRESSION_APPLIED, int(impact["source_id"]), "target=%d;amount=%.3f;damage_tag=suppression" % [target_id, projectile.suppression_power])
@@ -128,8 +139,14 @@ func advance(
 			events.append(suppression_event)
 		_apply_damage(target_id, amount, units, buildings)
 		var health_after := _entity_health(target_id, units, buildings)
+		if projectile.health_only_damage and units.has(target_id):
+			var target_unit := units[target_id] as UnitState
+			target_unit.pending_health_only_loss += maxf(0.0, health_before - health_after)
+			if health_before > 0.0 and is_zero_approx(health_after): target_unit.pending_health_only_death = true
 		events.append(SimulationEvent.new(current_tick, SimulationEvent.Kind.PROJECTILE_IMPACTED, target_id, "projectile=%d" % impact_id))
 		events.append(SimulationEvent.new(current_tick, SimulationEvent.Kind.DAMAGE_APPLIED, int(impact["source_id"]), "target=%d;amount=%.3f;remaining=%.3f" % [target_id, amount, health_after]))
+		if reformation_multiplier!=1.0:
+			events[-1].detail += ";ordinary=%.3f;reformation_multiplier=%.3f;health_loss=%.3f" % [ordinary_damage,reformation_multiplier,maxf(0.0,health_before-health_after)]
 		projectiles.erase(impact_id)
 		if health_before > 0.0 and is_zero_approx(health_after):
 			_disable_destroyed_target(target_id, units, buildings, current_tick)
@@ -140,6 +157,16 @@ func advance(
 				if attacker.attack_target_entity_id == target_id:
 					_clear_invalid_target(attacker, events, current_tick, "destroyed")
 	return projectile_id
+
+
+func _emplacement_clear(unit: UnitState, units: Dictionary) -> bool:
+	# Only the legion artillery contract requires a separated emplacement.
+	# Other weapons keep their existing ability to fire while moving.
+	if unit.tactical_role!=UnitState.TacticalRole.FIREPOWER or unit.reformation==null: return true
+	if unit.reformation.phase!=LegionReformationState.Phase.SOLID: return false
+	for other: UnitState in units.values():
+		if other.enabled and other.entity_id!=unit.entity_id and unit.position.distance_to(other.position)<LegionReformationSystem.policy.artillery_separation-0.01: return false
+	return true
 
 
 func _entity_exists(entity_id: int, units: Dictionary, buildings: Dictionary) -> bool:
@@ -211,6 +238,8 @@ func _disable_destroyed_target(entity_id: int, units: Dictionary, buildings: Dic
 	var unit := units[entity_id] as UnitState
 	unit.health = 0.0
 	unit.enabled = false
+	if unit.reformation!=null:
+		unit.reformation.end(current_tick,false,LegionReformationSystem.policy,&"REFORMATION_DEAD")
 	unit.death_tick = current_tick
 	unit.has_move_target = false
 	unit.path = PackedVector2Array()

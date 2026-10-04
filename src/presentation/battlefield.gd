@@ -3,8 +3,11 @@ extends Node2D
 
 const GRID_SIZE := LogicGrid.CELL_SIZE
 
-@export_enum("Legacy RTS", "Grey Ridge", "Broken Bridge", "Fog Forest", "Black Well") var scenario_kind: int = SimulationWorld.ScenarioKind.LEGACY_RTS
+@export_enum("Legacy RTS", "Grey Ridge", "Broken Bridge", "Fog Forest", "Black Well", "Final Decision") var scenario_kind: int = SimulationWorld.ScenarioKind.LEGACY_RTS
+@export var map_definition: MapDefinition
 
+var _terrain_art: WsTerrainArt
+var _terrain_map_instance_id := 0
 var logic_grid := LogicGrid.create_test_map()
 var battle_definition: BattleDefinition
 var _last_grid_revision: int = -1
@@ -17,6 +20,9 @@ var _last_route_battle_instance_id: int = 0
 
 
 func _ready() -> void:
+	if map_definition != null:
+		var host := get_parent().get_node_or_null("SimulationHost") as SimulationHost
+		logic_grid = host.get_presentation_grid() if host != null and host.get_presentation_grid() != null else LogicGrid.create_for_map(map_definition)
 	_ensure_blocked_batches()
 	_ensure_engineering_routes_root()
 	_rebuild_blocked_batches()
@@ -29,6 +35,10 @@ func refresh_locale() -> void:
 
 
 func _process(_delta: float) -> void:
+	var map_id := map_definition.get_instance_id() if map_definition != null else 0
+	if _terrain_map_instance_id != map_id:
+		refresh_terrain_art()
+		_terrain_map_instance_id = map_id
 	if logic_grid != null and (logic_grid.get_instance_id() != _last_grid_instance_id or logic_grid.revision != _last_grid_revision):
 		_rebuild_blocked_batches()
 		_last_grid_revision = logic_grid.revision
@@ -42,8 +52,10 @@ func _draw() -> void:
 	var bounds := get_battlefield_bounds()
 	draw_rect(bounds, Color("11181b"), true)
 	draw_rect(bounds, Color("182328"), true)
-	if SimulationWorld.is_card_battle_kind(scenario_kind):
+	if map_definition == null and SimulationWorld.is_card_battle_kind(scenario_kind):
 		_draw_battle_landmarks()
+	if map_definition != null:
+		return
 
 	var grid_color := Color(0.22, 0.32, 0.34, 0.32)
 	var x := bounds.position.x
@@ -171,7 +183,9 @@ func _rebuild_blocked_batches() -> void:
 	if logic_grid == null:
 		return
 	_ensure_blocked_batches()
-	var cells := logic_grid.get_blocked_cells()
+	var cells: Array[Vector2i] = []
+	if map_definition == null:
+		cells = logic_grid.get_blocked_cells()
 	for batch in [_blocked_outline_batch, _blocked_fill_batch]:
 		batch.multimesh.instance_count = cells.size()
 		for index in range(cells.size()):
@@ -181,7 +195,37 @@ func _rebuild_blocked_batches() -> void:
 
 
 func get_battlefield_bounds() -> Rect2:
+	if map_definition != null:
+		return map_definition.get_world_rect()
 	return battle_definition.battlefield_bounds if battle_definition != null else SimulationWorld.BATTLEFIELD_BOUNDS
+
+
+func _draw_declared_map_layout() -> void:
+	for lane in map_definition.lanes:
+		if lane == null or lane.route_points.size() < 2:
+			continue
+		for index in range(1, lane.route_points.size()):
+			draw_line(lane.route_points[index - 1], lane.route_points[index], Color(0.28, 0.38, 0.38, 0.8), float(lane.width_cells) * GRID_SIZE)
+			draw_line(lane.route_points[index - 1], lane.route_points[index], Color(0.42, 0.52, 0.5, 0.9), float(lane.width_cells) * GRID_SIZE - 10.0)
+	for connector in map_definition.connectors:
+		if connector == null or connector.route_points.size() < 2:
+			continue
+		for index in range(1, connector.route_points.size()):
+			draw_line(connector.route_points[index - 1], connector.route_points[index], Color(0.22, 0.29, 0.29, 0.85), float(connector.width_cells) * GRID_SIZE)
+	for region in map_definition.wild_regions:
+		if region == null:
+			continue
+		var size := Vector2(region.width_cells, region.depth_cells) * GRID_SIZE
+		draw_rect(Rect2(region.center - size * 0.5, size), Color(0.10, 0.22, 0.17, 0.72), true)
+		draw_rect(Rect2(region.center - size * 0.5, size), Color(0.28, 0.56, 0.38, 0.8), false, 8.0)
+	for point in map_definition.supply_points:
+		if point == null:
+			continue
+		var color := Color("3c9eff") if point.owner_faction_id == 1 else (Color("ef554d") if point.owner_faction_id == 2 else Color("e7c35d"))
+		var halo := color
+		halo.a = 0.28
+		draw_circle(point.position, 48.0 if point.is_base else 32.0, halo, true)
+		draw_circle(point.position, 48.0 if point.is_base else 32.0, color, false, 7.0)
 
 
 func _draw_battle_landmarks() -> void:
@@ -347,3 +391,32 @@ func _draw_forest_texture(zone_rect: Rect2) -> void:
 			draw_line(center + Vector2(0.0, 14.0), center + Vector2(0.0, 34.0), Color(0.36, 0.28, 0.18, 0.7), 5.0)
 			draw_circle(center, 21.0, Color(0.20, 0.49, 0.31, 0.48))
 			draw_circle(center + Vector2(13.0, 7.0), 14.0, Color(0.31, 0.61, 0.38, 0.35))
+
+
+func refresh_terrain_art() -> void:
+	if map_definition == null:
+		if _terrain_art != null:
+			_terrain_art.visible = false
+		return
+	if _terrain_art == null:
+		_terrain_art = WsTerrainArt.new()
+		_terrain_art.z_index = 0
+		add_child(_terrain_art)
+		move_child(_terrain_art, 0)
+	var paths: Array[PackedVector2Array] = []
+	var widths := PackedFloat32Array()
+	var clearings: Array[Rect2] = []
+	for lane in map_definition.lanes:
+		paths.append(lane.route_points)
+		widths.append(float(lane.width_cells) * LogicGrid.CELL_SIZE)
+	for connector in map_definition.connectors:
+		paths.append(connector.route_points)
+		widths.append(float(connector.width_cells) * LogicGrid.CELL_SIZE)
+	for wild in map_definition.wild_regions:
+		var size := Vector2(wild.width_cells, wild.depth_cells) * LogicGrid.CELL_SIZE
+		clearings.append(Rect2(wild.center - size * 0.5, size))
+	_terrain_art.supply_pads.clear()
+	for point in map_definition.supply_points:
+		_terrain_art.supply_pads.append(Vector3(point.position.x, point.position.y, 768.0 if point.is_base else point.radius))
+	_terrain_art.configure(map_definition.get_world_rect(), paths, widths, clearings)
+	_terrain_art.visible = true

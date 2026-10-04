@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/presentation/battlefield.gd" id="1"]
+[ext_resource type="Resource" path="res://data/maps/final_decision.tres" id="2"]
+
+[node name="FinalDecisionPreview" type="Node2D"]
+
+[node name="Battlefield" type="Node2D" parent="."]
+script = ExtResource("1")
+map_definition = ExtResource("2")

@@ -3,10 +3,19 @@ extends PopupPanel
 
 signal status_changed(message: String)
 
+var _large_mode := false
+var _advanced: CheckButton
+var _route_selectors: Array[OptionButton] = []
+var _route_labels: Array[Label] = []
 var host: SimulationHost
 var objective_selector: OptionButton
 var budget: SpinBox
 var risk: OptionButton
+var coordination: OptionButton
+var formation_choice: OptionButton
+var coordination_label: Label
+var formation_label: Label
+var cooperation_hint: Label
 var card_choices: GridContainer
 var plan_rows: GridContainer
 var status_label: Label
@@ -41,6 +50,7 @@ func open_plans(new_host: SimulationHost, objective_id: StringName) -> void:
 	if new_host == null or new_host.current_snapshot == null or not new_host.is_grey_ridge_battle_started():
 		return
 	host = new_host
+	_large_mode = host.get_battle_definition() != null and host.get_battle_definition().map_definition != null
 	_was_paused = host.is_tactical_paused()
 	host.set_tactical_paused(true)
 	generation_count = 0
@@ -96,6 +106,10 @@ func _build() -> void:
 	scroll.add_child(content)
 	execution_label = _label()
 	content.add_child(execution_label)
+	_advanced = CheckButton.new()
+	_advanced.text = GameText.t(&"STAFF_ADVANCED")
+	_advanced.toggled.connect(func(_enabled: bool) -> void: _update_detail_visibility())
+	content.add_child(_advanced)
 	var fields := GridContainer.new()
 	fields.columns = 2
 	content.add_child(fields)
@@ -106,6 +120,20 @@ func _build() -> void:
 	objective_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	objective_selector.item_selected.connect(_edited.unbind(1))
 	fields.add_child(objective_selector)
+	coordination_label = _label()
+	fields.add_child(coordination_label)
+	coordination = OptionButton.new()
+	coordination.fit_to_longest_item = false
+	coordination.item_selected.connect(_edited.unbind(1))
+	fields.add_child(coordination)
+	formation_label = _label()
+	fields.add_child(formation_label)
+	formation_choice = OptionButton.new()
+	formation_choice.fit_to_longest_item = false
+	formation_choice.item_selected.connect(_edited.unbind(1))
+	fields.add_child(formation_choice)
+	cooperation_hint = _label(12)
+	content.add_child(cooperation_hint)
 	budget_label = _label()
 	fields.add_child(budget_label)
 	budget = SpinBox.new()
@@ -120,6 +148,16 @@ func _build() -> void:
 	risk.fit_to_longest_item = false
 	risk.item_selected.connect(_edited.unbind(1))
 	fields.add_child(risk)
+	for i in range(3):
+		var route_label := _label()
+		route_label.text = GameText.t(&"STAFF_VIA") % (i + 1)
+		fields.add_child(route_label)
+		_route_labels.append(route_label)
+		var selector := OptionButton.new()
+		selector.fit_to_longest_item = false
+		selector.item_selected.connect(_edited.unbind(1))
+		fields.add_child(selector)
+		_route_selectors.append(selector)
 	cards_label = _label()
 	content.add_child(cards_label)
 	card_choices = GridContainer.new()
@@ -142,15 +180,39 @@ func _populate() -> void:
 	var regions := snapshot.strategic_regions.duplicate()
 	regions.sort_custom(func(a: StrategicRegionSnapshot, b: StrategicRegionSnapshot) -> bool: return String(a.region_id) < String(b.region_id))
 	for region in regions:
-		if not region.capturable or region.controller_faction_id == snapshot.observer_faction_id:
+		if not region.capturable or not _large_mode and region.controller_faction_id == snapshot.observer_faction_id:
 			continue
 		objective_selector.add_item(GameText.t(region.display_name_key))
 		objective_selector.set_item_metadata(objective_selector.item_count - 1, region.region_id)
 		if region.region_id == _request.objective_region_id:
 			objective_selector.select(objective_selector.item_count - 1)
+	for selector in _route_selectors:
+		selector.clear()
+		selector.add_item(GameText.t(&"STAFF_VIA_NONE"))
+		selector.set_item_metadata(0, &"")
+		for region in regions:
+			selector.add_item(GameText.t(region.display_name_key))
+			selector.set_item_metadata(selector.item_count - 1, region.region_id)
+	_advanced.button_pressed = false
+	if coordination.item_count > 0: coordination.select(0)
+	if formation_choice.item_count > 0: formation_choice.select(0)
+	_update_detail_visibility()
 	budget.set_value_no_signal(_request.max_supply_cost)
 	_clear_children(card_choices)
 	_choices.clear()
+	if _large_mode:
+		for commander in snapshot.commanders:
+			if commander.faction_id != snapshot.observer_faction_id:
+				continue
+			var choice := CheckBox.new()
+			choice.text = GameText.t(commander.display_name_key)
+			choice.button_pressed = true
+			choice.toggled.connect(_edited.unbind(1))
+			card_choices.add_child(choice)
+			for card_id in commander.subordinate_unit_card_ids:
+				if snapshot.get_unit_card(card_id).authorized_strength > 0:
+					_choices[card_id] = choice
+		return
 	var cards := snapshot.unit_cards.duplicate()
 	cards.sort_custom(func(a: UnitCardSnapshot, b: UnitCardSnapshot) -> bool: return String(a.definition_id) < String(b.definition_id))
 	for card in cards:
@@ -170,13 +232,26 @@ func _populate() -> void:
 func refresh_locale() -> void:
 	if title_label == null:
 		return
+	_advanced.text = GameText.t(&"STAFF_ADVANCED")
 	title_label.text = GameText.t(&"STAFF_TITLE")
-	subtitle_label.text = GameText.t(&"STAFF_COMPARE_HINT")
+	subtitle_label.text = GameText.t(&"STAFF_MAP_HINT" if _large_mode else &"STAFF_COMPARE_HINT")
 	objective_label.text = GameText.t(&"STAFF_OBJECTIVE")
 	budget_label.text = GameText.t(&"STAFF_BUDGET")
 	budget.tooltip_text = GameText.t(&"STAFF_BUDGET_HELP")
 	risk_label.text = GameText.t(&"STAFF_RISK_PREFERENCE")
-	cards_label.text = GameText.t(&"STAFF_ALLOWED_CARDS")
+	cards_label.text = GameText.t(&"STAFF_ALLOWED_GROUPS" if _large_mode else &"STAFF_ALLOWED_CARDS")
+	coordination_label.text = GameText.t(&"COOP_MODE")
+	formation_label.text = GameText.t(&"COOP_FORMATION")
+	var previous_mode := maxi(0, coordination.selected)
+	var previous_formation := maxi(0, formation_choice.selected)
+	coordination.clear()
+	formation_choice.clear()
+	for index in range(3):
+		coordination.add_item(GameText.t(StringName("COOP_MODE_%d" % index)))
+		formation_choice.add_item(GameText.t(StringName("COOP_FORMATION_%d" % index)))
+	coordination.select(previous_mode)
+	formation_choice.select(previous_formation)
+	cooperation_hint.text = GameText.t(&"COOP_HINT")
 	generate_button.text = GameText.t(&"STAFF_GENERATE")
 	reject_button.text = GameText.t(&"STAFF_REJECT")
 	var selected := maxi(0, risk.selected)
@@ -191,7 +266,7 @@ func refresh_locale() -> void:
 				objective_selector.set_item_text(index, GameText.t(region.display_name_key))
 		for id in _choices:
 			var card := host.current_snapshot.get_unit_card(id)
-			if card != null:
+			if card != null and not _large_mode:
 				_choices[id].text = GameText.t(card.display_name_key)
 				_choices[id].tooltip_text = _choices[id].text
 	_rebuild_plans()
@@ -209,6 +284,13 @@ func generate() -> void:
 	_request.objective_region_id = objective_selector.get_item_metadata(objective_selector.selected)
 	_request.max_supply_cost = int(budget.value)
 	_request.risk_aversion = risk.selected + 1
+	_request.coordination = maxi(0, coordination.selected) as StaffPlanRequest.Coordination if _large_mode else StaffPlanRequest.Coordination.INDEPENDENT
+	_request.formation = maxi(0, formation_choice.selected) as StaffPlanRequest.Formation
+	_request.via_region_ids.clear()
+	if _large_mode:
+		for selector in _route_selectors:
+			if selector.selected > 0:
+				_request.via_region_ids.append(selector.get_item_metadata(selector.selected))
 	_request.allowed_card_ids.clear()
 	for id in _choices:
 		if _choices[id].button_pressed:
@@ -259,6 +341,10 @@ func _rebuild_plans() -> void:
 		var summary := _label()
 		summary.text = GameText.t(&"STAFF_PLAN_SUMMARY") % [plan.committed_strength, plan.reserve_strength, plan.supply_cost,
 			float(plan.preparation_ticks) / 10.0, plan.risk_score, plan.utility_score]
+		if _large_mode:
+			summary.text = GameText.t(&"STAFF_GROUP_SUMMARY") % [plan.committed_strength, plan.reserve_strength, plan.supply_cost]
+			if plan.coordination != StaffPlanRequest.Coordination.INDEPENDENT:
+				summary.text += "\n" + GameText.t(StringName("COOP_MODE_%d" % plan.coordination)) + " · " + GameText.t(StringName("COOP_FORMATION_%d" % plan.formation)) + "\n" + GameText.t(StringName("COOP_PLAN_%d" % plan.coordination))
 		column.add_child(summary)
 		var detail := _label(12)
 		var lines: PackedStringArray = []
@@ -271,6 +357,12 @@ func _rebuild_plans() -> void:
 		lines.append(GameText.t(&"STAFF_RISK_COMPONENTS") % [plan.known_threat_score, plan.uncertainty_score, plan.readiness_penalty])
 		detail.text = "\n".join(lines)
 		column.add_child(detail)
+		if _large_mode:
+			detail.visible = false
+			var disclosure := CheckButton.new()
+			disclosure.text = GameText.t(&"STAFF_DETAILS")
+			disclosure.toggled.connect(func(enabled: bool) -> void: detail.visible = enabled)
+			column.add_child(disclosure)
 		var approve := _button(&"STAFF_APPROVE", _approve.bind(plan))
 		approve.disabled = pending_command_id != 0
 		column.add_child(approve)
@@ -309,7 +401,10 @@ func _refresh_execution() -> void:
 		return
 	execution_label.visible = host != null and is_instance_valid(host) and host.current_snapshot != null and not host.current_snapshot.commander_task_graphs.is_empty()
 	if execution_label.visible:
-		execution_label.text = GameText.t(&"COMMANDER_GRAPH_CURRENT") + "\n" + CommanderTaskGraphPresenter.describe(host.current_snapshot, host.current_snapshot.commander_task_graphs[0])
+		var lines := PackedStringArray([GameText.t(&"COMMANDER_GRAPH_CURRENT")])
+		for graph in host.current_snapshot.commander_task_graphs:
+			lines.append(CommanderTaskGraphPresenter.describe(host.current_snapshot, graph))
+		execution_label.text = "\n".join(lines)
 
 
 func _reject() -> void:
@@ -352,3 +447,12 @@ func _clear_children(parent: Node) -> void:
 	for child in parent.get_children():
 		parent.remove_child(child)
 		child.queue_free()
+
+
+func _update_detail_visibility() -> void:
+	_advanced.visible = _large_mode
+	for field in [coordination_label, coordination, formation_label, formation_choice, cooperation_hint]: field.visible = _large_mode
+	for field in [budget_label, budget, risk_label, risk]:
+		field.visible = not _large_mode or _advanced.button_pressed
+	for field in _route_labels + _route_selectors:
+		field.visible = _large_mode and _advanced.button_pressed

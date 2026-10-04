@@ -10,6 +10,10 @@ const UNIT_CARD_IDS: Array[StringName] = [
 ]
 const STARTING_CARD_COUNT := 2
 
+var legions: Array[LegionConfiguration] = []
+var contact_handoff_ticks: int = 30
+var quiet_handoff_ticks: int = 100
+
 var commander_by_unit_card: Dictionary = {}
 var doctrine_by_commander: Dictionary = {}
 var posture_by_commander: Dictionary = {}
@@ -26,6 +30,10 @@ static func grey_ridge_default() -> ArmyPlan:
 
 func duplicate_plan() -> ArmyPlan:
 	var copy := ArmyPlan.new()
+	for legion in legions:
+		copy.legions.append(legion.duplicate(true) as LegionConfiguration)
+	copy.contact_handoff_ticks = contact_handoff_ticks
+	copy.quiet_handoff_ticks = quiet_handoff_ticks
 	copy.commander_by_unit_card = commander_by_unit_card.duplicate()
 	copy.doctrine_by_commander = doctrine_by_commander.duplicate()
 	copy.posture_by_commander = posture_by_commander.duplicate()
@@ -100,3 +108,45 @@ func validation_errors(
 func _append_error(errors: Array[StringName], error_key: StringName) -> void:
 	if not errors.has(error_key):
 		errors.append(error_key)
+
+func legion(id: StringName) -> LegionConfiguration:
+	for entry in legions:
+		if entry.legion_id == id: return entry
+	return null
+
+func swap_legion_profile(legion_id: StringName, chosen: StringName) -> bool:
+	var entry := legion(legion_id)
+	var template := LegionTemplate.find(chosen)
+	if entry == null or template == null or not template.validation_errors().is_empty(): return false
+	if entry.profile_id == chosen: return true
+	for other in legions:
+		if other != entry and other.profile_id == chosen:
+			other.select_profile(entry.profile_id)
+			entry.select_profile(chosen)
+			return true
+	return false
+
+func legion_errors(battle: BattleDefinition) -> Array[StringName]:
+	var errors: Array[StringName] = []
+	if not battle.growth_mode: return errors
+	if legions.size() != 5 or contact_handoff_ticks < 10 or contact_handoff_ticks > 300 or quiet_handoff_ticks < 10 or quiet_handoff_ticks > 600:
+		errors.append(&"LEGION_CONFIG_INVALID")
+	var seen: Array[StringName] = []
+	for definition in battle.commander_definitions:
+		var entry := legion(definition.definition_id)
+		if entry == null or CommanderProfile.find(entry.profile_id) == null or seen.has(entry.profile_id) or entry.role_strengths.size() != 4:
+			errors.append(&"LEGION_CONFIG_INVALID")
+			continue
+		seen.append(entry.profile_id)
+		var template := LegionTemplate.find(entry.profile_id)
+		if template == null or not template.validation_errors().is_empty() or entry.role_strengths != template.full:
+			errors.append(&"LEGION_CONFIG_INVALID")
+		var total := 0
+		for number in entry.role_strengths:
+			if number < 0 or number > 60: errors.append(&"LEGION_CONFIG_INVALID")
+			total += number
+		if total != 60: errors.append(&"LEGION_CONFIG_INVALID")
+	for card in battle.unit_card_definitions:
+		if commander_by_unit_card.get(card.definition_id) != card.commander_definition_id:
+			errors.append(&"LEGION_CONFIG_INVALID")
+	return errors

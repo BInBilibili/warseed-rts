@@ -46,6 +46,7 @@ enum Reason {
 	RESUPPLY_NOT_NEEDED,
 	TACTICAL_UNSAFE,
 	STAFF_PLAN_STALE,
+	AUTHORITY_STALE,
 }
 
 var status: Status

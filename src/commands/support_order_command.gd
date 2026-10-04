@@ -9,6 +9,8 @@ enum SupportKind {
 	FIRE_SUPPORT,
 	RAPID_MOBILITY,
 	FRONTLINE_LOGISTICS,
+	MISSILE_BARRAGE,
+	FIELD_HOSPITAL,
 }
 
 var support_kind: SupportKind

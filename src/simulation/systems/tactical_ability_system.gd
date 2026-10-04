@@ -4,6 +4,7 @@ extends RefCounted
 const IDENTIFICATION_TICKS := 10
 const IDENTIFICATION_LIFETIME := 15
 var observation_started: Dictionary = {}
+var passive_observation_started: Dictionary = {}
 
 
 func validate(world: SimulationWorld, command: TacticalAbilityCommand, pending: bool = true, completing: bool = false) -> CommandValidationResult:
@@ -37,13 +38,20 @@ func validate(world: SimulationWorld, command: TacticalAbilityCommand, pending: 
 					if other == card:
 						return _reject(CommandValidationResult.Reason.TACTICAL_BUSY)
 					committed += other.definition.tactical_ability.supply_cost
-			elif queued is SupportOrderCommand:
+			elif queued is RecruitUnitCardCommand:
+				var recruited := world.unit_cards.get(queued.unit_card_id) as UnitCardState
+				if recruited != null:
+					committed += recruited.definition.recruitment_cost * queued.member_count
+			elif queued is SupportOrderCommand or queued is AreaSupportCommand:
 				committed += world.get_support_cost(queued.support_kind)
 			elif queued is DeployUnitCardCommand:
 				var reserve := world.unit_cards.get(queued.unit_card_id) as UnitCardState
 				if reserve != null:
 					committed += reserve.effective_supply_cost()
-	if not completing and (faction == null or faction.supply - committed < ability.supply_cost):
+	var minimum_reserve := 0
+	if faction != null and world.battle_definition != null and world.battle_definition.growth_mode and command.issuer_kind == GameCommand.IssuerKind.AGENT:
+		minimum_reserve = faction.recruitment_reserve
+	if not completing and (faction == null or faction.supply - committed - minimum_reserve < ability.supply_cost):
 		return _reject(CommandValidationResult.Reason.INSUFFICIENT_SUPPLY)
 	if ability.kind in [TacticalAbilityDefinition.Kind.BREAKTHROUGH, TacticalAbilityDefinition.Kind.SUPPRESS] and (not card.organization_enabled or card.organization < maxf(30.0, ability.organization_cost)):
 		return _reject(CommandValidationResult.Reason.LOW_ORGANIZATION)
@@ -105,6 +113,7 @@ func start(world: SimulationWorld, command: TacticalAbilityCommand) -> void:
 	var ability := card.definition.tactical_ability
 	var faction := world.factions[command.issuer_id] as FactionState
 	faction.supply -= ability.supply_cost
+	if world.battle_definition != null and world.battle_definition.growth_mode: RecruitmentSystem.record_spend(faction, world.current_tick, 0, ability.supply_cost)
 	card.tactical_started_tick = world.current_tick
 	card.tactical_complete_tick = world.current_tick + ability.preparation_ticks * (2 if card.organization_enabled and card.organization < 60.0 else 1)
 	card.tactical_until_tick = card.tactical_complete_tick + ability.duration_ticks
@@ -123,7 +132,8 @@ func start(world: SimulationWorld, command: TacticalAbilityCommand) -> void:
 
 func advance(world: SimulationWorld) -> void:
 	var ids := world.unit_cards.keys()
-	ids.sort()
+	# StringName ordering depends on allocation history across battle instances.
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 	for id in ids:
 		var card := world.unit_cards[id] as UnitCardState
 		if card.tactical_command == null:
@@ -207,7 +217,7 @@ func interrupt(world: SimulationWorld, card: UnitCardState, reason: StringName) 
 
 func cancel_for_order(world: SimulationWorld, command: GameCommand) -> void:
 	var ids := world.unit_cards.keys()
-	ids.sort()
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 	for id in ids:
 		var card := world.unit_cards[id] as UnitCardState
 		if card.tactical_command == null:
@@ -231,23 +241,35 @@ func update_identification(world: SimulationWorld, knowledge: FactionKnowledge) 
 	visible_ids.assign(knowledge.visible_hostile_unit_ids)
 	for building_id in knowledge.visible_hostile_building_ids:
 		visible_ids.append(building_id)
+	var visible_lookup: Dictionary = {}
+	for entity_id in visible_ids: visible_lookup[entity_id] = true
 	for entity_id in knowledge.identification_until_by_entity.keys():
-		if int(knowledge.identification_until_by_entity[entity_id]) <= world.current_tick or not visible_ids.has(int(entity_id)):
+		if int(knowledge.identification_until_by_entity[entity_id]) <= world.current_tick or not visible_lookup.has(int(entity_id)):
 			knowledge.identification_until_by_entity.erase(entity_id)
+	if world.battle_definition != null and world.battle_definition.growth_mode:
+		var passive: Dictionary = passive_observation_started.get(knowledge.faction_id, {})
+		for target in passive.keys():
+			if not visible_lookup.has(int(target)): passive.erase(target)
+		for target in visible_ids:
+			if not passive.has(target): passive[target] = world.current_tick
+			if world.current_tick - int(passive[target]) >= IDENTIFICATION_TICKS:
+				knowledge.identification_until_by_entity[target] = world.current_tick + IDENTIFICATION_LIFETIME
+		passive_observation_started[knowledge.faction_id] = passive
 	var ids := world.unit_cards.keys()
-	ids.sort()
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 	for id in ids:
 		var card := world.unit_cards[id] as UnitCardState
-		if card.faction_id != knowledge.faction_id or observation_range(card, world.current_tick) <= 0.0:
+		var sight := observation_range(card, world.current_tick)
+		if card.faction_id != knowledge.faction_id or sight <= 0.0:
 			continue
 		var started: Dictionary = observation_started.get(id, {})
 		var center := UnitCardSnapshot.new(card, world.units).center_position
-		var tracked: Array[int] = []
+		var tracked: Dictionary = {}
 		for entity_id in visible_ids:
 			var contact := knowledge.hostile_contacts.get(entity_id) as KnowledgeContact
-			if contact == null or not contact.enabled or center.distance_to(contact.position) > observation_range(card, world.current_tick):
+			if contact == null or not contact.enabled or center.distance_to(contact.position) > sight:
 				continue
-			tracked.append(entity_id)
+			tracked[entity_id] = true
 			if not started.has(entity_id):
 				started[entity_id] = world.current_tick
 			if world.current_tick - int(started[entity_id]) >= IDENTIFICATION_TICKS:
@@ -274,7 +296,7 @@ func prepare_weapons(world: SimulationWorld) -> void:
 			continue
 		var knowledge := world.faction_knowledge.get(unit.faction_id) as FactionKnowledge
 		unit.target_identified = knowledge != null and int(knowledge.identification_until_by_entity.get(unit.attack_target_entity_id, 0)) > world.current_tick and (knowledge.visible_hostile_unit_ids.has(unit.attack_target_entity_id) or knowledge.visible_hostile_building_ids.has(unit.attack_target_entity_id))
-		unit.weapon_action_ready = card == null or card.definition.tactical_ability == null or card.definition.tactical_ability.kind != TacticalAbilityDefinition.Kind.SUPPRESS or card.tactical_command != null and card.tactical_status_key == &"TACTICAL_ACTIVE"
+		unit.weapon_action_ready = world.battle_definition != null and world.battle_definition.growth_mode or card == null or card.definition.tactical_ability == null or card.definition.tactical_ability.kind != TacticalAbilityDefinition.Kind.SUPPRESS or card.tactical_command != null and card.tactical_status_key == &"TACTICAL_ACTIVE"
 
 
 func propose_commands(world: SimulationWorld) -> void:

@@ -5,6 +5,8 @@ var graph_id: StringName
 var faction_id: int
 var approved_plan: StaffCourseOfAction
 var created_tick: int
+var coordination_paused_since_tick: int = -1
+var coordination_paused_ticks: int = 0
 var retreat_requested: bool = false
 var nodes: Array[CommanderTaskNodeSnapshot] = []
 var reserve_card_ids: Array[StringName] = []
@@ -42,6 +44,8 @@ func duplicate_value() -> CommanderTaskGraphSnapshot:
 	result.faction_id = faction_id
 	result.approved_plan = approved_plan.duplicate_value() if approved_plan != null else null
 	result.created_tick = created_tick
+	result.coordination_paused_since_tick = coordination_paused_since_tick
+	result.coordination_paused_ticks = coordination_paused_ticks
 	result.retreat_requested = retreat_requested
 	result.reserve_card_ids = reserve_card_ids.duplicate()
 	result.adaptation_policy = adaptation_policy.duplicate(true) as CommanderAdaptationPolicy

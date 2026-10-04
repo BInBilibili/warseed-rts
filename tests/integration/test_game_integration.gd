@@ -30,7 +30,7 @@ func _test_operation_selector_flow(failures: Array[String]) -> void:
 	selector.scene_changes_enabled = false
 	Engine.get_main_loop().root.add_child(selector)
 	selector._ready()
-	_expect(selector.get_selectable_battle_count() == 4, "the operation selector should hide loader fixtures and display all four playable battles", failures)
+	_expect(selector.get_selectable_battle_count() == 5, "the operation selector should hide loader fixtures and display all five playable battles", failures)
 	var grey_button := selector.get_battle_button(&"grey_ridge")
 	var bridge_button := selector.get_battle_button(&"broken_bridge")
 	var forest_button := selector.get_battle_button(&"fog_forest")
@@ -115,18 +115,22 @@ func _test_combat_snapshot_feedback_is_visible_and_transient(failures: Array[Str
 	var target := world.units[1] as UnitState
 	var projectile := ProjectileState.new(777001, 3, target.entity_id, SimulationWorld.LOCAL_PLAYER_ID, (world.units[3] as UnitState).position, 900.0, 20.0, world.current_tick)
 	world.projectiles[projectile.projectile_id] = projectile
+	world.events.append(SimulationEvent.new(world.current_tick, SimulationEvent.Kind.PROJECTILE_FIRED, 3, "target=%d" % target.entity_id))
 	world.current_tick += 1
 	var after_fire := world.create_snapshot()
 	presentation.set_snapshots(before_fire, after_fire, 0.0)
-	_expect(presentation.get_active_combat_effect_count() == 1, "a new authoritative projectile should create a muzzle flash in presentation only", failures)
+	presentation.consume_art_events(world.events, after_fire)
+	_expect(presentation._art_batch._feedback.has(3), "an authoritative projectile event should create firing feedback in presentation only", failures)
 	var health_before := target.health
 	target.health -= 10.0
+	world.events.append(SimulationEvent.new(world.current_tick, SimulationEvent.Kind.DAMAGE_APPLIED, 3, "target=%d;amount=10" % target.entity_id))
 	world.projectiles.erase(projectile.projectile_id)
 	world.current_tick += 1
 	var after_impact := world.create_snapshot()
 	presentation.set_snapshots(after_fire, after_impact, 0.0)
+	presentation.consume_art_events(world.events, after_impact)
 	var target_proxy := presentation._proxies.get(target.entity_id) as UnitProxy
-	_expect(target.health < health_before and presentation.get_active_combat_effect_count() >= 2, "projectile disappearance plus authoritative damage should create a visible impact effect", failures)
+	_expect(target.health < health_before and presentation.get_active_combat_effect_count() >= 1, "authoritative damage event should create a visible impact effect", failures)
 	_expect(target_proxy != null and target_proxy.hit_flash_remaining > 0.0, "damaged units should visibly flash on receipt of authoritative damage", failures)
 	var command_center := world.buildings[SimulationWorld.PLAYER_COMMAND_CENTER_ID] as BuildingState
 	var building_projectile := ProjectileState.new(777002, 3, command_center.entity_id, SimulationWorld.ENEMY_PLAYER_ID, command_center.position + Vector2(80.0, 0.0), 900.0, 20.0, world.current_tick)
@@ -135,10 +139,12 @@ func _test_combat_snapshot_feedback_is_visible_and_transient(failures: Array[Str
 	var before_building_impact := world.create_snapshot()
 	presentation.set_snapshots(after_impact, before_building_impact, 0.0)
 	command_center.health -= 10.0
+	world.events.append(SimulationEvent.new(world.current_tick, SimulationEvent.Kind.DAMAGE_APPLIED, 3, "target=%d;amount=10" % command_center.entity_id))
 	world.projectiles.erase(building_projectile.projectile_id)
 	world.current_tick += 1
 	var after_building_impact := world.create_snapshot()
 	presentation.set_snapshots(before_building_impact, after_building_impact, 0.0)
+	presentation.consume_art_events(world.events, after_building_impact)
 	var building_proxy := presentation._building_proxies.get(command_center.entity_id) as BuildingProxy
 	_expect(building_proxy != null and building_proxy.hit_flash_remaining > 0.0, "damaged buildings should visibly flash from the same authoritative projectile transition", failures)
 	presentation._update_combat_effects(2.0)
@@ -742,22 +748,17 @@ func _test_host_and_presentation_consume_faction_snapshot(failures: Array[String
 	presentation._detailed_units_enabled = false
 	presentation._update_unit_batches()
 	var first_unit := host.current_snapshot.units[0]
-	var expected_role_scale := Vector2.ONE
-	match first_unit.tactical_role:
-		UnitState.TacticalRole.SCOUT:
-			expected_role_scale = Vector2(0.72, 0.65)
-		UnitState.TacticalRole.FIREPOWER:
-			expected_role_scale = Vector2(1.12, 0.62)
-		UnitState.TacticalRole.ARMOR:
-			expected_role_scale = Vector2(1.16, 0.94)
-		UnitState.TacticalRole.ASSAULT:
-			expected_role_scale = Vector2(0.92, 0.88)
-	_expect(
-		is_equal_approx(presentation._unit_body_buffer[0], expected_role_scale.x)
-			and is_equal_approx(presentation._unit_body_buffer[5], expected_role_scale.y),
-		"batched units should keep their role-specific fixed world scale",
-		failures
-	)
+	var pose: WsArtPose = presentation._art_batch._poses[0]
+	_expect(pose.entity_id == first_unit.entity_id and pose.position.is_equal_approx(first_unit.position), "art batches use the known snapshot position", failures)
+	var body_count := 0
+	for pair: Array in presentation._art_batch._groups.values():
+		var body := pair[0] as MultiMeshInstance2D
+		_expect(body.multimesh.visible_instance_count >= 0 and body.multimesh.visible_instance_count <= body.multimesh.instance_count, "reserved capacity hides unused instances", failures)
+		body_count += body.multimesh.visible_instance_count
+		for index in range(body.multimesh.visible_instance_count):
+			var transform := body.multimesh.get_instance_transform_2d(index)
+			_expect(is_equal_approx(transform.x.length(), 1.0) and is_equal_approx(transform.y.length(), 1.0), "art bodies keep fixed world scale independent of overview", failures)
+	_expect(body_count == host.current_snapshot.units.size(), "art batches contain exactly known units", failures)
 	_expect(buildings_root.get_child_count() == host.current_snapshot.buildings.size(), "presentation should create one proxy per known building", failures)
 	_expect(ore_root.get_child_count() == host.current_snapshot.ore_fields.size(), "presentation should create one proxy per explored ore field", failures)
 	var tracked_unit := host.world.units[1] as UnitState
@@ -782,10 +783,10 @@ func _test_host_and_presentation_consume_faction_snapshot(failures: Array[String
 	presentation._detailed_units_enabled = false
 	tracked_proxy.position = Vector2(-9999, -9999)
 	presentation._update_unit_batches()
-	for index in range(interpolation_current.units.size()):
-		if interpolation_current.units[index].entity_id == tracked_unit.entity_id:
-			_expect(is_equal_approx(presentation._unit_body_buffer[index * 12 + 3], previous_unit_position.x + 16.0), "batched bodies interpolate snapshots independently of stale hidden proxies", failures)
-	_expect(presentation._unit_bodies_batch.z_index == 2, "batched bodies render above opaque terrain like detailed units", failures)
+	for batched_pose: WsArtPose in presentation._art_batch._poses:
+		if batched_pose.entity_id == tracked_unit.entity_id:
+			_expect(is_equal_approx(batched_pose.position.x, previous_unit_position.x + 16.0), "batched bodies interpolate snapshots independently of stale hidden proxies", failures)
+	_expect(presentation._art_batch.z_index == 2, "batched bodies render above opaque terrain like detailed units", failures)
 	var stale_contact := KnowledgeContact.from_unit(host.world.units[SimulationWorld.DEFAULT_ENEMY_UNIT_ID] as UnitState, host.world.current_tick)
 	var stale_proxy := UnitProxy.new()
 	stale_proxy.apply_snapshot(UnitSnapshot.new(null, stale_contact))
@@ -1329,8 +1330,11 @@ func _test_tactical_card_status(failures: Array[String]) -> void:
 	hidden_enemy.position = member.position
 	hidden_enemy.is_visible_to_local_player = false
 	snapshot.units.append(hidden_enemy)
+	# Publish fixture changes through the same refresh boundary as real snapshots.
+	board.update_snapshot(snapshot)
 	_expect(board._tactical_activity(commander) == 1, "a hidden enemy at the same location must not contaminate card status", failures)
 	hidden_enemy.is_visible_to_local_player = true
+	board.update_snapshot(snapshot)
 	_expect(board._tactical_activity(commander) == 2, "visible contact should override yellow task status with red", failures)
 	var reserve := snapshot.get_unit_card(&"armored_spearhead")
 	_expect(board._display_strength(reserve) == reserve.available_strength and board._display_strength(card) == card.current_strength, "reserve totals must reflect available soldiers while deployed cards reflect actual members", failures)

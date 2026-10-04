@@ -25,7 +25,7 @@ func _test_initial_situation_contract(failures: Array[String]) -> void:
 	_expect(situation.card_statuses.size() == 6, "situation should expose all six Grey Ridge tactical cards", failures)
 	_expect(situation.task_axes.size() >= 2, "initial deployed cards should expose whole-card task axes", failures)
 	_expect(_known_threat_count(situation) >= 2, "initial central and western reports should produce known threat zones", failures)
-	_expect(situation.frontline_segments.size() >= 2, "known pressure should produce estimated frontline segments", failures)
+	_expect(situation.frontline_segments.is_empty(), "removed frontline design must not be inferred from pressure", failures)
 	_expect(not situation.uncertainty_zones.is_empty(), "faction knowledge should produce explicit unexplored or stale map zones", failures)
 	_expect(int(situation.supply.get("available", -1)) == 5 and int(situation.supply.get("capacity", -1)) == 10, "situation should expose authoritative available and capacity Supply", failures)
 	_expect(not (situation.supply.get("recovery_sources", []) as Array).is_empty(), "situation should name at least the base Supply recovery source", failures)

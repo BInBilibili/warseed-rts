@@ -6,6 +6,9 @@ const CONTACT_AGING_TICKS := 250
 const DEFAULT_BASE_SUPPLY_INTERVAL_TICKS := 200
 const DEFAULT_REGION_SETTLEMENT_INTERVAL_TICKS := 300
 
+# Geometry-only memoization: never retains mutable region state or hidden data.
+var _region_geometry: Array = []
+var _nearest_region_indices: Dictionary[Vector2, int] = {}
 var last_rejection_reason: StringName
 var _uncertainty_cells := PackedByteArray()
 var _uncertainty_grid_size := Vector2i.ZERO
@@ -21,7 +24,8 @@ func project(
 	battlefield_bounds: Rect2,
 	base_supply_interval_ticks: int = DEFAULT_BASE_SUPPLY_INTERVAL_TICKS,
 	region_settlement_interval_ticks: int = DEFAULT_REGION_SETTLEMENT_INTERVAL_TICKS,
-	support_cost_by_id: Dictionary = {}
+	support_cost_by_id: Dictionary = {},
+	base_supply_amount: int = 1
 ) -> BattlefieldSituationSnapshot:
 	last_rejection_reason = &""
 	if snapshot == null:
@@ -44,11 +48,11 @@ func project(
 	var cards := _derive_card_statuses(snapshot, observer_faction_id)
 	var task_axes := _derive_task_axes(snapshot, cards)
 	var threats := _derive_threat_zones(snapshot, observer_faction_id)
-	var frontlines := _derive_frontlines(snapshot, cards, threats, observer_faction_id)
+	var frontlines: Array[Dictionary] = []
 	var uncertainty := _derive_uncertainty(snapshot, battlefield_bounds)
 	var supply := _derive_supply(
 		snapshot, faction, cards, observer_faction_id,
-		base_supply_interval_ticks, region_settlement_interval_ticks, support_cost_by_id
+		base_supply_interval_ticks, region_settlement_interval_ticks, support_cost_by_id, base_supply_amount
 	)
 	return BattlefieldSituationSnapshot.new(
 		snapshot.tick, observer_faction_id, battlefield_bounds,
@@ -129,6 +133,13 @@ func _derive_task_axes(snapshot: WorldSnapshot, cards: Array[Dictionary]) -> Arr
 
 
 func _derive_threat_zones(snapshot: WorldSnapshot, observer_faction_id: int) -> Array[Dictionary]:
+	var geometry: Array = []
+	for region in snapshot.strategic_regions:
+		geometry.append(region.region_id)
+		geometry.append(region.position)
+	if geometry != _region_geometry:
+		_region_geometry = geometry
+		_nearest_region_indices.clear()
 	var regions := {}
 	for region in snapshot.strategic_regions:
 		regions[region.region_id] = region
@@ -277,7 +288,10 @@ func _derive_uncertainty(snapshot: WorldSnapshot, battlefield_bounds: Rect2) -> 
 		var row_result: Array[Dictionary] = []
 		var run_state := FactionKnowledge.CellState.VISIBLE
 		var run_start := -1
-		for x in range(knowledge.grid_size.x + 1):
+		# Native byte counting avoids a GDScript visit to every cell of uniform
+		# rows on cold maps. Keep both endpoints and the same run/clip logic.
+		var uniform := not row_cells.is_empty() and row_cells.count(row_cells[0]) == row_cells.size()
+		for x in ([0, knowledge.grid_size.x] if uniform else range(knowledge.grid_size.x + 1)):
 			var state := FactionKnowledge.CellState.VISIBLE
 			if x < knowledge.grid_size.x:
 				state = knowledge.cells[row_offset + x] as FactionKnowledge.CellState
@@ -310,7 +324,8 @@ func _derive_supply(
 	observer_faction_id: int,
 	base_interval: int,
 	region_interval: int,
-	support_cost_by_id: Dictionary
+	support_cost_by_id: Dictionary,
+	base_supply_amount: int
 ) -> Dictionary:
 	base_interval = maxi(1, base_interval)
 	region_interval = maxi(1, region_interval)
@@ -351,12 +366,12 @@ func _derive_supply(
 	)
 	var recovery_sources: Array[Dictionary] = [{
 		"source_id": &"base",
-		"amount": 1,
+		"amount": base_supply_amount,
 		"remaining_ticks": base_interval - snapshot.tick % base_interval,
 		"interval_ticks": base_interval,
 	}]
 	for region in snapshot.strategic_regions:
-		if region.controller_faction_id != observer_faction_id or region.supply_per_settlement <= 0:
+		if not region.capturable or region.contested or region.controller_faction_id != observer_faction_id or region.supply_per_settlement <= 0:
 			continue
 		var next_tick := region.last_settlement_tick + region_interval
 		if next_tick <= snapshot.tick:
@@ -385,6 +400,9 @@ func _derive_supply(
 
 
 func _nearest_region(position: Vector2, regions: Array[StrategicRegionSnapshot]) -> StrategicRegionSnapshot:
+	if _nearest_region_indices.has(position):
+		var index := _nearest_region_indices[position]
+		return regions[index] if index >= 0 else null
 	var nearest: StrategicRegionSnapshot
 	var nearest_distance := INF
 	for region in regions:
@@ -392,6 +410,10 @@ func _nearest_region(position: Vector2, regions: Array[StrategicRegionSnapshot])
 		if distance < nearest_distance or is_equal_approx(distance, nearest_distance) and (nearest == null or String(region.region_id) < String(nearest.region_id)):
 			nearest = region
 			nearest_distance = distance
+	# Bound memory during long moving battles; eviction only costs recomputation.
+	if _nearest_region_indices.size() >= 2048:
+		_nearest_region_indices.clear()
+	_nearest_region_indices[position] = regions.find(nearest) if nearest != null else -1
 	return nearest
 
 

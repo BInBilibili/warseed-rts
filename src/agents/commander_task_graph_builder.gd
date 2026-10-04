@@ -6,7 +6,7 @@ const DEFAULT_DEFINITION: CommanderTaskGraphDefinition = preload("res://data/ai/
 var last_rejection_reason: StringName
 
 
-func build(snapshot: WorldSnapshot, plan: StaffCourseOfAction, definition: CommanderTaskGraphDefinition = DEFAULT_DEFINITION) -> CommanderTaskGraphSnapshot:
+func build(snapshot: WorldSnapshot, plan: StaffCourseOfAction, definition: CommanderTaskGraphDefinition = DEFAULT_DEFINITION, legal_navigator: GridPathfinder = null) -> CommanderTaskGraphSnapshot:
 	last_rejection_reason = &""
 	if snapshot == null or snapshot.is_true_state or snapshot.knowledge == null or snapshot.knowledge.faction_id != snapshot.observer_faction_id:
 		return _reject(&"FACTION_KNOWLEDGE_REQUIRED")
@@ -42,6 +42,16 @@ func build(snapshot: WorldSnapshot, plan: StaffCourseOfAction, definition: Comma
 				return _reject(&"INVALID_GRAPH_ROUTE")
 		assigned_ids.append(assignment.card_id)
 	var graph := CommanderTaskGraphSnapshot.new()
+	var cooperation_navigator: GridPathfinder = legal_navigator
+	if plan.coordination != StaffPlanRequest.Coordination.INDEPENDENT and cooperation_navigator == null:
+		var maps := load("res://data/maps/map_catalog.tres") as MapContentCatalog
+		var map := maps.get_map(snapshot.navigation_map_id)
+		if map == null: return _reject(&"INVALID_GRAPH_ROUTE")
+		var grid := LogicGrid.create_for_map(map)
+		for building in snapshot.buildings:
+			if building.enabled:
+				for cell in building.footprint_cells: grid.set_blocked(cell, true)
+		cooperation_navigator = GridPathfinder.new(grid)
 	graph.graph_id = StringName("operation:%s" % plan.fingerprint())
 	graph.faction_id = snapshot.observer_faction_id
 	graph.approved_plan = plan.duplicate_value()
@@ -67,12 +77,12 @@ func build(snapshot: WorldSnapshot, plan: StaffCourseOfAction, definition: Comma
 			node.target_position = objective.position
 			match stage.phase:
 				CommanderTaskStageDefinition.Phase.MUSTER:
-					node.target_position = _muster_position(plan, assignment.commander_id)
+					node.target_position = origin if not snapshot.navigation_map_id.is_empty() else _muster_position(plan, assignment.commander_id)
 					node.requires_deployment = assignment.requires_deployment
 					node.supply_cost = assignment.supply_cost
 				CommanderTaskStageDefinition.Phase.RECON:
 					node.is_required = assignment.role == StaffPlanAssignment.Role.RECONNAISSANCE
-					node.target_position = origin.lerp(objective.position, 0.75)
+					node.target_position = _point_along_route(assignment.route_points, 0.90) if not snapshot.navigation_map_id.is_empty() else origin.lerp(objective.position, 0.75)
 				CommanderTaskStageDefinition.Phase.DEPLOY:
 					node.target_position = assignment.route_points[-2] if assignment.route_points.size() > 2 else origin.lerp(objective.position, 0.85)
 					if assignment.route_points.size() > 2:
@@ -80,13 +90,38 @@ func build(snapshot: WorldSnapshot, plan: StaffCourseOfAction, definition: Comma
 							node.route_points.append(assignment.route_points[route_index])
 					# Main forces cannot deploy before every assigned advance scout reports.
 					for scout in plan.assignments:
-						if scout.card_id != assignment.card_id and scout.role == StaffPlanAssignment.Role.RECONNAISSANCE:
+						if (snapshot.navigation_map_id.is_empty() or scout.commander_id == assignment.commander_id) and scout.card_id != assignment.card_id and scout.role == StaffPlanAssignment.Role.RECONNAISSANCE:
 							node.prerequisite_ids.append(_node_id(scout.card_id, definition.get_phase(CommanderTaskStageDefinition.Phase.RECON).stage_id))
 				CommanderTaskStageDefinition.Phase.RETREAT:
 					node.target_position = headquarters.position + Vector2(0.0, -160.0)
-			node.route_points.append(node.target_position)
+			if not snapshot.navigation_map_id.is_empty():
+				if stage.phase in [CommanderTaskStageDefinition.Phase.RECON, CommanderTaskStageDefinition.Phase.DEPLOY]:
+					var progress := 0.90 if stage.phase == CommanderTaskStageDefinition.Phase.RECON else 0.96
+					node.target_position = _point_along_route(assignment.route_points, progress)
+					node.route_points = _prefix_route(assignment.route_points, progress)
+				# Budget travel at 60 world units/second, with room for combat and regrouping.
+				var length := 0.0
+				for i in range(1, assignment.route_points.size()):
+					length += assignment.route_points[i - 1].distance_to(assignment.route_points[i])
+				node.timeout_ticks = maxi(node.timeout_ticks, ceili(length / 60.0 * 10.0) + stage.timeout_ticks)
+			if not CoalitionTactics.configure_node(snapshot, plan, assignment, node, cooperation_navigator): return _reject(&"INVALID_GRAPH_ROUTE")
+			if node.route_points.is_empty() or node.route_points[-1] != node.target_position:
+				node.route_points.append(node.target_position)
 			node.prerequisite_ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 			graph.nodes.append(node)
+	if plan.coordination == StaffPlanRequest.Coordination.JOINT_ATTACK:
+		var shared_budget := 0
+		for assignment in plan.assignments:
+			var budget := assignment.preparation_ticks
+			for node in graph.nodes:
+				if node.card_id == assignment.card_id and node.phase in [CommanderTaskStageDefinition.Phase.MUSTER, CommanderTaskStageDefinition.Phase.RECON, CommanderTaskStageDefinition.Phase.DEPLOY]: budget += node.timeout_ticks
+			shared_budget = maxi(shared_budget, budget)
+		for node in graph.nodes:
+			if node.phase != CommanderTaskStageDefinition.Phase.ENGAGE: continue
+			node.timeout_ticks = maxi(node.timeout_ticks, shared_budget)
+			for other in graph.nodes:
+				if other.phase == CommanderTaskStageDefinition.Phase.DEPLOY and not node.prerequisite_ids.has(other.node_id): node.prerequisite_ids.append(other.node_id)
+			node.prerequisite_ids.sort()
 	graph.nodes.sort_custom(func(a: CommanderTaskNodeSnapshot, b: CommanderTaskNodeSnapshot) -> bool: return String(a.node_id) < String(b.node_id))
 	return graph
 
@@ -111,3 +146,25 @@ func _muster_position(plan: StaffCourseOfAction, commander_id: StringName) -> Ve
 func _reject(reason: StringName) -> CommanderTaskGraphSnapshot:
 	last_rejection_reason = reason
 	return null
+
+
+func _point_along_route(route: PackedVector2Array, fraction: float) -> Vector2:
+	return _prefix_route(route, fraction)[-1]
+
+
+func _prefix_route(route: PackedVector2Array, fraction: float) -> PackedVector2Array:
+	var length := 0.0
+	for i in range(1, route.size()):
+		length += route[i - 1].distance_to(route[i])
+	var remaining := length * fraction
+	var result := PackedVector2Array()
+	for i in range(1, route.size()):
+		var segment := route[i - 1].distance_to(route[i])
+		if remaining <= segment:
+			result.append(route[i - 1].lerp(route[i], remaining / maxf(0.001, segment)))
+			return result
+		result.append(route[i])
+		remaining -= segment
+	if result.is_empty():
+		result.append(route[-1])
+	return result

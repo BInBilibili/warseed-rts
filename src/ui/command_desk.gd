@@ -1,6 +1,9 @@
 class_name CommandDesk
 extends VBoxContainer
 
+var _projected_snapshot: WorldSnapshot
+var _projected_context: Array = []
+
 signal decision_preview_changed(route: PackedVector2Array, target_position: Vector2, radius: float, label: String)
 signal decision_preview_cleared
 
@@ -35,6 +38,7 @@ const DECISION_HISTORY_LIMIT := 64
 @onready var history_text: RichTextLabel = $HistoryPopup/Margin/Text
 @onready var decision_failure_dialog: AcceptDialog = $DecisionFailureDialog
 
+var _advanced_settings: CheckButton
 var simulation_host: SimulationHost
 var input_controller: InputController
 var camera_controller: CameraController
@@ -66,6 +70,12 @@ var staff_retreat_button: Button
 
 
 func _ready() -> void:
+	_advanced_settings = CheckButton.new()
+	_advanced_settings.text = GameText.t(&"STAFF_ADVANCED")
+	_advanced_settings.visible = false
+	_advanced_settings.toggled.connect(func(_enabled: bool) -> void: _update_large_battle_fields())
+	$Intent.add_child(_advanced_settings)
+	$Intent.move_child(_advanced_settings, 2)
 	staff_plan_button = Button.new()
 	staff_plan_button.clip_text = true
 	staff_plan_button.custom_minimum_size.y = 30
@@ -128,9 +138,12 @@ func configure(host: SimulationHost, input: InputController, camera: CameraContr
 	reset_decision_session()
 	_clear_action_receipt()
 	refresh_locale()
+	_update_large_battle_fields()
 
 
 func reset_decision_session() -> void:
+	_projected_snapshot = null
+	_projected_context.clear()
 	if staff_plan_panel != null:
 		staff_plan_panel.reset_session()
 	if staff_plan_status != null:
@@ -157,14 +170,18 @@ func update_command_situation(snapshot: WorldSnapshot, command_situation: Comman
 	_update_staff_execution()
 	if snapshot == null or command_situation == null:
 		return
-	card_actions.clear()
-	if simulation_host != null and simulation_host.world != null:
-		card_actions = _card_projector.project(snapshot, simulation_host.world.battle_definition)
+	var measure_desk := RuntimeMeasurement.begin()
+	_refresh_card_actions(true)
+	RuntimeMeasurement.end(&"desk.actions_usec",measure_desk)
+	measure_desk = RuntimeMeasurement.begin()
 	_check_pending_responses()
 	if commander_selector.item_count == 0 or objective_selector.item_count != snapshot.strategic_regions.size():
 		_refresh_dynamic_options()
 	_sync_selected_intent()
+	RuntimeMeasurement.end(&"desk.options_usec",measure_desk)
+	measure_desk = RuntimeMeasurement.begin()
 	_rebuild_exception_rows()
+	RuntimeMeasurement.end(&"desk.rows_usec",measure_desk)
 	_update_status()
 
 
@@ -194,6 +211,7 @@ func set_compact(compact: bool) -> void:
 		selector.fit_to_longest_item = false
 		selector.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		selector.tooltip_text = ""
+	_update_large_battle_fields()
 	_rebuild_exception_rows()
 
 
@@ -234,16 +252,29 @@ func refresh_locale() -> void:
 		_rebuild_exception_rows()
 		_update_status()
 	_update_staff_execution()
+	_update_large_battle_fields()
+
+
+func _selected_staff_graph() -> CommanderTaskGraphSnapshot:
+	if current_snapshot == null:
+		return null
+	var commander_id := StringName(_selected_metadata(commander_selector, &""))
+	for graph in current_snapshot.commander_task_graphs:
+		for node in graph.nodes:
+			if node.commander_id == commander_id and node.lifecycle != CommanderTaskNodeSnapshot.Lifecycle.CANCELLED:
+				return graph
+	return null
 
 
 func _update_staff_execution() -> void:
 	if staff_retreat_button == null:
 		return
-	staff_retreat_button.visible = current_snapshot != null and not current_snapshot.commander_task_graphs.is_empty()
+	var graph := _selected_staff_graph()
+	staff_retreat_button.visible = graph != null
 	if not staff_retreat_button.visible:
 		return
-	var graph := current_snapshot.commander_task_graphs[0]
 	staff_retreat_button.disabled = graph.retreat_requested or current_snapshot.outcome.is_terminal()
+	staff_retreat_button.text = GameText.t(&"COOP_RETREAT_ALL" if graph.approved_plan.coordination != StaffPlanRequest.Coordination.INDEPENDENT else &"COMMANDER_GRAPH_RETREAT")
 	staff_plan_button.tooltip_text = CommanderTaskGraphPresenter.describe(current_snapshot, graph)
 	if staff_plan_panel.pending_command_id == 0:
 		staff_plan_status.text = CommanderTaskGraphPresenter.summary(graph)
@@ -253,8 +284,10 @@ func _update_staff_execution() -> void:
 func _request_staff_retreat() -> void:
 	if simulation_host == null or current_snapshot == null or current_snapshot.commander_task_graphs.is_empty():
 		return
-	var graph := current_snapshot.commander_task_graphs[0]
-	var command := CommanderCardTaskCommand.new(simulation_host.world.allocate_command_id(), graph.faction_id,
+	var graph := _selected_staff_graph()
+	if graph == null:
+		return
+	var command := CommanderCardTaskCommand.new(simulation_host.allocate_command_id(), graph.faction_id,
 		GameCommand.IssuerKind.PLAYER, current_snapshot.tick, graph.graph_id, &"", CommanderCardTaskCommand.Action.RETREAT)
 	var result := simulation_host.submit_command(command)
 	staff_plan_status.text = GameText.t(&"COMMANDER_GRAPH_RETREAT_QUEUED") if result.is_accepted() else GameText.t(&"STAFF_APPROVAL_FAILED") % GameText.t(StringName("REASON_%s" % CommandValidationResult.Reason.keys()[result.reason]))
@@ -286,6 +319,8 @@ func _update_pause_copy(_paused: bool = false) -> void:
 func _refresh_dynamic_options() -> void:
 	var selected_commander := StringName(_selected_metadata(commander_selector, &""))
 	var selected_objective := StringName(_selected_metadata(objective_selector, &""))
+	if selected_objective.is_empty() and not current_snapshot.navigation_map_id.is_empty():
+		selected_objective = &"blue_mid_high"
 	var selected_axis := StringName(_selected_metadata(axis_selector, &""))
 	commander_selector.clear()
 	var commanders: Array[CommanderSnapshot] = []
@@ -317,7 +352,7 @@ func _sync_selected_intent() -> void:
 	var commander := current_snapshot.get_commander(commander_id)
 	var intent_id := commander.active_intent_id if commander != null else &""
 	if intent_id.is_empty() or intent_id == _loaded_intent_id:
-		cancel_button.disabled = intent_id.is_empty()
+		cancel_button.disabled = intent_id.is_empty() and (not current_snapshot.growth_mode or commander == null or commander.intent_mode == CommanderState.IntentMode.AUTONOMOUS)
 		return
 	_loaded_intent_id = intent_id
 	_select_metadata(objective_selector, commander.intent_objective_region_id)
@@ -343,6 +378,7 @@ func _submit_intent() -> void:
 	)
 	var result := simulation_host.submit_command(command)
 	intent_status.text = GameText.t(&"COMMAND_DESK_INTENT_RESULT") % GameText.command_result(result)
+	if current_snapshot.growth_mode and result.is_accepted(): intent_status.text = GameText.t(&"AUTHORITY_RECEIPT_QUEUED")
 	if result.is_accepted() and simulation_host.is_tactical_paused():
 		intent_status.text = GameText.t(&"TACTICAL_QUEUED")
 	var subject := _commander_name(command.commander_id)
@@ -350,6 +386,7 @@ func _submit_intent() -> void:
 	if result.is_accepted():
 		_watch_response({
 			"kind": "intent", "commander_id": command.commander_id, "intent_id": command.intent_id,
+			"command_id": command.command_id,
 			"objective_id": command.target_region_id, "axis_id": command.main_axis_region_id,
 			"issued_tick": command.issued_tick, "history_index": history_index,
 			"subject": subject, "action": GameText.t(&"COMMAND_DESK_APPLY"),
@@ -372,6 +409,7 @@ func _cancel_intent() -> void:
 	if result.is_accepted():
 		_watch_response({
 			"kind": "cancel_intent", "commander_id": commander_id,
+			"command_id": command.command_id,
 			"issued_tick": command.issued_tick, "history_index": history_index,
 			"subject": subject, "action": GameText.t(&"COMMAND_DESK_CANCEL"),
 		})
@@ -380,6 +418,15 @@ func _cancel_intent() -> void:
 
 
 func _decision_matches_filter(decision: CardActionSnapshot) -> bool:
+	if _card_action_filter == -2 and current_snapshot != null and not current_snapshot.navigation_map_id.is_empty():
+		if decision.action_kind == SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT:
+			return false
+		if decision.action_kind in [CardActionSnapshot.ATTACK_HEADQUARTERS, CardActionSnapshot.CONTINUE_RECON]:
+			var card := current_snapshot.get_unit_card(decision.unit_card_id)
+			return card != null and card.commander_definition_id == StringName(_selected_metadata(commander_selector, &""))
+		return input_controller != null and not input_controller.selected_unit_card_id.is_empty() and decision.unit_card_id == input_controller.selected_unit_card_id
+	if _card_action_filter == -2 and decision.action_kind == SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT and simulation_host != null and simulation_host.get_battle_definition() != null and simulation_host.get_battle_definition().automatic_reinforcement:
+		return false
 	if _card_action_filter == SupportOrderCommand.SupportKind.ENGINEERING_ROUTE and decision.action_kind == CardActionSnapshot.TACTICAL + TacticalAbilityDefinition.Kind.OPEN_ROUTE:
 		return true
 	if decision.action_kind in [CardActionSnapshot.ATTACK_HEADQUARTERS, CardActionSnapshot.CONTINUE_RECON]:
@@ -393,6 +440,7 @@ func _decision_matches_filter(decision: CardActionSnapshot) -> bool:
 func _rebuild_exception_rows() -> void:
 	if exception_rows == null:
 		return
+	_refresh_card_actions()
 	_row_insert_index = 0
 	var visible_card_ids: Array[StringName] = []
 	for decision in card_actions:
@@ -428,6 +476,20 @@ func _rebuild_exception_rows() -> void:
 		clear_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		clear_label.text = GameText.t(&"CARD_ENGINEERING_NO_TARGETS" if _card_action_filter == SupportOrderCommand.SupportKind.ENGINEERING_ROUTE else (&"CARD_DECISION_NO_TARGETS" if _card_action_filter != -2 else &"COMMAND_DESK_NO_EXCEPTIONS"))
 		_place_decision_row(clear_label)
+
+
+func _refresh_card_actions(force: bool = false) -> void:
+	if current_snapshot == null or simulation_host == null: return
+	var battle := simulation_host.get_battle_definition()
+	if battle == null: return
+	var contextual := _card_action_filter == -2 and not current_snapshot.navigation_map_id.is_empty()
+	var card_id := input_controller.selected_unit_card_id if input_controller != null else &""
+	var commander_id := StringName(_selected_metadata(commander_selector,&""))
+	var context: Array = [contextual,card_id,commander_id]
+	if not force and _projected_snapshot == current_snapshot and _projected_context == context: return
+	_projected_snapshot = current_snapshot
+	_projected_context = context
+	card_actions = _card_projector.project(current_snapshot,battle,contextual,card_id,commander_id)
 
 
 func _add_exception_row(exception: CommandExceptionSnapshot) -> void:
@@ -521,6 +583,8 @@ func _perform_exception_action(exception_id: StringName, action: int) -> void:
 	var action_name := String(CommandExceptionSnapshot.Action.keys()[action]).to_lower()
 	var result: CommandValidationResult
 	match action:
+		CommandExceptionSnapshot.Action.REPLAN:
+			staff_plan_panel.open_plans(simulation_host, exception.region_id)
 		CommandExceptionSnapshot.Action.FOCUS:
 			_focus_exception(exception)
 		CommandExceptionSnapshot.Action.RESUME_TASK:
@@ -557,8 +621,7 @@ func _focus_exception(exception: CommandExceptionSnapshot) -> void:
 	if input_controller != null and not exception.unit_card_id.is_empty():
 		input_controller.select_unit_card(exception.unit_card_id)
 	if camera_controller != null and not exception.position.is_zero_approx():
-		camera_controller.position = exception.position
-		camera_controller.clamp_to_bounds()
+		camera_controller.center_on_world_position(exception.position)
 
 
 func _acknowledge_exception(exception_id: StringName) -> void:
@@ -588,6 +651,11 @@ func _update_status() -> void:
 	_clear_action_receipt()
 	var commander_id := StringName(_selected_metadata(commander_selector, &""))
 	var commander := current_snapshot.get_commander(commander_id) if current_snapshot != null else null
+	if current_snapshot != null and current_snapshot.growth_mode and commander != null:
+		intent_status.text = PlayerIntentPresenter.authority(commander) + " · " + GameText.t(StringName("AUTHORITY_RECEIPT_" + CommanderState.IntentReceipt.keys()[commander.intent_receipt]))
+		intent_status.tooltip_text = PlayerIntentPresenter.detail(commander, current_snapshot)
+		cancel_button.disabled = commander.legion_regrouping
+		return
 	if commander == null or commander.active_intent_id.is_empty():
 		intent_status.text = GameText.t(&"COMMAND_DESK_NO_INTENT")
 		cancel_button.disabled = true
@@ -645,6 +713,8 @@ func _clear_action_receipt() -> void:
 
 func _exception_text(exception: CommandExceptionSnapshot) -> String:
 	var subject := GameText.t(exception.unit_card_name_key) if not exception.unit_card_name_key.is_empty() else GameText.t(&"COMMAND_DESK_FORCE_WIDE")
+	if current_snapshot != null and current_snapshot.growth_mode and not exception.commander_id.is_empty():
+		subject = GameText.t(&"GROWTH_LEGION_NAME") % _commander_name(exception.commander_id)
 	return "%s | %s" % [subject, GameText.t(exception.reason_key)]
 
 
@@ -675,7 +745,7 @@ func _action_tooltip(action: int, exception: CommandExceptionSnapshot = null) ->
 func _action_subject(exception: CommandExceptionSnapshot, action: int) -> String:
 	if exception == null:
 		return GameText.t(&"COMMAND_DESK_FORCE_WIDE")
-	if action == CommandExceptionSnapshot.Action.DISENGAGE_COMMANDER:
+	if action == CommandExceptionSnapshot.Action.DISENGAGE_COMMANDER or (current_snapshot != null and current_snapshot.growth_mode and not exception.commander_id.is_empty()):
 		return GameText.t(&"COMMAND_EXCEPTION_SCOPE_COMMANDER") % _commander_name(exception.commander_id)
 	if not exception.unit_card_name_key.is_empty():
 		return GameText.t(&"COMMAND_EXCEPTION_SCOPE_CARD") % GameText.t(exception.unit_card_name_key)
@@ -812,6 +882,7 @@ func _check_pending_responses() -> void:
 func _response_is_confirmed(response: Dictionary) -> bool:
 	var kind := String(response.get("kind", ""))
 	var commander := current_snapshot.get_commander(response.get("commander_id", &"") as StringName)
+	if current_snapshot.growth_mode and kind in ["intent", "cancel_intent"] and (commander == null or commander.player_command_id != int(response.get("command_id", -1))): return false
 	if kind == "intent":
 		return commander != null \
 			and commander.active_intent_id == response.get("intent_id", &"") \
@@ -1080,9 +1151,9 @@ func _perform_card_action(decision_id: StringName) -> void:
 		return
 	var command: GameCommand
 	if decision.action_kind in [CardActionSnapshot.ATTACK_HEADQUARTERS, CardActionSnapshot.CONTINUE_RECON]:
-		command = CardActionProjector.headquarters_command(decision, simulation_host.world.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, simulation_host.current_snapshot.tick)
+		command = CardActionProjector.headquarters_command(decision, simulation_host.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, simulation_host.current_snapshot.tick)
 	elif decision.action_kind >= CardActionSnapshot.TACTICAL:
-		command = TacticalActionProjector.command_for(decision, simulation_host.world.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, simulation_host.current_snapshot.tick)
+		command = TacticalActionProjector.command_for(decision, simulation_host.allocate_command_id(), SimulationWorld.LOCAL_PLAYER_ID, simulation_host.current_snapshot.tick)
 	else:
 		command = simulation_host.create_support_order_command(decision.action_kind, decision.target_id, &"", decision.unit_card_id)
 	var result := simulation_host.submit_command(command)
@@ -1191,8 +1262,7 @@ func _card_response_is_confirmed(response: Dictionary) -> bool:
 
 func _focus_card(decision: CardActionSnapshot) -> void:
 	if camera_controller != null:
-		camera_controller.position = decision.position
-		camera_controller.clamp_to_bounds()
+		camera_controller.center_on_world_position(decision.position)
 	_preview_card(decision)
 
 
@@ -1238,8 +1308,26 @@ func get_hover_context(mouse_position: Vector2) -> Dictionary:
 		elif selector == commander_selector:
 			var commander := current_snapshot.get_commander(selector.get_item_metadata(index)) if current_snapshot != null else null
 			if commander != null:
-				detail = TacticalHelp.personality(commander.personality_key)
+				detail = TacticalHelp.personality(commander.personality_key, current_snapshot.growth_mode)
 		else:
 			detail = GameText.t(&"TACTICAL_TARGET_HELP" if selector == objective_selector else &"TACTICAL_WAYPOINT_HELP")
 		return {"key": "intent-help:%s:%d:%s" % [selector.name, index, popup.visible], "text": detail, "avoid": Rect2(popup.position, popup.size) if popup.visible else Rect2(), "anchor": Vector2(popup.position) + Vector2(-18, popup.size.y) if popup.visible else mouse_position}
 	return {}
+
+
+func _update_large_battle_fields() -> void:
+	if _advanced_settings == null or simulation_host == null or simulation_host.get_battle_definition() == null:
+		return
+	var large := simulation_host.get_battle_definition().map_definition != null
+	_advanced_settings.visible = large
+	if not large:
+		return
+	if simulation_host.get_battle_definition().growth_mode:
+		$Intent/Selectors.visible = _advanced_settings.button_pressed
+		$Intent/Actions.visible = _advanced_settings.button_pressed
+	$Intent/Selectors.columns = 2
+	for label in [commander_label, objective_label, axis_label]:
+		label.visible = true
+	for field in [risk_label, risk_selector, reserve_label, reserve_selector]:
+		field.visible = _advanced_settings.button_pressed
+	approval_hint.visible = false

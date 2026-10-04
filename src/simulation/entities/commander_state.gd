@@ -9,18 +9,52 @@ enum Posture {
 	DISENGAGE,
 }
 
+enum FormationMode { FREE, MOVE, ATTACK, DEFEND, RETREAT }
+var formation_mode: FormationMode = FormationMode.FREE
+
+# Goal ownership is independent of tactical posture and formation shape.
+enum IntentMode { AUTONOMOUS, OBJECTIVE, FORCE_ATTACK, HOLD, RETREAT }
+enum IntentReceipt { NONE, QUEUED, EXECUTING, BLOCKED, ACHIEVED, CANCELLED, INTERRUPTED, RETURNED }
+var intent_mode: IntentMode = IntentMode.AUTONOMOUS
+var authority_version: int = 0
+var player_command_id: int = 0
+var player_target_position := Vector2.ZERO
+var player_target_region_id: StringName
+var player_route := PackedVector2Array()
+var intent_receipt: IntentReceipt = IntentReceipt.NONE
+
 enum ReservePolicy {
 	HOLD,
 	REINFORCE_ON_REQUEST,
 	COMMIT_AVAILABLE,
 }
 
+# Provenance of the latest accepted execution instruction, independent of
+# retained strategic intent text and automatic destination selection.
+enum LegionExecutionAuthority { AUTONOMOUS, PLAYER_INTENT, PLAYER_MOVEMENT, STOPPED, AGENT_OBJECTIVE, STAFF_PLAN }
+var legion_execution_authority: LegionExecutionAuthority = LegionExecutionAuthority.AUTONOMOUS
+
 var definition: CommanderDefinition
 var faction_id: int
+var hero_entity_id: int = 0
+var growth_unlocked_slots: int = 12
+var growth_slot_entities := PackedInt32Array()
+var hero_respawn_tick: int = -1
+var legion_regrouping: bool = false
+var recovery_started_tick: int = -1
+var recovery_strength: int = 12
+var autonomous_growth: bool = true
+var growth_recovering: bool = false
+var growth_resume_position: Vector2
+var growth_resume_region_id: StringName
+var growth_resume_route: PackedVector2Array = PackedVector2Array()
+var last_growth_order_tick: int = -1000
 var subordinate_unit_card_ids: Array[StringName] = []
 var agent_id: int = 0
 var posture: Posture = Posture.BALANCED
 var target_position: Vector2
+var deployment_goal := Vector2(INF,INF)
+var deployment_facing := Vector2.ZERO
 var target_region_id: StringName
 var planned_route: PackedVector2Array = PackedVector2Array()
 var current_task_ids: Array[int] = []

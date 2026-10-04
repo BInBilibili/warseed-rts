@@ -35,6 +35,17 @@ var assigned_agent_id: int = 0
 var assigned_task_id: int = 0
 var return_task_id: int = 0
 var return_formation_id: int = 0
+var temporary_micro: bool = false
+var player_stopped := false
+var continuing_player_order := false
+var persistent_manual: bool = false
+var authority_version: int = 0
+var player_command_id: int = 0
+var commander_hold_position := Vector2(INF, INF)
+var manual_target_entity_id: int = 0
+var player_order_receipt: CommanderState.IntentReceipt = CommanderState.IntentReceipt.NONE
+var last_player_order_tick: int = -1
+var micro_settled_tick: int = -1
 var takeover_reason: String = ""
 var cumulative_losses: int = 0
 var battles_survived: int = 0
@@ -45,6 +56,7 @@ var organization_enabled: bool = false
 var organization: float = 0.0
 var last_organization_band: int = -1
 var last_damage_tick: int = -1000000
+var entrenchment_ticks: int = 0
 var last_total_health: float = 0.0
 var last_active_strength: int = 0
 var withdrawn_strength: int = 0
@@ -96,3 +108,6 @@ func has_active_unit_type(unit_id: StringName, units: Dictionary) -> bool:
 		if unit != null and unit.enabled and unit.definition_id == unit_id:
 			return true
 	return false
+
+func uses_legion_slots() -> bool:
+	return control_state==ControlState.AGENT_ASSIGNED and not continuing_player_order

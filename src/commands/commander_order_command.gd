@@ -6,6 +6,7 @@ enum OrderKind {
 	SET_POSTURE,
 	ASSIGN_INTENT,
 	CANCEL_INTENT,
+	RETURN_AI,
 }
 
 var commander_id: StringName
@@ -21,6 +22,22 @@ var reserve_policy: CommanderState.ReservePolicy = CommanderState.ReservePolicy.
 var hand_back_control: bool = false
 # Explicit contextual execution can replace a hold/disengage posture atomically.
 var apply_requested_posture: bool = false
+var deployment_facing := Vector2.ZERO
+var use_legion_deployment := false
+var requested_intent_mode: int = -1 # -1 preserves FORCE_ATTACK on target changes.
+
+
+func duplicate_value() -> CommanderOrderCommand:
+	var result := CommanderOrderCommand.new(command_id, issuer_id, issued_tick, commander_id, order_kind,
+		target_position, target_region_id, posture, route_points, intent_id, main_axis_region_id, reserve_policy)
+	result.issuer_kind = issuer_kind
+	result.agent_id = agent_id
+	result.hand_back_control = hand_back_control
+	result.apply_requested_posture = apply_requested_posture
+	result.deployment_facing = deployment_facing
+	result.use_legion_deployment = use_legion_deployment
+	result.requested_intent_mode = requested_intent_mode
+	return result
 
 
 func _init(

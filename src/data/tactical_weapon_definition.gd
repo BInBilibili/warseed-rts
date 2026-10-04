@@ -12,10 +12,20 @@ enum TargetTag { LIGHT, ARMORED, AIR, STRUCTURE }
 @export var suppression: float = 0.0
 @export var identification_required: bool = false
 @export var preparation_ticks: int = 0
+@export var damage_multiplier_min: float = 1.0
+@export var damage_multiplier_max: float = 1.0
+@export var fixed_attack_range: float = 0.0
+@export var health_only_damage: bool = false
 
 
 func validate() -> DataValidationResult:
 	var result := DataValidationResult.new()
+	if not is_finite(fixed_attack_range) or fixed_attack_range < 0.0:
+		result.add(DataValidationResult.Reason.INVALID_VALUE, "invalid fixed weapon range")
+	if health_only_damage and (suppression > 0.0 or damage_tag == DamageTag.SUPPRESSION):
+		result.add(DataValidationResult.Reason.INVALID_VALUE, "health-only weapon cannot suppress organization")
+	if not is_finite(damage_multiplier_min) or not is_finite(damage_multiplier_max) or damage_multiplier_min <= 0.0 or damage_multiplier_max < damage_multiplier_min or damage_multiplier_max > 10.0:
+		result.add(DataValidationResult.Reason.INVALID_VALUE, "invalid weapon damage multiplier range")
 	if damage_tag < DamageTag.KINETIC or damage_tag > DamageTag.SUPPRESSION or target_tag < TargetTag.LIGHT or target_tag > TargetTag.STRUCTURE or allowed_targets.is_empty():
 		result.add(DataValidationResult.Reason.INVALID_VALUE, "unsupported weapon/target tag")
 	for tag in allowed_targets:

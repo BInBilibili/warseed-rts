@@ -4,6 +4,15 @@ extends PanelContainer
 signal card_decision_requested(kind: int)
 var contextual_card_actions: bool = false
 var supply_label: Label
+var _economy_label: Label
+var _plan_toggle: Button
+var _plan_box: VBoxContainer
+var _plan_reserve: SpinBox
+var _plan_rates: Dictionary[StringName, SpinBox] = {}
+var _plan_status: Label
+var _plan_apply: Button
+var _plan_snapshot: WorldSnapshot
+
 
 @onready var title_label: Label = $Margin/Scroll/Layout/Title
 @onready var pair_selector: OptionButton = $Margin/Scroll/Layout/Pair
@@ -103,6 +112,9 @@ func update_snapshot(snapshot: WorldSnapshot) -> void:
 	var faction := snapshot.get_faction(SimulationWorld.LOCAL_PLAYER_ID)
 	if supply_label != null:
 		supply_label.text = GameText.t(&"SUPPORT_SUPPLY_BALANCE") % [faction.supply if faction != null else 0, faction.supply_capacity if faction != null else 0]
+	if simulation_host.get_battle_definition() != null and simulation_host.get_battle_definition().growth_mode:
+		_update_growth_support(snapshot)
+		return
 	var affordable := faction != null and faction.supply >= SimulationWorld.SUPPORT_COST
 	var recon_cooldown := maxi(0, faction.air_recon_cooldown_until_tick - snapshot.tick) if faction != null else 0
 	var fortify_cooldown := _generic_cooldown(faction, SupportOrderCommand.SupportKind.EMERGENCY_FORTIFY, snapshot.tick)
@@ -112,15 +124,15 @@ func update_snapshot(snapshot: WorldSnapshot) -> void:
 	_update_pending_reinforcement_receipt(snapshot)
 	fortify_button.disabled = not affordable or fortify_cooldown > 0 or selected_card == null or selected_card.deployment_state != UnitCardState.DeploymentState.DEPLOYED or selected_card.fortified_ticks_remaining > 0
 	reinforcement_button.disabled = not affordable or reinforcement_cooldown > 0 or selected_card == null or selected_card.deployment_state != UnitCardState.DeploymentState.DEPLOYED or selected_card.current_strength >= selected_card.authorized_strength or faction == null or faction.population >= faction.population_capacity
-	var routes := simulation_host.world.battle_definition.engineering_routes if simulation_host.world.battle_definition != null else []
+	var routes := simulation_host.get_battle_definition().engineering_routes if simulation_host.get_battle_definition() != null else []
 	var engineer_selected := selected_card != null and selected_card.deployment_state == UnitCardState.DeploymentState.DEPLOYED and selected_card.has_active_unit_type(&"engineer_vehicle")
 	var route_available := not routes.is_empty() and not simulation_host.world.opened_engineering_routes.has(routes[0].route_id)
 	if engineering_button != null:
 		engineering_button.visible = not routes.is_empty()
 		engineering_button.disabled = not affordable or not engineer_selected or not route_available
-	var fire_definition := simulation_host.world.get_support_definition(SupportOrderCommand.SupportKind.FIRE_SUPPORT)
-	var mobility_definition := simulation_host.world.get_support_definition(SupportOrderCommand.SupportKind.RAPID_MOBILITY)
-	var logistics_definition := simulation_host.world.get_support_definition(SupportOrderCommand.SupportKind.FRONTLINE_LOGISTICS)
+	var fire_definition := simulation_host.get_support_definition(SupportOrderCommand.SupportKind.FIRE_SUPPORT)
+	var mobility_definition := simulation_host.get_support_definition(SupportOrderCommand.SupportKind.RAPID_MOBILITY)
+	var logistics_definition := simulation_host.get_support_definition(SupportOrderCommand.SupportKind.FRONTLINE_LOGISTICS)
 	var fire_cooldown := _generic_cooldown(faction, SupportOrderCommand.SupportKind.FIRE_SUPPORT, snapshot.tick)
 	var mobility_cooldown := _generic_cooldown(faction, SupportOrderCommand.SupportKind.RAPID_MOBILITY, snapshot.tick)
 	var logistics_cooldown := _generic_cooldown(faction, SupportOrderCommand.SupportKind.FRONTLINE_LOGISTICS, snapshot.tick)
@@ -175,6 +187,11 @@ func update_snapshot(snapshot: WorldSnapshot) -> void:
 	_update_cooldown_label(fire_support_button, &"SUPPORT_FIRE_SUPPORT", fire_cooldown)
 	_update_cooldown_label(rapid_mobility_button, &"CARD_ACTION_MOBILITY" if contextual_card_actions else &"SUPPORT_RAPID_MOBILITY", mobility_cooldown)
 	_update_cooldown_label(frontline_logistics_button, &"CARD_ACTION_LOGISTICS" if contextual_card_actions else &"SUPPORT_FRONTLINE_LOGISTICS", logistics_cooldown)
+	var battle := simulation_host.get_battle_definition()
+	var automatic := battle != null and battle.automatic_reinforcement
+	reinforcement_button.visible = not automatic
+	if automatic and faction != null:
+		status_label.text = GameText.t(&"AUTO_LOGISTICS_SUMMARY") % [faction.population, faction.population_capacity, battle.reinforcement_supply_reserve]
 	var lines: Array[String] = []
 	var active_reports: Array[IntelReportSnapshot] = []
 	for report in snapshot.intel_reports:
@@ -279,6 +296,8 @@ func _eta_text(report: IntelReportSnapshot) -> String:
 
 
 func _request_recon() -> void:
+	if _begin_area_targeting(SupportOrderCommand.SupportKind.AIR_RECON):
+		return
 	if simulation_host == null or _region_pairs.is_empty():
 		return
 	var selected_index := clampi(pair_selector.selected, 0, _region_pairs.size() - 1)
@@ -293,10 +312,10 @@ func _request_recon() -> void:
 
 func _rebuild_region_pairs() -> void:
 	_region_pairs.clear()
-	if simulation_host == null or simulation_host.world.battle_definition == null:
+	if simulation_host == null or simulation_host.get_battle_definition() == null:
 		return
 	var seen: Dictionary = {}
-	for region in simulation_host.world.battle_definition.strategic_regions:
+	for region in simulation_host.get_battle_definition().strategic_regions:
 		for adjacent_id in region.adjacent_region_ids:
 			var ids: Array[StringName] = [region.region_id, adjacent_id]
 			ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
@@ -312,7 +331,7 @@ func _rebuild_pair_labels() -> void:
 	if pair_selector == null:
 		return
 	pair_selector.clear()
-	var region_by_id := simulation_host.world.battle_definition.region_dictionary() if simulation_host != null and simulation_host.world.battle_definition != null else {}
+	var region_by_id := simulation_host.get_battle_definition().region_dictionary() if simulation_host != null and simulation_host.get_battle_definition() != null else {}
 	for pair_variant in _region_pairs:
 		var pair: Array = pair_variant
 		var first := region_by_id.get(pair[0]) as BattleRegionDefinition
@@ -351,7 +370,7 @@ func _request_reinforcement() -> void:
 	var before_strength := selected_card.current_strength if selected_card != null else 0
 	var missing_strength := maxi(0, selected_card.authorized_strength - before_strength) if selected_card != null else 0
 	var population_room := maxi(0, faction.population_capacity - faction.population) if faction != null else 0
-	var definition := simulation_host.world.get_support_definition(SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT)
+	var definition := simulation_host.get_support_definition(SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT)
 	var configured_strength := definition.strength if definition != null else SimulationWorld.FIELD_REINFORCEMENT_STRENGTH
 	var expected_reinforcement := mini(configured_strength, mini(missing_strength, population_room))
 	var result := simulation_host.submit_command(simulation_host.create_support_order_command(
@@ -397,7 +416,7 @@ func _request_engineering_route() -> void:
 	if simulation_host == null or input_controller == null or input_controller.selected_unit_card_id.is_empty():
 		status_label.text = GameText.t(&"SUPPORT_SELECT_ENGINEER")
 		return
-	var battle := simulation_host.world.battle_definition
+	var battle := simulation_host.get_battle_definition()
 	if battle == null or battle.engineering_routes.is_empty():
 		return
 	var route := battle.engineering_routes[0]
@@ -409,6 +428,8 @@ func _request_engineering_route() -> void:
 
 
 func _request_fire_support() -> void:
+	if _begin_area_targeting(SupportOrderCommand.SupportKind.MISSILE_BARRAGE):
+			return
 	if simulation_host == null or _region_pairs.is_empty():
 		return
 	var pair: Array = _region_pairs[clampi(pair_selector.selected, 0, _region_pairs.size() - 1)]
@@ -423,6 +444,8 @@ func _request_rapid_mobility() -> void:
 
 
 func _request_frontline_logistics() -> void:
+	if _begin_area_targeting(SupportOrderCommand.SupportKind.FIELD_HOSPITAL):
+			return
 	_request_card_support(SupportOrderCommand.SupportKind.FRONTLINE_LOGISTICS)
 
 
@@ -437,3 +460,143 @@ func _request_card_support(kind: int) -> void:
 		kind, &"", &"", input_controller.selected_unit_card_id
 	))
 	status_label.text = GameText.t(&"SUPPORT_RESULT") % GameText.command_result(result)
+
+
+func _begin_area_targeting(kind: SupportOrderCommand.SupportKind) -> bool:
+	if simulation_host == null or simulation_host.get_battle_definition() == null or not simulation_host.get_battle_definition().growth_mode:
+		return false
+	if input_controller != null:
+		input_controller.begin_area_support_targeting(kind)
+		status_label.text = GameText.t(&"AREA_SUPPORT_TARGETING")
+	return true
+
+
+func _update_growth_support(snapshot: WorldSnapshot) -> void:
+	_update_recruitment_plan(snapshot)
+	for control in [pair_selector, fortify_button, reinforcement_button, engineering_button, rapid_mobility_button, intel_title_label, intel_label]:
+		if control != null:
+			control.visible = false
+	var faction := snapshot.get_faction(snapshot.observer_faction_id)
+	var buttons := [recon_button, fire_support_button, frontline_logistics_button]
+	var kinds := [SupportOrderCommand.SupportKind.AIR_RECON, SupportOrderCommand.SupportKind.MISSILE_BARRAGE, SupportOrderCommand.SupportKind.FIELD_HOSPITAL]
+	var names: Array[StringName] = [&"AREA_RECON_CARD", &"AREA_MISSILE_CARD", &"AREA_HOSPITAL_CARD"]
+	var help: Array[StringName] = [&"AREA_RECON_HELP", &"AREA_MISSILE_HELP", &"AREA_HOSPITAL_HELP"]
+	for index in range(buttons.size()):
+		var button := buttons[index] as Button
+		if button == null:
+			continue
+		var definition := simulation_host.get_support_definition(kinds[index])
+		button.visible = definition != null
+		if definition == null:
+			continue
+		var cooldown := _generic_cooldown(faction, kinds[index], snapshot.tick)
+		button.disabled = faction == null or simulation_host.get_available_support_supply() < definition.supply_cost or cooldown > 0
+		_update_cooldown_label(button, &"", cooldown, GameText.t(names[index]) + " · " + str(definition.supply_cost))
+		button.tooltip_text = GameText.t(help[index])
+	status_label.text = GameText.t(&"AREA_SUPPORT_TARGETING") if input_controller != null and input_controller.command_mode == InputController.CommandMode.AREA_SUPPORT_TARGETING else GameText.t(&"GROWTH_LOGISTICS_HELP")
+
+func _update_recruitment_plan(snapshot: WorldSnapshot) -> void:
+	_plan_snapshot = snapshot
+	var faction := snapshot.get_faction(snapshot.observer_faction_id)
+	if faction == null: return
+	if _economy_label == null:
+		var layout := $Margin/Scroll/Layout
+		_economy_label = Label.new()
+		_economy_label.name = "GrowthEconomy"
+		_economy_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_economy_label.add_theme_font_size_override("font_size", 11)
+		layout.add_child(_economy_label)
+		layout.move_child(_economy_label, 0)
+		_plan_toggle = Button.new()
+		_plan_toggle.name = "RecruitmentPlanToggle"
+		_plan_toggle.toggle_mode = true
+		_plan_toggle.clip_text = true
+		layout.add_child(_plan_toggle)
+		layout.move_child(_plan_toggle, 1)
+		_plan_box = VBoxContainer.new()
+		_plan_box.visible = false
+		layout.add_child(_plan_box)
+		layout.move_child(_plan_box, 2)
+		_plan_toggle.toggled.connect(func(enabled: bool) -> void:
+			_plan_box.visible = enabled
+			if enabled: _load_recruitment_plan())
+		var reserve_label := Label.new()
+		reserve_label.name = "ReserveLabel"
+		reserve_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_plan_box.add_child(reserve_label)
+		_plan_reserve = SpinBox.new()
+		_plan_reserve.name = "ReserveSupply"
+		_plan_reserve.min_value = 0
+		_plan_reserve.max_value = faction.supply_capacity
+		_plan_reserve.step = 1
+		_plan_box.add_child(_plan_reserve)
+		for commander in snapshot.commanders:
+			if commander.faction_id != snapshot.observer_faction_id: continue
+			var row := HBoxContainer.new()
+			var label := Label.new()
+			label.text = GameText.t(commander.display_name_key)
+			label.name = "Name"
+			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			label.clip_text = true
+			row.name = String(commander.definition_id)
+			row.add_child(label)
+			var rate := SpinBox.new()
+			rate.name = "Rate"
+			rate.min_value = 0
+			rate.max_value = 2
+			rate.step = 1
+			row.add_child(rate)
+			_plan_box.add_child(row)
+			_plan_rates[commander.definition_id] = rate
+		_plan_apply = Button.new()
+		_plan_apply.name = "ApplyRecruitmentPlan"
+		_plan_apply.pressed.connect(_apply_recruitment_plan)
+		_plan_box.add_child(_plan_apply)
+		_plan_status = Label.new()
+		_plan_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_plan_status.add_theme_font_size_override("font_size", 11)
+		_plan_box.add_child(_plan_status)
+	_plan_toggle.text = GameText.t(&"GROWTH_PLAN_OPEN")
+	_plan_box.get_node("ReserveLabel").text = GameText.t(&"GROWTH_PLAN_RESERVE")
+	_plan_apply.text = GameText.t(&"GROWTH_PLAN_APPLY")
+	for id in _plan_rates:
+		_plan_rates[id].get_parent().get_node("Name").text = GameText.t(snapshot.get_commander(id).display_name_key)
+	var income := 0.0
+	var battle := simulation_host.get_battle_definition()
+	income += float(battle.base_supply_amount) * 10.0 / battle.base_supply_interval_ticks
+	for region in snapshot.strategic_regions:
+		if region.capturable and region.controller_faction_id == faction.faction_id and not region.contested:
+			income += float(region.supply_per_settlement) * 10.0 / battle.region_settlement_interval_ticks
+	_economy_label.text = GameText.t(&"GROWTH_ECONOMY_RATE") % [income, faction.previous_recruitment_spend, faction.previous_support_spend, faction.recruitment_reserve]
+	_economy_label.tooltip_text = GameText.t(&"GROWTH_INCOME_HELP")
+	var reservation := faction.recruitment_arbitration
+	if not reservation.reserved_commander_id.is_empty():
+		var saving_commander := snapshot.get_commander(reservation.reserved_commander_id)
+		if saving_commander != null:
+			_economy_label.text += "\n" + GameText.t(saving_commander.display_name_key) + " · " + GameText.t(&"GROWTH_SAVING_DETAIL") % [reservation.reserved_amount, reservation.reserved_cost]
+		_economy_label.tooltip_text += "\n" + GameText.t(&"GROWTH_SAVING_HELP")
+	for effect in snapshot.area_support_effects:
+		if effect.faction_id == faction.faction_id and effect.support_kind == SupportOrderCommand.SupportKind.MISSILE_BARRAGE:
+			_economy_label.text += "\n" + GameText.t(&"AREA_MISSILE_IMPACT" if effect.executed else &"AREA_MISSILE_WARNING")
+
+func _load_recruitment_plan() -> void:
+	var faction := _plan_snapshot.get_faction(_plan_snapshot.observer_faction_id)
+	_plan_reserve.set_value_no_signal(faction.recruitment_reserve)
+	for id in _plan_rates:
+		_plan_rates[id].set_value_no_signal(faction.recruitment_rates.get(id, 2 if id == faction.priority_commander_id else 1))
+	_plan_status.text = GameText.t(&"GROWTH_PLAN_HELP")
+
+func _apply_recruitment_plan() -> void:
+	var ids: Array[StringName] = []
+	var rates: Array[int] = []
+	var total := 0
+	for id in _plan_rates:
+		ids.append(id)
+		rates.append(int(_plan_rates[id].value))
+		total += int(_plan_rates[id].value)
+	if total > 5:
+		_plan_status.text = GameText.t(&"GROWTH_PLAN_OVER_LIMIT")
+		return
+	var command := simulation_host.create_recruitment_plan_command(ids, rates, int(_plan_reserve.value))
+	var result := simulation_host.submit_command(command)
+	_plan_status.text = GameText.command_result(result)

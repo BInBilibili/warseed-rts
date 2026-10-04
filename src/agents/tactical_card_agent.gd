@@ -16,6 +16,23 @@ func propose(snapshot: WorldSnapshot, battle: BattleDefinition) -> Array[Tactica
 		var task := snapshot.get_task(card.assigned_task_id)
 		if task == null or task.agent_id != card.assigned_agent_id or task.lifecycle not in [TaskState.Lifecycle.PREPARING, TaskState.Lifecycle.EXECUTING]:
 			continue
+		if battle.automatic_reinforcement:
+			var faction := snapshot.get_faction(snapshot.observer_faction_id)
+			var reserve := faction.recruitment_reserve if battle.growth_mode and faction != null else battle.reinforcement_supply_reserve
+			if faction == null or faction.supply < decision.supply_cost + reserve:
+				continue
+			if card.tactical_kind in [TacticalAbilityDefinition.Kind.OBSERVE, TacticalAbilityDefinition.Kind.BREAKTHROUGH]:
+				var contact_nearby := false
+				for hostile in snapshot.units:
+					if hostile.enabled and hostile.faction_id != card.faction_id and hostile.is_visible_to_local_player and hostile.position.distance_to(card.center_position) <= 720.0:
+						contact_nearby = true
+				if not contact_nearby:
+					var at_base := false
+					for building in snapshot.buildings:
+						if building.enabled and building.faction_id == card.faction_id and building.definition_id == &"command_center" and building.position.distance_to(card.center_position) <= battle.reinforcement_supply_radius:
+							at_base = true
+					if card.tactical_kind == TacticalAbilityDefinition.Kind.BREAKTHROUGH or at_base:
+						continue
 		var moving := false
 		for id in card.active_member_entity_ids:
 			var unit := snapshot.get_unit(id)

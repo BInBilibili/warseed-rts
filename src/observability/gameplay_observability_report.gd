@@ -103,8 +103,14 @@ func record_command(command: GameCommand, validation: CommandValidationResult, d
 func observe(snapshot: WorldSnapshot, new_events: Array[SimulationEvent] = []) -> bool:
 	if not _accepts_snapshot(snapshot):
 		return false
-	_enemy_observed_actions.clear()
-	for entry in snapshot.enemy_observed_actions: _enemy_observed_actions.append(entry.to_dictionary())
+	_enemy_observed_actions.resize(snapshot.enemy_observed_actions.size())
+	for index in snapshot.enemy_observed_actions.size():
+		var entry := snapshot.enemy_observed_actions[index]
+		var old := _enemy_observed_actions[index]
+		if old.get("observation_id", -1) != entry.observation_id or old.get("first_tick", -1) != entry.first_tick \
+			or old.get("last_tick", -1) != entry.last_tick or old.get("visible_strength", -1) != entry.visible_strength \
+			or old.get("action", "") != String(entry.action):
+			_enemy_observed_actions[index] = entry.to_dictionary()
 	_latest_tick = maxi(_latest_tick, snapshot.tick)
 	_observe_cards(snapshot)
 	_observe_tasks(snapshot)
@@ -474,8 +480,18 @@ func _record_task_transition(task: TaskSnapshot, reason_key: String, lifecycle: 
 
 
 func _observe_events(new_events: Array[SimulationEvent]) -> void:
+	var event_names := SimulationEvent.Kind.keys()
 	for event in new_events:
-		var event_name: String = String(SimulationEvent.Kind.keys()[event.kind]).to_lower()
+		# High-volume movement/fire events do not contribute to this report.
+		if event.kind not in [SimulationEvent.Kind.TACTICAL_ACTION_STARTED, SimulationEvent.Kind.TACTICAL_ACTION_COMPLETED,
+			SimulationEvent.Kind.TACTICAL_ACTION_INTERRUPTED, SimulationEvent.Kind.TACTICAL_IDENTIFIED,
+			SimulationEvent.Kind.ENGINEERING_ROUTE_OPENED, SimulationEvent.Kind.AMMUNITION_RESTORED,
+			SimulationEvent.Kind.SUPPRESSION_APPLIED, SimulationEvent.Kind.SUPPLY_CHANGED,
+			SimulationEvent.Kind.DAMAGE_APPLIED, SimulationEvent.Kind.UNIT_DESTROYED,
+			SimulationEvent.Kind.REGION_CONTROL_CHANGED, SimulationEvent.Kind.BUILDING_DESTROYED,
+			SimulationEvent.Kind.BATTLE_CONCLUDED]:
+			continue
+		var event_name: String = String(event_names[event.kind]).to_lower()
 		var detail := _parse_detail(event.detail)
 		match event.kind:
 			SimulationEvent.Kind.TACTICAL_ACTION_STARTED, SimulationEvent.Kind.TACTICAL_ACTION_COMPLETED, SimulationEvent.Kind.TACTICAL_ACTION_INTERRUPTED:

@@ -4,6 +4,49 @@ msgstr ""
 "Language: zh_CN\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
+msgid "AUTHORITY_MODE_AUTONOMOUS"
+msgstr "AI自主"
+msgid "AUTHORITY_MODE_OBJECTIVE"
+msgstr "玩家目标·AI执行"
+msgid "AUTHORITY_MODE_FORCE_ATTACK"
+msgstr "玩家·强攻"
+msgid "AUTHORITY_MODE_HOLD"
+msgstr "玩家·坚守"
+msgid "AUTHORITY_MODE_RETREAT"
+msgstr "玩家·有序撤退"
+msgid "AUTHORITY_HARD_LOCK"
+msgstr "将领阵亡·回营中"
+msgid "AUTHORITY_RECEIPT_NONE"
+msgstr "等待命令"
+msgid "AUTHORITY_RECEIPT_QUEUED"
+msgstr "已接受待执行"
+msgid "AUTHORITY_RECEIPT_EXECUTING"
+msgstr "执行中"
+msgid "AUTHORITY_RECEIPT_BLOCKED"
+msgstr "受阻，保留当前意图"
+msgid "AUTHORITY_RECEIPT_ACHIEVED"
+msgstr "目标达成，保持目标区"
+msgid "AUTHORITY_RECEIPT_CANCELLED"
+msgstr "已取消，当前位置坚守"
+msgid "AUTHORITY_RECEIPT_INTERRUPTED"
+msgstr "被硬规则中断"
+msgid "AUTHORITY_RECEIPT_RETURNED"
+msgstr "已交还AI，不恢复旧命令"
+msgid "AUTHORITY_MANUAL_CARDS"
+msgstr "玩家接管卡：%s"
+msgid "AUTHORITY_FORCE_ACTION"
+msgstr "强攻当前目标"
+msgid "AUTHORITY_CANCEL_ACTION"
+msgstr "取消命令并坚守"
+msgid "AUTHORITY_RETURN_ACTION"
+msgstr "交还全团AI"
+msgid "AUTHORITY_SCOPE_HELP"
+msgstr "将领新命令替换全团旧意图与卡微操。强攻不因风险自动撤退；取消后原地坚守，交还才恢复自主。地图路线转移保留强攻，显式选择平衡/谨慎/进攻可恢复AI战术判断。选择头像和Esc取消瞄准不改变已执行命令。"
+msgid "AUTHORITY_FORCE_RISK"
+msgstr "强攻禁止战略改向与自主整团撤退；低组织和伤亡提示风险，实际战斗及路径限制仍生效。"
+msgid "REASON_AUTHORITY_STALE"
+msgstr "授权已被新玩家命令替换"
+
 msgid "HUD_TITLE"
 msgstr "指挥网络"
 msgid "HUD_MISSION_WAITING"
@@ -970,7 +1013,7 @@ msgstr "切换已确认和最后已知的敌方压力"
 msgid "OVERLAY_INTELLIGENCE_TOOLTIP"
 msgstr "切换未探索与曾经观察区域"
 msgid "OVERLAY_LEGEND"
-msgstr "金色 战线 | 青色 任务 | 红色 威胁 | 虚线 过期 | 阴影 未知"
+msgstr "青色 任务 | 红色 威胁 | 虚线 过期 | 阴影 未知"
 msgid "OVERLAY_SUMMARY_EMPTY"
 msgstr "等待态势"
 msgid "OVERLAY_SUMMARY"
@@ -3050,3 +3093,766 @@ msgstr "据点已全部占领。将侦察部队交回AI，持续搜索未知区�
 
 msgid "CARD_ENGINEERING_NO_TARGETS"
 msgstr "暂无可开通路线：需要尚未开通的渡口及存活的工程部队。先在军团中部署工程卡。"
+
+# Final decision battlefield
+
+msgid "FINAL_DECISION_TITLE"
+msgstr "最终决战 · 裂谷三线"
+
+msgid "FINAL_DECISION_BRIEFING"
+msgstr "在32768×24576中心对称战场争夺26个补给节点。蓝方左下，红方右上；双方各60人开局，通过占点收入扩军至300人，分属五个混成军团。"
+
+msgid "FINAL_DECISION_MECHANICS"
+msgstr "三路高地、内层、外层与双野区互通。每20秒：总部+12，高地/内层/外层+4/6/8，小/大野区+3/7。补员自动执行；侦察、导弹与医院改变战局。"
+
+msgid "FINAL_POINT_BLUE_BASE"
+msgstr "蓝方总部"
+
+msgid "FINAL_POINT_RED_BASE"
+msgstr "红方总部"
+
+msgid "FINAL_POINT_WEST_GATE"
+msgstr "西线闸口"
+
+msgid "FINAL_POINT_WEST_GATE_MIRROR"
+msgstr "东线闸口"
+
+msgid "FINAL_POINT_NORTH_DEPOT"
+msgstr "北线补给站"
+
+msgid "FINAL_POINT_NORTH_DEPOT_MIRROR"
+msgstr "南线补给站"
+
+msgid "FINAL_POINT_BLUE_MID"
+msgstr "西南中继"
+
+msgid "FINAL_POINT_BLUE_MID_MIRROR"
+msgstr "东北中继"
+
+msgid "FINAL_POINT_CENTER_HUB"
+msgstr "中央枢纽"
+
+msgid "FINAL_POINT_CACHE_WEST"
+msgstr "西野区仓库"
+
+msgid "FINAL_POINT_CACHE_WEST_MIRROR"
+msgstr "东野区仓库"
+
+msgid "FINAL_POINT_CACHE_NORTH"
+msgstr "北野区仓库"
+
+msgid "FINAL_POINT_CACHE_NORTH_MIRROR"
+msgstr "南野区仓库"
+
+msgid "FINAL_LANE_TOP"
+msgstr "上路"
+
+msgid "FINAL_LANE_MID"
+msgstr "中路"
+
+msgid "FINAL_LANE_BOTTOM"
+msgstr "下路"
+
+msgid "BATTLEGROUP_EXPAND"
+msgstr "展开分队"
+
+msgid "BATTLEGROUP_COLLAPSE"
+msgstr "收起分队"
+
+msgid "STAFF_ADVANCED"
+msgstr "路线与高级设置"
+
+msgid "STAFF_VIA"
+msgstr "途经点 %d"
+
+msgid "STAFF_VIA_NONE"
+msgstr "自动选路"
+
+msgid "STAFF_DETAILS"
+msgstr "查看战术细节"
+
+msgid "AUTO_LOGISTICS_SUMMARY"
+msgstr "自动补员 · %d/%d\n保留 %d 补给；部队在安全补给点附近恢复缺员。"
+
+msgid "FINAL_POINT_REAR_GATE"
+msgstr "西南外门"
+
+msgid "FINAL_POINT_REAR_GATE_MIRROR"
+msgstr "东北外门"
+
+msgid "FINAL_POINT_REAR_MID"
+msgstr "西南集结站"
+
+msgid "FINAL_POINT_REAR_MID_MIRROR"
+msgstr "东北集结站"
+
+msgid "FINAL_POINT_CACHE_REAR"
+msgstr "西南野区仓"
+
+msgid "FINAL_POINT_CACHE_REAR_MIRROR"
+msgstr "东北野区仓"
+
+msgid "STAFF_MAP_HINT"
+msgstr "选择参战战团和目标；将领负责侦察、推进与自动补员。展开路线设置可指定途经补给点。"
+
+msgid "STAFF_ALLOWED_GROUPS"
+msgstr "参战战团"
+
+msgid "STAFF_GROUP_SUMMARY"
+msgstr "投入 %d · 预备 %d\n补给支出 %d"
+
+msgid "BATTLE_OUTCOME_DRAW"
+msgstr "战局平手"
+
+msgid "MINIMAP_EXPAND"
+msgstr "展开战术地图"
+
+msgid "MINIMAP_CLOSE"
+msgstr "返回战场"
+
+msgid "MINIMAP_LEGEND"
+msgstr "◇ 侦察　▱ 装甲　△ 火炮　箭头 突击　堡垒 总部\n圆环 补给点 · 淡色虚线为旧情报 · 点击地图移动视角"
+
+msgid "FINAL_POINT_BLUE_TOP_HIGH"
+msgstr "蓝方 · 上路高地"
+
+msgid "FINAL_POINT_BLUE_TOP_INNER"
+msgstr "蓝方 · 上路内层"
+
+msgid "FINAL_POINT_BLUE_TOP_OUTER"
+msgstr "蓝方 · 上路外层"
+
+msgid "FINAL_POINT_BLUE_MID_HIGH"
+msgstr "蓝方 · 中路高地"
+
+msgid "FINAL_POINT_BLUE_MID_INNER"
+msgstr "蓝方 · 中路内层"
+
+msgid "FINAL_POINT_BLUE_MID_OUTER"
+msgstr "蓝方 · 中路外层"
+
+msgid "FINAL_POINT_BLUE_BOTTOM_HIGH"
+msgstr "蓝方 · 下路高地"
+
+msgid "FINAL_POINT_BLUE_BOTTOM_INNER"
+msgstr "蓝方 · 下路内层"
+
+msgid "FINAL_POINT_BLUE_BOTTOM_OUTER"
+msgstr "蓝方 · 下路外层"
+
+msgid "FINAL_POINT_RED_TOP_HIGH"
+msgstr "红方 · 上路高地"
+
+msgid "FINAL_POINT_RED_TOP_INNER"
+msgstr "红方 · 上路内层"
+
+msgid "FINAL_POINT_RED_TOP_OUTER"
+msgstr "红方 · 上路外层"
+
+msgid "FINAL_POINT_RED_MID_HIGH"
+msgstr "红方 · 中路高地"
+
+msgid "FINAL_POINT_RED_MID_INNER"
+msgstr "红方 · 中路内层"
+
+msgid "FINAL_POINT_RED_MID_OUTER"
+msgstr "红方 · 中路外层"
+
+msgid "FINAL_POINT_RED_BOTTOM_HIGH"
+msgstr "红方 · 下路高地"
+
+msgid "FINAL_POINT_RED_BOTTOM_INNER"
+msgstr "红方 · 下路内层"
+
+msgid "FINAL_POINT_RED_BOTTOM_OUTER"
+msgstr "红方 · 下路外层"
+
+msgid "FINAL_WILD_UPPER"
+msgstr "上半野区"
+
+msgid "FINAL_POINT_JUNGLE_UPPER_REAR"
+msgstr "上半野区 · 后侧小补给"
+
+msgid "FINAL_POINT_JUNGLE_UPPER_FORWARD"
+msgstr "上半野区 · 前侧小补给"
+
+msgid "FINAL_POINT_JUNGLE_UPPER_MAJOR"
+msgstr "上半野区 · 大型补给站"
+
+msgid "FINAL_WILD_LOWER"
+msgstr "下半野区"
+
+msgid "FINAL_POINT_JUNGLE_LOWER_REAR"
+msgstr "下半野区 · 后侧小补给"
+
+msgid "FINAL_POINT_JUNGLE_LOWER_FORWARD"
+msgstr "下半野区 · 前侧小补给"
+
+msgid "FINAL_POINT_JUNGLE_LOWER_MAJOR"
+msgstr "下半野区 · 大型补给站"
+
+msgid "COMMAND_EXCEPTION_UNDER_ATTACK"
+msgstr "战团遭到攻击，正在自主应战"
+
+msgid "COMMAND_EXCEPTION_SUPPLY_THREAT"
+msgstr "补给点遭入侵，可调整援防方案"
+
+msgid "COMMAND_EXCEPTION_SUPPLY_LOST"
+msgstr "补给点失守，可规划夺回路线"
+
+msgid "COMMAND_EXCEPTION_SUPPLY_CAPTURED"
+msgstr "补给点已占领，收入与自动补员已生效"
+
+msgid "COMMAND_EXCEPTION_ACTION_REPLAN_SHORT"
+msgstr "制定战术"
+
+msgid "COMMAND_EXCEPTION_ACTION_REPLAN_TOOLTIP"
+msgstr "以这个补给点为目标，选择战团并规划进攻或援防路线。"
+
+msgid "COMMAND_EXCEPTION_KIND_UNDER_ATTACK"
+msgstr "战团遇袭"
+
+msgid "COMMAND_EXCEPTION_KIND_SUPPLY_THREAT"
+msgstr "据点告急"
+
+msgid "COMMAND_EXCEPTION_KIND_SUPPLY_LOST"
+msgstr "据点失守"
+
+msgid "COMMAND_EXCEPTION_KIND_SUPPLY_CAPTURED"
+msgstr "据点占领"
+
+msgid "GROWTH_MODE"
+msgstr "大地图对局"
+
+msgid "TACTICAL_MODE"
+msgstr "战术行动"
+
+msgid "GROWTH_MATCH_HELP"
+msgstr "独立对局 · 60人开局，五军团各60人，自动补员至300人。战绩保留，新局兵力与装备重置。"
+
+
+msgid "GROWTH_PRIORITY"
+msgstr "优先补给"
+
+msgid "GROWTH_PRIORITY_HELP"
+msgstr "优先军团每秒2人，其余三团各1人，机动军团暂停（若机动优先则野区暂停）。取消优先恢复五团各1人；可自定配额。"
+
+msgid "GROWTH_CARD_COST"
+msgstr "初始%d / 编制%d · 每名%d补给"
+
+msgid "AREA_SUPPORT_TARGETING"
+msgstr "点击地图选择支援区域；右键或C取消。"
+
+msgid "AREA_RECON_CARD"
+msgstr "空中侦察"
+
+msgid "AREA_MISSILE_CARD"
+msgstr "导弹轰炸"
+
+msgid "AREA_HOSPITAL_CARD"
+msgstr "野战医院"
+
+msgid "AREA_RECON_HELP"
+msgstr "20补给：照亮任意黑暗区域，半径1600，持续25秒，持续显示移动敌军。冷却60秒。"
+
+msgid "AREA_MISSILE_HELP"
+msgstr "60补给：3秒预警后轰炸半径900区域，造成180伤害（护甲减伤），敌我单位和建筑均会受伤。双方可见预警。冷却120秒。"
+
+msgid "AREA_HOSPITAL_HELP"
+msgstr "40补给：在战区可通行地面部署医院，持续60秒，每秒治疗半径850内友军8生命。仅禁止敌方补给点控制范围内，冷却90秒。"
+
+msgid "AREA_RECON_ACTIVE"
+msgstr "空中侦察"
+
+msgid "AREA_MISSILE_WARNING"
+msgstr "轰炸·敌我皆伤"
+
+msgid "AREA_HOSPITAL_ACTIVE"
+msgstr "野战医院"
+
+msgid "GROWTH_LOGISTICS_HELP"
+msgstr "补员由将领自动安排。特殊支援会与扩军共用补给；先选支援，再点地图。"
+
+
+msgid "GROWTH_LEGION_NAME"
+msgstr "%s"
+
+
+msgid "AREA_MISSILE_IMPACT"
+msgstr "轰炸已落地 · 区域伤害已结算"
+
+
+msgid "GROWTH_PLAN_OPEN"
+msgstr "补员方案 · 配额与最低储备"
+
+
+msgid "GROWTH_PLAN_RESERVE"
+msgstr "最低补给储备（招募及自动技能）"
+
+
+msgid "GROWTH_PLAN_APPLY"
+msgstr "应用补员方案"
+
+
+msgid "GROWTH_PLAN_HELP"
+msgstr "每团0–2人/秒，0为暂停；全军合计≤5。缺钱、满员或不安全时不增员。优先按钮恢复默认1/1/1/2方案。"
+
+
+msgid "GROWTH_PLAN_OVER_LIMIT"
+msgstr "合计超过5人/秒，请降低其他军团配额。"
+
+
+msgid "GROWTH_ECONOMY_RATE"
+msgstr "收入 +%.2f/秒（20秒结算）\n上秒消耗：补员 %d · 支援/其他 %d\n最低储备 %d"
+
+
+msgid "GROWTH_INCOME_HELP"
+msgstr "总部12/20秒；高地4、内层6、外层8；小野区3、大野区7。争夺中停收。消耗是上个完整模拟秒的实际扣款，不是预计值。"
+
+
+msgid "GROWTH_RECRUITING"
+msgstr "新兵 +%d · 配额%d/秒"
+
+
+msgid "GROWTH_QUOTA"
+msgstr "补员%d/秒 · 设为优先"
+
+
+msgid "GROWTH_MICRO"
+msgstr "临时微操"
+
+
+msgid "GROWTH_MICRO_HELP"
+msgstr "整卡路线、阵线、集火与停止持续由玩家控制。动作达成或受阻后仍保持，明确交还后接入当前将领任务。"
+
+msgid "GROWTH_POINT_INCOME"
+msgstr "占领后获得收入，争夺中停收。"
+
+msgid "GROWTH_PERSONALITY_CAUTIOUS_TOOLTIP"
+msgstr "谨慎：优先补充侦察兵，先侦察再推进。"
+
+msgid "GROWTH_PERSONALITY_STEADY_TOOLTIP"
+msgstr "稳健：侦察、突击、装甲和炮火均衡配置。"
+
+msgid "GROWTH_PERSONALITY_METHODICAL_TOOLTIP"
+msgstr "缜密：优先补充炮火分队，重视火力准备。"
+
+msgid "GROWTH_PERSONALITY_RESOLUTE_TOOLTIP"
+msgstr "果决：优先补充装甲兵，重视突破。"
+
+msgid "GROWTH_PERSONALITY_OPPORTUNISTIC_TOOLTIP"
+msgstr "机动：优先装甲补员；自动响应总部与三路高地周围2600范围内的可见敌情，总部危机优先。明确支援方向优先执行。"
+
+msgid "AREA_HOSPITAL_ENEMY_ZONE"
+msgstr "医院不能部署在敌方补给点控制圈内，请移到圈外的可通行地面。"
+
+msgid "GROWTH_PERSONALITY_CAUTIOUS"
+msgstr "谨慎 · 侦察优先"
+
+msgid "GROWTH_PERSONALITY_STEADY"
+msgstr "稳健 · 均衡配置"
+
+msgid "GROWTH_PERSONALITY_METHODICAL"
+msgstr "缜密 · 炮火优先"
+
+msgid "GROWTH_PERSONALITY_RESOLUTE"
+msgstr "果决 · 装甲优先"
+
+msgid "GROWTH_PERSONALITY_OPPORTUNISTIC"
+msgstr "机动 · 快速支援"
+
+msgid "COOP_MODE"
+msgstr "军团协同"
+
+msgid "COOP_FORMATION"
+msgstr "展开阵型"
+
+msgid "COOP_MODE_0"
+msgstr "独立推进"
+
+msgid "COOP_MODE_1"
+msgstr "联合进攻"
+
+msgid "COOP_MODE_2"
+msgstr "据点互援"
+
+msgid "COOP_FORMATION_0"
+msgstr "横队 · 宽正面"
+
+msgid "COOP_FORMATION_1"
+msgstr "楔形 · 中央突出"
+
+msgid "COOP_FORMATION_2"
+msgstr "梯队 · 纵深接应"
+
+msgid "COOP_HINT"
+msgstr "协同需至少两个完整、可调度军团。联合进攻等待全体展开；据点互援选择己方补给点。横队利于覆盖，楔形突出中央，梯队保留纵深；狭窄地形会收拢阵位。"
+
+msgid "COOP_PLAN_1"
+msgstr "全部选定军团参战；侦察→展开→同步进攻。任何必要分队未就绪都不能提前总攻；可手控或命令全体撤退。"
+
+msgid "COOP_PLAN_2"
+msgstr "所选军团赶赴己方据点；各团到位即可支援。共享可见目标并短距接应；连续安全10秒后完成守点阶段。完成后留守，新的将领命令可解除。"
+
+msgid "COOP_READY"
+msgstr "展开就绪 %d/%d 军团"
+
+msgid "STAFF_FAILURE_COOP_REQUIRES_TWO_GROUPS"
+msgstr "协同方案至少选择两个军团。"
+
+msgid "STAFF_FAILURE_COOP_REQUIRES_READY_GROUPS"
+msgstr "参战军团必须完整且可调度；请先交还手控分队或排除当前无法投入的军团。"
+
+msgid "STAFF_FAILURE_SUPPORT_REQUIRES_FRIENDLY"
+msgstr "据点互援需要选择己方补给点。"
+
+msgid "TACTICAL_DUAL_BATTERY_HELP"
+msgstr "导弹：70×0.5～2杀伤，另压制9组织；4发，140～420基础射程，停稳2秒并识别。弹尽自动使用40伤害、300射程普通炮，补弹后恢复导弹。压制技能另耗2补给，不能凭空补弹。"
+
+msgid "COOP_RETREAT_ALL"
+msgstr "协同全体撤退"
+
+msgid "LEGION_TOP"
+msgstr "上路军团"
+
+msgid "LEGION_MID"
+msgstr "中路军团"
+
+msgid "LEGION_BOTTOM"
+msgstr "下路军团"
+
+msgid "LEGION_JUNGLE"
+msgstr "野区军团"
+
+msgid "LEGION_MOBILE"
+msgstr "机动军团"
+
+msgid "GENERAL_SENTINEL"
+msgstr "白九阳 · 远眺"
+
+msgid "GENERAL_GUARDIAN"
+msgstr "狄天 · 坚壁"
+
+msgid "GENERAL_GUNNER"
+msgstr "林墨 · 雷霆"
+
+msgid "GENERAL_SPEAR"
+msgstr "陆铮 · 破阵"
+
+msgid "GENERAL_RANGER"
+msgstr "云岚 · 疾援"
+
+msgid "GENERAL_BUFFS"
+msgstr "生命 +%d%% · 移速 +%d%% · 攻击 +%d%% · 视野 +%d%%"
+
+msgid "LEGION_CONFIG_INVALID"
+msgstr "每位将领使用固定编制，五位将领不可重复。"
+
+msgid "LEGION_COMPOSITION_HELP"
+msgstr "固定编制：开局人数 → 满编人数。每团12人开局、60人满编；换将同时交换编制和成长顺序。"
+
+msgid "LEGION_TOTAL"
+msgstr "目标编制 %d / 60"
+
+msgid "LEGION_AUTO_HELP"
+msgstr "玩家锁定战略目标，将领在授权范围执行。强攻不自主整团撤退，普通目标可临时恢复后返回原目标。取消转当前位置坚守；交还全团AI才恢复自主。卡级交还不解除将领意图。"
+
+msgid "HANDOFF_CONTACT"
+msgstr "接敌后自动交接"
+
+msgid "HANDOFF_QUIET"
+msgstr "无敌情自动交接"
+
+msgid "LEGION_ORGANIZATION"
+msgstr "组织度 %.0f / 100"
+
+msgid "LOADING_BATTLE"
+msgstr "正在部署战场"
+
+msgid "LEGION_ICON_TOP"
+msgstr "上"
+
+msgid "LEGION_ICON_MID"
+msgstr "中"
+
+msgid "LEGION_ICON_BOTTOM"
+msgstr "下"
+
+msgid "LEGION_ICON_JUNGLE"
+msgstr "野"
+
+msgid "LEGION_ICON_MOBILE"
+msgstr "机"
+
+msgid "LEGION_UNIT_COST"
+msgstr "每位新兵消耗 %d 补给；全军最多5人/秒，军团0–2人/秒。"
+
+msgid "LEGION_UNIT_STATS"
+msgstr "当前满血 %.0f · 护甲 %.0f · 移速 %.0f · 攻击 %.0f · 射程 %.0f · 间隔 %.1f秒"
+
+msgid "LEGION_DUAL_STATS"
+msgstr "导弹射程 %.0f–%.0f（受地形影响），展开 %.1f秒；伤害系数 %.1f–%.1f。弹尽切换机炮：将领加成后伤害 %.0f，射程 %.0f，间隔 %.1f秒。"
+
+msgid "LEGION_ORG_SHORT"
+msgstr "组织 %.0f"
+
+msgid "LEGION_ROLE_RECON"
+msgstr "侦察兵"
+
+msgid "LEGION_ROLE_ASSAULT"
+msgstr "突击兵"
+
+msgid "LEGION_ROLE_ARMOR"
+msgstr "装甲突击兵"
+
+msgid "LEGION_ROLE_FIREPOWER"
+msgstr "火炮兵"
+
+msgid "LEGION_ORG_HELP"
+msgstr "组织度0–100；显示值按存活人数加权。将领使用其可调度分队的平均组织度决策：全团平均或突击/装甲加权组织低于35时撤向安全补给点；至少休整20秒，全团与前排组织均恢复65、兵力达到撤退时75%且不少于12，并处于安全补给范围才恢复任务。常规损伤和损失降低组织度；炮车导弹造成的损伤与减员不额外扣除组织度，全卡覆灭仍归零。"
+
+msgid "LEGION_MAGAZINE_STATS"
+msgstr "每车导弹%d发，需要已识别目标；补弹后恢复导弹攻击。"
+
+msgid "LEGION_SIGHT_STATS"
+msgstr "视野 %.0f（含将领增益，受地形影响）。"
+
+msgid "EFFECT_FRIENDLY"
+msgstr "友方"
+
+msgid "EFFECT_HOSTILE"
+msgstr "敌方"
+
+msgid "HERO_HELP"
+msgstr "将领：600生命 / 20护甲 / 145移速 / 30伤害 / 190射程 / 0.6秒间隔 / 600弹速。可展开、占点；阵亡后全团回总部。复活每10分钟增加10秒（开局10秒）。复活且全团回营后恢复指挥。"
+
+msgid "HERO_STATUS"
+msgstr "将领 %d/600"
+
+msgid "HERO_CURRENT_STATUS"
+msgstr "将领 %d/%d"
+
+msgid "HERO_TEMPLATE_HELP"
+msgstr "将领：%.0f生命 / %.0f护甲 / %.0f移速 / %.0f伤害 / %.0f射程 / %.1f秒间隔 / %.0f视野。不叠加自身士兵增益。可占点；阵亡后全团回总部。复活每10分钟增加10秒（开局10秒），复活且全团回营后恢复指挥。"
+
+msgid "HERO_RESPAWN"
+msgstr "复活 %ds · 全团回营"
+
+msgid "HERO_REGROUP"
+msgstr "将领已复活 · 等待回营"
+
+msgid "GROWTH_RECOVERY_HELP"
+msgstr "撤退：全团平均或突击/装甲加权组织低于35、兵力不足8或明显劣势时退守安全补给点。至少休整20秒，全团与前排组织均恢复65、兵力达到撤退时75%且不少于12，安全补给恢复后再出击。持续敌情时留守，不反复往返。"
+
+msgid "LEGION_MISSILE_STATS"
+msgstr "生命 %.0f · 护甲 %.0f · 移速 %.0f\n导弹普攻 %.0f–%.0f（护甲结算前）· 固定射程 %.0f · 间隔 %.1f秒\n驻停展开 %.1f秒；无最小射程、无限弹药，只造成生命伤害，不影响组织度。"
+
+msgid "TERRAIN_EFFECT_FIXED_FIREPOWER_OPEN"
+msgstr "开阔地：导弹射程固定420。"
+
+msgid "TERRAIN_EFFECT_FIXED_FIREPOWER_FOREST"
+msgstr "森林：炮车移速×0.8，导弹射程仍为420。"
+
+msgid "TERRAIN_EFFECT_FIXED_FIREPOWER_HIGH"
+msgstr "高地：炮车视野×1.25，导弹射程仍为420。"
+
+msgid "GROWTH_WAIT_FULL"
+msgstr "编制已满"
+
+msgid "GROWTH_WAIT_PAUSED"
+msgstr "补员已暂停"
+
+msgid "GROWTH_WAIT_HERO"
+msgstr "等待将领归队"
+
+msgid "GROWTH_WAIT_CONTROL"
+msgstr "等待补员控制许可"
+
+msgid "GROWTH_WAIT_REBUILD"
+msgstr "等待整卡重建"
+
+msgid "GROWTH_WAIT_UNSAFE"
+msgstr "接敌中，暂停补员"
+
+msgid "GROWTH_WAIT_OUT_OF_SUPPLY"
+msgstr "不在安全补给区"
+
+msgid "GROWTH_WAIT_WINDOW"
+msgstr "等待下一秒补员额度"
+
+msgid "GROWTH_WAIT_READY"
+msgstr "可按顺序补员"
+
+msgid "GROWTH_WAIT_QUEUED"
+msgstr "补员命令已排队"
+
+msgid "GROWTH_WAIT_POPULATION"
+msgstr "人口已满"
+
+msgid "GROWTH_WAIT_RESERVE"
+msgstr "保留玩家最低储备"
+
+msgid "GROWTH_WAIT_SAVING"
+msgstr "为下一名士兵积攒补给"
+
+msgid "GROWTH_WAIT_OTHER"
+msgstr "等待其他军团完成预留"
+
+msgid "GROWTH_WAIT_FUNDS"
+msgstr "等待补给收入"
+
+msgid "GROWTH_WAIT_SPACE"
+msgstr "补员点无空位，稍后重试"
+
+msgid "GROWTH_WAIT_RECHECK"
+msgstr "补员条件变化，稍后重试"
+
+msgid "GROWTH_SAVING_DETAIL"
+msgstr "已为下一兵员保留 %d / %d 补给"
+
+msgid "GROWTH_SAVING_HELP"
+msgstr "只从最低储备以外的现有补给中预留，不增加库存；玩家仍可购买支援，补员会重新核对资金。"
+
+msgid "LEGION_FORMATION_PENDING"
+msgstr "随军待命"
+
+msgid "LEGION_FORMATION_REGROUPING"
+msgstr "回营重整"
+
+msgid "LEGION_FORMATION_PLAYER_CONTROL"
+msgstr "将领手控中"
+
+msgid "LEGION_FORMATION_COMMAND_HOLD"
+msgstr "遵令驻守"
+
+msgid "LEGION_FORMATION_NO_CORE"
+msgstr "缺少护卫核心"
+
+msgid "LEGION_FORMATION_INVALID_PROFILE"
+msgstr "军团配置异常"
+
+msgid "LEGION_FORMATION_EXPOSED"
+msgstr "保护位置受敌火覆盖"
+
+msgid "LEGION_FORMATION_PATH_UNAVAILABLE"
+msgstr "保护路线受阻"
+
+msgid "LEGION_FORMATION_PROTECTED_TARGET"
+msgstr "调整随军位置"
+
+msgid "LEGION_FORMATION_IN_POSITION"
+msgstr "随军就位"
+
+msgid "LEGION_FORMATION_FORMING"
+msgstr "护卫编组中"
+
+msgid "LEGION_FORMATION_SPEED"
+msgstr "核心行军上限：%.0f"
+
+msgid "LEGION_FORMATION_REJOIN_CORE"
+msgstr "等待核心接应"
+
+msgid "LEGION_SPATIAL_PROGRESS"
+msgstr "%s：接近阵位 %d/%d（不代表脱离危险）"
+
+msgid "LEGION_SPATIAL_MOVE"
+msgstr "行军编组"
+
+msgid "LEGION_SPATIAL_ATTACK"
+msgstr "进攻编组"
+
+msgid "LEGION_SPATIAL_DEFEND"
+msgstr "防御编组"
+
+msgid "LEGION_SPATIAL_RETREAT"
+msgstr "撤退编组"
+
+msgid "DEPLOYMENT_STANDARD"
+msgstr "完整展开"
+
+msgid "DEPLOYMENT_COMPRESSED"
+msgstr "压缩展开"
+
+msgid "DEPLOYMENT_TRANSIT_ONLY"
+msgstr "拥挤通行；重叠时承伤+50%"
+
+msgid "DEPLOYMENT_NO_SPACE"
+msgstr "无法部署"
+
+msgid "DEPLOYMENT_UNCERTAIN"
+msgstr "动态占用待确认"
+
+msgid "REFORMATION_DAMAGE_HINT"
+msgstr "快速重整期间：承伤+50%"
+
+msgid "REFORMATION_ACTIVE_STATUS"
+msgstr "快速重整 %d人 · 剩余%.1f秒 · 承伤+50%%"
+
+msgid "REFORMATION_SEPARATING_STATUS"
+msgstr "%d人等待分离 · 承伤+50%%"
+
+msgid "REFORMATION_SEPARATION_ABNORMAL"
+msgstr "%d人仍重叠 · 承伤+50%%"
+
+msgid "REFORMATION_SEPARATION_AGGREGATE"
+msgstr "分离延迟：%d人已持续至少3秒 · 承伤+50%%"
+
+msgid "REFORMATION_COMMANDER_PARTICIPATING"
+msgstr "将领重整或分离中 · 承伤+50%"
+
+msgid "LEGION_ARTILLERY_STATUS"
+msgstr "炮组：%s · %d/%d"
+
+msgid "LEGION_ARTILLERY_TOOLTIP"
+msgstr "炮组：%s｜已准备%d门，可行动%d门。就绪不代表已经开火。"
+
+msgid "LEGION_ARTILLERY_IDLE"
+msgstr "无可行动炮车"
+
+msgid "LEGION_ARTILLERY_ASSEMBLING"
+msgstr "接位中"
+
+msgid "LEGION_ARTILLERY_DEPLOYING"
+msgstr "开火准备中"
+
+msgid "LEGION_ARTILLERY_DEPLOYED"
+msgstr "已驻停，等待目标"
+
+msgid "LEGION_ARTILLERY_FULL"
+msgstr "完整展开"
+
+msgid "LEGION_ARTILLERY_PARTIAL"
+msgstr "部分展开"
+
+msgid "LEGION_ARTILLERY_BLOCKED"
+msgstr "无可用炮位"
+
+msgid "LEGION_ARTILLERY_PREEMPTED"
+msgstr "当前指令优先"
+
+msgid "LEGION_ARTILLERY_GUARDS"
+msgstr "前卫警戒：%d/%d 就位"
+
+msgid "LEGION_MODE_FREE"
+msgstr "自由行军"
+
+msgid "LEGION_MODE_MOVE"
+msgstr "行军阵型"
+
+msgid "LEGION_MODE_ATTACK"
+msgstr "进攻阵型"
+
+msgid "LEGION_MODE_DEFEND"
+msgstr "防守阵型"
+
+msgid "LEGION_MODE_RETREAT"
+msgstr "撤退阵型"
+
+msgid "LEGION_MODE_NO_SPACE"
+msgstr "自由行军 · 无阵型空间要求"
+
+msgid "LEGION_MODE_SPACE"
+msgstr "阵型空间：宽%d × 深%d"
+
+msgid "LEGION_MODE_HELP"
+msgstr "仅在玩家选择后整队；选择自由行军取消。阵型不会改变战略目标或接管手控部队。尺寸为当前存活成员的平地标准宽×深（世界单位，含实体包络），狭窄地形可能无法完整展开。"

@@ -5,6 +5,8 @@ const Phase := CommanderTaskStageDefinition.Phase
 const Life := CommanderTaskNodeSnapshot.Lifecycle
 const Action := CommanderCardTaskCommand.Action
 
+var _coordinator := true
+var _operations: Array[CommanderTaskGraphSystem] = []
 var _graph: CommanderTaskGraphSnapshot
 var _agent := CommanderTaskGraphAgent.new()
 var _installation_sequence: int = 0
@@ -13,7 +15,34 @@ var _adaptation := CommanderAdaptationSystem.new()
 
 
 func install(world: SimulationWorld, plan: StaffCourseOfAction, supply_limit: int = 0) -> void:
-	var graph := CommanderTaskGraphBuilder.new().build(world.create_faction_snapshot(SimulationWorld.LOCAL_PLAYER_ID), plan)
+	if _coordinator:
+		var worker := CommanderTaskGraphSystem.new()
+		worker._coordinator = false
+		worker._installation_sequence = _installation_sequence
+		worker.install(world, plan, supply_limit)
+		if worker._graph == null:
+			return
+		_installation_sequence = worker._installation_sequence
+		var commanders: Array[StringName] = []
+		for assignment in plan.assignments:
+			if not commanders.has(assignment.commander_id):
+				commanders.append(assignment.commander_id)
+		for card_id in plan.reserve_card_ids:
+			var card := world.unit_cards.get(card_id) as UnitCardState
+			if card != null and not commanders.has(card.commander_definition_id):
+				commanders.append(card.commander_definition_id)
+		for operation in _operations:
+			for id in commanders:
+				operation.cancel_commander(world, id)
+		_operations = _operations.filter(func(operation: CommanderTaskGraphSystem) -> bool: return operation.is_running() or not operation._graph.reserve_card_ids.is_empty())
+		_operations.append(worker)
+		_graph = worker._graph
+		return
+	var legal_view := world.create_faction_snapshot(SimulationWorld.LOCAL_PLAYER_ID)
+	var legal_navigator: GridPathfinder
+	if plan.coordination != StaffPlanRequest.Coordination.INDEPENDENT:
+		legal_navigator = StaffPlanGenerator.navigation_for_snapshot(legal_view)
+	var graph := CommanderTaskGraphBuilder.new().build(legal_view, plan, CommanderTaskGraphBuilder.DEFAULT_DEFINITION, legal_navigator)
 	if graph == null:
 		return
 	_installation_sequence += 1
@@ -22,6 +51,8 @@ func install(world: SimulationWorld, plan: StaffCourseOfAction, supply_limit: in
 		for node in _graph.nodes:
 			_finish_task(world, node, false)
 	_graph = graph
+	if world.battle_definition.map_definition != null:
+		_graph.adaptation_policy.max_reserve_commits = plan.reserve_card_ids.size()
 	_graph.adaptation_budget_remaining = maxi(0, supply_limit - plan.supply_cost)
 	_graph.reinforcement_supply_cost = world.get_support_cost(SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT)
 	_graph.next_adaptation_tick = world.current_tick + _graph.adaptation_policy.interval_ticks
@@ -29,6 +60,17 @@ func install(world: SimulationWorld, plan: StaffCourseOfAction, supply_limit: in
 	for assignment in _graph.approved_plan.assignments:
 		held_ids.append(assignment.card_id)
 	for card_id in held_ids:
+		var owned_card := world.unit_cards.get(card_id) as UnitCardState
+		var owner := world.commanders.get(owned_card.commander_definition_id) as CommanderState if owned_card!=null else null
+		if owner!=null and world.battle_definition.growth_mode:
+			# A successfully installed plan replaces the execution source. Its
+			# termination does not silently reactivate retained old intent text.
+			owner.legion_execution_authority=CommanderState.LegionExecutionAuthority.STAFF_PLAN
+		if plan.coordination != StaffPlanRequest.Coordination.INDEPENDENT:
+			var held_card := world.unit_cards.get(card_id) as UnitCardState
+			if held_card != null:
+				var held_commander := world.commanders.get(held_card.commander_definition_id) as CommanderState
+				if held_commander != null: held_commander.autonomous_growth = false
 		var task := world._task_for_unit_card(card_id)
 		if task != null:
 			var hold := CommanderTaskNodeSnapshot.new()
@@ -41,6 +83,11 @@ func install(world: SimulationWorld, plan: StaffCourseOfAction, supply_limit: in
 
 
 func create_snapshots(observer: int) -> Array[CommanderTaskGraphSnapshot]:
+	if _coordinator:
+		var snapshots: Array[CommanderTaskGraphSnapshot] = []
+		for operation in _operations:
+			snapshots.append_array(operation.create_snapshots(observer))
+		return snapshots
 	var result: Array[CommanderTaskGraphSnapshot] = []
 	if _graph != null and observer in [0, _graph.faction_id]:
 		result.append(_graph.duplicate_value())
@@ -48,6 +95,8 @@ func create_snapshots(observer: int) -> Array[CommanderTaskGraphSnapshot]:
 
 
 func owns_card(card_id: StringName) -> bool:
+	if _coordinator:
+		return _operations.any(func(operation: CommanderTaskGraphSystem) -> bool: return operation.owns_card(card_id))
 	if _graph == null:
 		return false
 	if _graph.reserve_card_ids.has(card_id):
@@ -61,6 +110,8 @@ func owns_card(card_id: StringName) -> bool:
 
 
 func is_running() -> bool:
+	if _coordinator:
+		return _operations.any(func(operation: CommanderTaskGraphSystem) -> bool: return operation.is_running())
 	if _graph == null:
 		return false
 	for node in _graph.nodes:
@@ -72,10 +123,27 @@ func is_running() -> bool:
 
 
 func allows_coordination(card_id: StringName) -> bool:
+	if _coordinator:
+		return _operations.all(func(operation: CommanderTaskGraphSystem) -> bool: return operation.allows_coordination(card_id))
 	if not owns_card(card_id):
 		return true
 	for node in _graph.nodes:
 		if node.card_id == card_id and node.lifecycle == Life.ACTIVE and node.phase in [Phase.ENGAGE, Phase.EXPLOIT]:
+			return true
+	return false
+
+
+func allows_legion_local_task(world: SimulationWorld, card_id: StringName) -> bool:
+	if _coordinator:
+		return _operations.any(func(operation: CommanderTaskGraphSystem) -> bool: return operation.allows_legion_local_task(world,card_id))
+	if _graph==null or _graph.retreat_requested or _graph.reserve_card_ids.has(card_id): return false
+	var card := world.unit_cards.get(card_id) as UnitCardState
+	if card==null or not card.uses_legion_slots() or card.player_stopped: return false
+	var task := world.tasks.get(card.assigned_task_id) as TaskState
+	if task==null or task.unit_card_id!=card_id or task.faction_id!=_graph.faction_id or task.lifecycle!=TaskState.Lifecycle.EXECUTING or world.current_tick<task.activation_tick: return false
+	if task.phase in [TaskState.Phase.RETREATING,TaskState.Phase.EVADING,TaskState.Phase.DONE]: return false
+	for node in _graph.nodes:
+		if node.card_id==card_id and node.commander_id==card.commander_definition_id and node.lifecycle==Life.ACTIVE and node.phase in [Phase.ENGAGE,Phase.EXPLOIT] and node.task_id==task.task_id:
 			return true
 	return false
 
@@ -89,7 +157,20 @@ func owns_commander(commander: CommanderState) -> bool:
 	return false
 
 
+func cooperation_cards(commander_id: StringName) -> Array[StringName]:
+	if _coordinator:
+		for operation in _operations:
+			var ids := operation.cooperation_cards(commander_id)
+			if not ids.is_empty(): return ids
+		return []
+	return CoalitionTactics.shared_cards(_graph, commander_id)
+
+
 func cancel_commander(world: SimulationWorld, commander_id: StringName) -> void:
+	if _coordinator:
+		for operation in _operations:
+			operation.cancel_commander(world, commander_id)
+		return
 	if _graph == null:
 		return
 	for node in _graph.nodes:
@@ -102,9 +183,52 @@ func cancel_commander(world: SimulationWorld, commander_id: StringName) -> void:
 			_graph.reserve_card_ids.erase(card_id)
 
 
+func supersede_card_order(world: SimulationWorld, card_id: StringName) -> void:
+	if _coordinator:
+		for operation in _operations: operation.supersede_card_order(world,card_id)
+		return
+	if _graph==null: return
+	_graph.reserve_card_ids.erase(card_id)
+	for node in _graph.nodes:
+		if node.card_id!=card_id or node.lifecycle in [Life.COMPLETED,Life.CANCELLED,Life.FAILED,Life.SKIPPED]: continue
+		var task := world.tasks.get(node.task_id) as TaskState
+		if task!=null and task.lifecycle not in [TaskState.Lifecycle.COMPLETED,TaskState.Lifecycle.CANCELLED,TaskState.Lifecycle.FAILED]:
+			task.set_lifecycle(TaskState.Lifecycle.CANCELLED,world.current_tick)
+			task.set_phase(TaskState.Phase.DONE,world.current_tick,"Replaced by accepted player order")
+		_set_state(world,node,Life.CANCELLED,&"COMMANDER_GRAPH_PLAYER_ORDER")
+
+
+func authority_cards(command: CommanderCardTaskCommand) -> Array[StringName]:
+	if _coordinator:
+		for operation in _operations:
+			if operation._graph.graph_id == command.graph_id: return operation.authority_cards(command)
+		return []
+	if _graph == null or _graph.graph_id != command.graph_id: return []
+	var node := _graph.get_node(command.node_id)
+	if node != null: return [node.card_id]
+	var ids: Array[StringName] = _graph.reserve_card_ids.duplicate()
+	for assignment in _graph.approved_plan.assignments:
+		if not ids.has(assignment.card_id): ids.append(assignment.card_id)
+	ids.sort()
+	return ids
+
+
 func propose_commands(world: SimulationWorld) -> void:
+	if _coordinator:
+		for operation in _operations:
+			operation.propose_commands(world)
+		return
 	if _graph == null or not is_running():
 		return
+	if _graph.approved_plan.coordination == StaffPlanRequest.Coordination.JOINT_ATTACK:
+		var manual := false
+		for assignment in _graph.approved_plan.assignments:
+			var participant := world.unit_cards.get(assignment.card_id) as UnitCardState
+			if participant != null and participant.control_state in [UnitCardState.ControlState.PLAYER_CONTROLLED, UnitCardState.ControlState.PLAYER_OVERRIDDEN, UnitCardState.ControlState.RETURNING]: manual = true
+		if manual and _graph.coordination_paused_since_tick < 0: _graph.coordination_paused_since_tick = world.current_tick
+		elif not manual and _graph.coordination_paused_since_tick >= 0:
+			_graph.coordination_paused_ticks += world.current_tick - _graph.coordination_paused_since_tick
+			_graph.coordination_paused_since_tick = -1
 	var snapshot := world.create_commander_task_snapshot(_graph.faction_id)
 	# Submission only enqueues commands; all proposals observe the same world state.
 	_proposal_snapshot = snapshot
@@ -124,6 +248,11 @@ func propose_commands(world: SimulationWorld) -> void:
 
 
 func validate(world: SimulationWorld, command: CommanderCardTaskCommand) -> CommandValidationResult:
+	if _coordinator:
+		for operation in _operations:
+			if operation._graph.graph_id == command.graph_id:
+				return operation.validate(world, command)
+		return _reject(CommandValidationResult.Reason.INVALID_TASK)
 	if _graph == null or command.graph_id != _graph.graph_id:
 		return _reject(CommandValidationResult.Reason.INVALID_TASK)
 	if command.issuer_id != _graph.faction_id or command.issuer_id != SimulationWorld.LOCAL_PLAYER_ID:
@@ -168,6 +297,12 @@ func _validate_start(world: SimulationWorld, node: CommanderTaskNodeSnapshot) ->
 
 
 func apply(world: SimulationWorld, command: CommanderCardTaskCommand) -> void:
+	if _coordinator:
+		for operation in _operations:
+			if operation._graph.graph_id == command.graph_id:
+				operation.apply(world, command)
+				return
+		return
 	var validation := validate(world, command)
 	if not validation.is_accepted():
 		world.events.append(SimulationEvent.new(world.current_tick, SimulationEvent.Kind.COMMANDER_GRAPH_CHANGED, 0,
@@ -196,7 +331,11 @@ func apply(world: SimulationWorld, command: CommanderCardTaskCommand) -> void:
 					return
 			else:
 				var commander := world.commanders[node.commander_id] as CommanderState
-				var task := world._assign_unit_card_task(commander, card, node.target_position, node.route_points, TaskState.Kind.DEFEND_AREA)
+				var route := node.route_points
+				if _graph.approved_plan.coordination != StaffPlanRequest.Coordination.INDEPENDENT:
+					if node.phase in [Phase.ENGAGE, Phase.EXPLOIT]:
+						route = PackedVector2Array()
+				var task := world._assign_unit_card_task(commander, card, node.target_position, route, TaskState.Kind.DEFEND_AREA)
 				if task == null:
 					_set_state(world, node, Life.BLOCKED, &"COMMANDER_GRAPH_NO_TASK")
 					return
@@ -214,6 +353,15 @@ func apply(world: SimulationWorld, command: CommanderCardTaskCommand) -> void:
 			node.progress_ticks = 0
 		Action.COMPLETE, Action.SKIP:
 			_finish_task(world, node, true)
+			if command.action == Action.COMPLETE and node.phase == Phase.EXPLOIT and world.battle_definition.map_definition != null:
+				var commander := world.commanders.get(node.commander_id) as CommanderState
+				var card := world.unit_cards.get(node.card_id) as UnitCardState
+				if commander != null and card != null and card.control_state == UnitCardState.ControlState.UNASSIGNED:
+					var garrison := world._assign_unit_card_task(commander, card, node.target_position, PackedVector2Array(), TaskState.Kind.DEFEND_AREA)
+					if garrison != null:
+						garrison.activation_tick = world.current_tick
+						garrison.requires_observed_contact = false
+						commander.current_task_ids.append(garrison.task_id)
 			_set_state(world, node, Life.COMPLETED if command.action == Action.COMPLETE else Life.SKIPPED,
 				&"COMMANDER_GRAPH_COMPLETED" if command.action == Action.COMPLETE else &"COMMANDER_GRAPH_NOT_REQUIRED")
 		Action.PAUSE:
@@ -249,6 +397,11 @@ func _deployment(world: SimulationWorld, node: CommanderTaskNodeSnapshot) -> Dep
 
 
 func validate_deployment(world: SimulationWorld, command: DeployUnitCardCommand) -> CommandValidationResult:
+	if _coordinator:
+		for operation in _operations:
+			if operation._graph.graph_id == command.source_graph_id:
+				return operation.validate_deployment(world, command)
+		return _reject(CommandValidationResult.Reason.INVALID_TASK)
 	if _graph == null or command.source_graph_id != _graph.graph_id or _graph.retreat_requested:
 		return _reject(CommandValidationResult.Reason.INVALID_TASK)
 	for node in _graph.nodes:
@@ -261,6 +414,11 @@ func validate_deployment(world: SimulationWorld, command: DeployUnitCardCommand)
 
 
 func reject_deployment(world: SimulationWorld, command: DeployUnitCardCommand, reason: CommandValidationResult.Reason) -> void:
+	if _coordinator:
+		for operation in _operations:
+			if operation._graph.graph_id == command.source_graph_id:
+				operation.reject_deployment(world, command, reason)
+		return
 	if _graph == null or _graph.graph_id != command.source_graph_id:
 		return
 	for node in _graph.nodes:
@@ -307,3 +465,13 @@ func _set_state(world: SimulationWorld, node: CommanderTaskNodeSnapshot, lifecyc
 
 func _reject(reason: CommandValidationResult.Reason) -> CommandValidationResult:
 	return CommandValidationResult.new(CommandValidationResult.Status.REJECTED, reason)
+
+func is_retreating_card(card_id: StringName) -> bool:
+	if _coordinator:
+		for operation in _operations:
+			if operation.is_retreating_card(card_id): return true
+		return false
+	if _graph == null or not _graph.retreat_requested: return false
+	for node in _graph.nodes:
+		if node.card_id == card_id and node.phase == Phase.RETREAT and node.lifecycle not in [Life.COMPLETED, Life.SKIPPED, Life.CANCELLED, Life.FAILED]: return true
+	return false

@@ -23,6 +23,7 @@ func run() -> Array[String]:
 	_expect(not theater_route.is_empty(), "expanded east-west theater should remain connected through its central choke", failures)
 	for region_position in [SimulationWorld.GREY_RIDGE_WEST_POSITION, SimulationWorld.GREY_RIDGE_CENTRAL_POSITION, SimulationWorld.GREY_RIDGE_EAST_POSITION]:
 		_expect(map.get_world_rect().has_point(region_position) and grid.is_world_position_walkable(region_position), "every expanded Grey Ridge strategic region should be in bounds and walkable", failures)
+	failures.append_array(TestFinalDecisionMap.new().run())
 	return failures
 
 

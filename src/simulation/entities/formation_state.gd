@@ -27,6 +27,21 @@ const SLOT_OFFSETS: Array[Vector2] = [
 	Vector2(-96.0, 44.0),
 ]
 
+var strict_deployment_slots := false
+var legion_deployment: LegionDeploymentPlan
+var deployment_entity_ids := PackedInt32Array()
+var deployment_ready_since := -1
+var anchor_speed_limit: float = 180.0
+var fire_focus_id: int = 0
+var fire_focus_until_tick: int = -1
+var local_engagement_active: bool = false
+var local_engagement_returning: bool = false
+var local_engagement_origin: Vector2
+var local_engagement_until_tick: int = -1
+var local_engagement_resume_destination: Vector2
+var local_engagement_resume_route: PackedVector2Array = PackedVector2Array()
+var local_engagement_resume_path: PackedVector2Array = PackedVector2Array()
+var local_engagement_resume_kind: OrderKind = OrderKind.IDLE
 var formation_id: int
 var leader_entity_id: int
 var member_entity_ids: Array[int]
@@ -57,7 +72,7 @@ func _init(new_formation_id: int, new_member_entity_ids: Array[int], new_anchor_
 	formation_id = new_formation_id
 	member_entity_ids = new_member_entity_ids.duplicate()
 	member_entity_ids.sort()
-	leader_entity_id = member_entity_ids[0]
+	leader_entity_id = member_entity_ids[0] if not member_entity_ids.is_empty() else 0
 	anchor_position = new_anchor_position
 	target_position = new_anchor_position
 	order_destination = new_anchor_position
@@ -98,6 +113,14 @@ func get_wide_offset(slot_id: int) -> Vector2:
 	var rank := reinforcement_index / 2 + 3
 	var side := -1.0 if reinforcement_index % 2 == 0 else 1.0
 	return Vector2(-48.0 * rank, 44.0 * side)
+
+
+func uses_recon_spread(units: Dictionary) -> bool:
+	for entity_id in member_entity_ids:
+		var unit := units.get(entity_id) as UnitState
+		if unit != null and unit.enabled and unit.following_formation:
+			return unit.definition_id == &"scout_vehicle"
+	return false
 
 
 func get_recon_offset(slot_id: int) -> Vector2:

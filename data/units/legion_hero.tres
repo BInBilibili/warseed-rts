@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="UnitDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://src/data/unit_definition.gd" id="1"]
+[ext_resource type="Script" path="res://src/data/combat_definition.gd" id="2"]
+
+[sub_resource type="Resource" id="Combat"]
+script = ExtResource("2")
+max_health = 600.0
+armor = 20.0
+attack_power = 30.0
+attack_range = 190.0
+attacks_per_second = 1.666666667
+projectile_speed = 600.0
+
+[resource]
+script = ExtResource("1")
+definition_id = &"legion_hero"
+display_name = "军团将领"
+move_speed = 145.0
+sight_range = 900.0
+combat = SubResource("Combat")

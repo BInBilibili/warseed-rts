@@ -57,6 +57,8 @@ func _derive_exceptions(
 	observer_faction_id: int
 ) -> Array[CommandExceptionSnapshot]:
 	var result: Array[CommandExceptionSnapshot] = []
+	if snapshot.growth_mode:
+		_append_growth_alerts(result, snapshot)
 	for card in situation.card_statuses:
 		_append_card_exceptions(result, snapshot, situation, card)
 	_append_supply_exception(result, snapshot, situation, observer_faction_id)
@@ -65,8 +67,20 @@ func _derive_exceptions(
 			return left.severity > right.severity
 		if left.kind != right.kind:
 			return left.kind < right.kind
+		if snapshot.growth_mode and left.source_tick != right.source_tick:
+			return left.source_tick > right.source_tick
 		return String(left.exception_id) < String(right.exception_id)
 	)
+	if snapshot.growth_mode:
+		var compact: Array[CommandExceptionSnapshot] = []
+		var seen: Dictionary = {}
+		for alert in result:
+			var key := "%s:%d" % [alert.commander_id, alert.kind] if not alert.commander_id.is_empty() else String(alert.exception_id)
+			if seen.has(key): continue
+			seen[key] = true
+			compact.append(alert)
+			if compact.size() >= 6: break
+		return compact
 	return result
 
 
@@ -103,7 +117,7 @@ func _append_card_exceptions(
 		))
 	var authorized := int(card["authorized_strength"])
 	var current := int(card["current_strength"])
-	if authorized > 0 and float(current) / float(authorized) <= REINFORCEMENT_STRENGTH_RATIO:
+	if not snapshot.growth_mode and authorized > 0 and float(current) / float(authorized) <= REINFORCEMENT_STRENGTH_RATIO:
 		result.append(CommandExceptionSnapshot.new(
 			StringName("reinforcement:%s" % card_id), CommandExceptionSnapshot.Kind.REINFORCEMENT_REQUEST,
 			CommandExceptionSnapshot.Severity.WARNING, &"COMMAND_EXCEPTION_REINFORCEMENT_REQUEST",
@@ -148,7 +162,7 @@ func _append_supply_exception(
 ) -> void:
 	var available := int(situation.supply.get("available", 0))
 	var capacity := int(situation.supply.get("capacity", 0))
-	var threshold := maxi(2, ceili(float(capacity) * 0.2))
+	var threshold := 4 if not snapshot.navigation_map_id.is_empty() else maxi(2, ceili(float(capacity) * 0.2))
 	if capacity <= 0 or available > threshold:
 		return
 	result.append(CommandExceptionSnapshot.new(
@@ -184,3 +198,35 @@ func _nearest_exposing_threat(card_id: StringName, position: Vector2, situation:
 
 func _blocked_reason_key(reason: TaskState.BlockedReason) -> StringName:
 	return StringName("COMMAND_EXCEPTION_BLOCKED_%s" % TaskState.BlockedReason.keys()[reason])
+
+
+func _append_growth_alerts(result: Array[CommandExceptionSnapshot], snapshot: WorldSnapshot) -> void:
+	for card in snapshot.unit_cards:
+		if card.faction_id != snapshot.observer_faction_id or card.current_strength == 0 or snapshot.tick - card.last_damage_tick > 80:
+			continue
+		result.append(CommandExceptionSnapshot.new(StringName("attacked:%s" % card.commander_definition_id), CommandExceptionSnapshot.Kind.UNDER_ATTACK, CommandExceptionSnapshot.Severity.CRITICAL, &"COMMAND_EXCEPTION_UNDER_ATTACK", card.last_damage_tick, card.commander_definition_id, card.definition_id, card.display_name_key, card.assigned_task_id, card.center_position, card.current_strength, card.authorized_strength, [CommandExceptionSnapshot.Action.FOCUS, CommandExceptionSnapshot.Action.KEEP_PLAN]))
+	for region in snapshot.strategic_regions:
+		var kind := -1
+		var reason: StringName
+		var severity := CommandExceptionSnapshot.Severity.INFO
+		if region.controller_faction_id == snapshot.observer_faction_id and (region.contested or (region.capture_faction_id != 0 and region.capture_faction_id != snapshot.observer_faction_id)):
+			kind = CommandExceptionSnapshot.Kind.SUPPLY_THREAT
+			reason = &"COMMAND_EXCEPTION_SUPPLY_THREAT"
+			severity = CommandExceptionSnapshot.Severity.CRITICAL
+		elif region.controller_changed_tick >= 0 and snapshot.tick - region.controller_changed_tick < 150:
+			if region.previous_controller_faction_id == snapshot.observer_faction_id:
+				kind = CommandExceptionSnapshot.Kind.SUPPLY_LOST
+				reason = &"COMMAND_EXCEPTION_SUPPLY_LOST"
+				severity = CommandExceptionSnapshot.Severity.WARNING
+			elif region.controller_faction_id == snapshot.observer_faction_id:
+				kind = CommandExceptionSnapshot.Kind.SUPPLY_CAPTURED
+				reason = &"COMMAND_EXCEPTION_SUPPLY_CAPTURED"
+		if kind < 0: continue
+		# Offensive planning only accepts unowned points. Friendly captures and
+		# contested holdings focus the battlefield instead of opening a different objective.
+		var actions: Array[int] = [CommandExceptionSnapshot.Action.FOCUS, CommandExceptionSnapshot.Action.KEEP_PLAN]
+		if kind == CommandExceptionSnapshot.Kind.SUPPLY_LOST:
+			actions.push_front(CommandExceptionSnapshot.Action.REPLAN)
+		var alert := CommandExceptionSnapshot.new(StringName("supply:%s:%d:%d" % [region.region_id, kind, region.controller_changed_tick]), kind as CommandExceptionSnapshot.Kind, severity, reason, maxi(0, region.controller_changed_tick), &"", &"", region.display_name_key, 0, region.position, region.supply_per_settlement, region.capture_required_ticks, actions)
+		alert.region_id = region.region_id
+		result.append(alert)

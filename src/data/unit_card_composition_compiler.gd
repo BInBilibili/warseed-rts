@@ -29,6 +29,17 @@ static func validate(card: UnitCardDefinition, catalog: UnitDefinitionCatalog) -
 	var result := DataValidationResult.new()
 	var ids: Array[StringName] = []
 	var total := 0
+	if card.legion_template != null:
+		var template := card.legion_template
+		var role := LegionTemplate.ROLE_KEYS.find(card.role_key)
+		if not template.validation_errors().is_empty() or role < 0:
+			result.add(DataValidationResult.Reason.INVALID_VALUE, "invalid fixed legion template")
+		elif card.authorized_strength != template.full[role] or card.starting_strength != template.opening[role] or not card.composition.is_empty():
+			result.add(DataValidationResult.Reason.INVALID_VALUE, "fixed legion card differs from template")
+	if card.configurable_max_strength < 0 or card.configurable_max_strength > 10000 or (card.configurable_max_strength > 0 and (not card.composition.is_empty() or card.authorized_strength > card.configurable_max_strength)):
+		result.add(DataValidationResult.Reason.INVALID_VALUE, "invalid configurable card capacity")
+	if card.starting_strength < 0 or card.starting_strength > card.authorized_strength or card.recruitment_cost < 1 or not is_finite(card.recruitment_weight) or card.recruitment_weight <= 0.0:
+		result.add(DataValidationResult.Reason.INVALID_VALUE, "invalid card recruitment contract")
 	if card.composition.has(null):
 		result.add(DataValidationResult.Reason.NULL_REFERENCE, "card '%s'.composition" % card.definition_id)
 	for entry in compile(card):
@@ -38,7 +49,7 @@ static func validate(card: UnitCardDefinition, catalog: UnitDefinitionCatalog) -
 		if entry.entry_id in ids:
 			result.add(DataValidationResult.Reason.DUPLICATE_ID, path)
 		ids.append(entry.entry_id)
-		if entry.authorized_count <= 0 or entry.authorized_count > 10000 or entry.replacement_priority < 0 or entry.replacement_priority > 10000 or entry.formation_role not in ROLES:
+		if (entry.authorized_count <= 0 and not card.is_absent_legion_role()) or entry.authorized_count > 10000 or entry.replacement_priority < 0 or entry.replacement_priority > 10000 or entry.formation_role not in ROLES:
 			result.add(DataValidationResult.Reason.INVALID_VALUE, path)
 		if catalog != null and catalog.get_unit(entry.unit_definition_id) == null:
 			result.add(DataValidationResult.Reason.INVALID_REFERENCE, path + ".unit_definition_id")

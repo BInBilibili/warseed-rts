@@ -82,14 +82,14 @@ func zoom_at_screen_position(screen_position: Vector2, delta_zoom: float) -> voi
 	var world_before := screen_to_world(screen_position)
 	var next_zoom := clampf(zoom.x + delta_zoom, _minimum_zoom(), MAX_ZOOM)
 	zoom = Vector2.ONE * next_zoom
-	force_update_scroll()
+	_sync_viewport_offset()
 	var world_after := screen_to_world(screen_position)
 	position += world_before - world_after
 	clamp_to_bounds()
 
 
 func center_on_world_position(world_position: Vector2) -> void:
-	position = world_position - _active_screen_offset_world()
+	position = world_position
 	clamp_to_bounds()
 
 
@@ -101,10 +101,12 @@ func get_visible_world_rect() -> Rect2:
 
 func set_active_screen_rect(screen_rect: Rect2) -> void:
 	active_screen_rect = screen_rect
+	_sync_viewport_offset()
 
 
 func clear_active_screen_rect() -> void:
 	active_screen_rect = Rect2()
+	_sync_viewport_offset()
 
 
 func fit_world_in_screen_rect(screen_rect: Rect2, padding: float = 0.94) -> void:
@@ -116,8 +118,7 @@ func fit_world_in_screen_rect(screen_rect: Rect2, padding: float = 0.94) -> void
 		screen_rect.size.y / world_rect.size.y
 	) * clampf(padding, 0.5, 1.0)
 	zoom = Vector2.ONE * clampf(fit_zoom, _minimum_zoom(), MAX_ZOOM)
-	position = world_rect.get_center() - _active_screen_offset_world()
-	force_update_scroll()
+	position = world_rect.get_center()
 	clamp_to_bounds()
 
 
@@ -138,6 +139,7 @@ func clamp_to_bounds() -> void:
 		var limits := get_center_limits(_viewport_size())
 		position.x = world_rect.get_center().x if limits.size.x < 0.0 else clampf(position.x, limits.position.x, limits.end.x)
 		position.y = world_rect.get_center().y if limits.size.y < 0.0 else clampf(position.y, limits.position.y, limits.end.y)
+		_sync_viewport_offset()
 		return
 	var half_visible := active_screen_rect.size * 0.5 / zoom
 	var minimum := world_rect.position + half_visible
@@ -147,6 +149,7 @@ func clamp_to_bounds() -> void:
 	target_center.x = world_rect.get_center().x if maximum.x < minimum.x else clampf(current_center.x, minimum.x, maximum.x)
 	target_center.y = world_rect.get_center().y if maximum.y < minimum.y else clampf(current_center.y, minimum.y, maximum.y)
 	position += target_center - current_center
+	_sync_viewport_offset()
 
 
 func get_center_limits(viewport_size: Vector2) -> Rect2:
@@ -168,7 +171,14 @@ func _active_screen_offset_world() -> Vector2:
 
 
 func _active_world_center() -> Vector2:
-	return position + _active_screen_offset_world()
+	return position
+
+
+func _sync_viewport_offset() -> void:
+	# Keep position as the world focus. HUD resize changes only the screen offset,
+	# so repeated aspect/layout changes cannot accumulate world-position drift.
+	offset = -_active_screen_offset_world()
+	force_update_scroll()
 
 
 func _viewport_size() -> Vector2:

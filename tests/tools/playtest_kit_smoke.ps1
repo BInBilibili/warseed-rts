@@ -52,6 +52,11 @@ try {
         "CURRENT_PLAYTEST_FEEDBACK_FOCUS.md"
     )
     $manifestPaths = @($manifest.files | ForEach-Object { $_.path })
+    if ([IO.File]::Exists((Join-Path $repositoryRoot "WARSEED.csproj"))) {
+        foreach ($managedFile in @("WARSEED.dll", "GodotSharp.dll", "WARSEED.runtimeconfig.json")) {
+            Assert-True ($manifestPaths -contains "build/windows/data_WARSEED_windows_x86_64/$managedFile") "Managed runtime file missing from kit: $managedFile"
+        }
+    }
     foreach ($requiredPath in $requiredPaths) {
         Assert-True ($manifestPaths -contains $requiredPath) "Manifest is missing required file: $requiredPath"
     }

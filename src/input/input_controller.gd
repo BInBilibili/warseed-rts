@@ -14,6 +14,7 @@ enum CommandMode {
 	DEPLOY_UNIT_CARD_TARGETING,
 	FORMATION_ROUTE_TARGETING,
 	COMMANDER_ROUTE_TARGETING,
+	AREA_SUPPORT_TARGETING,
 }
 
 signal move_intent_changed(target_position: Vector2, intent_sequence: int)
@@ -71,6 +72,7 @@ var commander_drag_id: StringName
 var commander_drag_start_screen: Vector2
 var commander_drag_current_screen: Vector2
 var commander_route_points: PackedVector2Array = PackedVector2Array()
+var area_support_kind: SupportOrderCommand.SupportKind
 
 @export var simulation_host: SimulationHost
 @export var world_presentation: WorldPresentation
@@ -83,6 +85,11 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and world_presentation!=null:
+		if get_viewport().gui_get_hovered_control()!=null:
+			world_presentation.clear_deployment_preview()
+		else:
+			_update_deployment_preview(_screen_to_world((event as InputEventMouseMotion).position))
 	if event is InputEventKey:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo and key.keycode == KEY_C and command_mode != CommandMode.NORMAL:
@@ -153,6 +160,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		_handle_key(event as InputEventKey)
+		return
+	if command_mode == CommandMode.AREA_SUPPORT_TARGETING:
+		if event is InputEventMouseMotion:
+			world_presentation.set_area_support_preview(_screen_to_world(event.position), simulation_host.get_support_definition(area_support_kind).area_radius, area_support_kind)
+		elif event is InputEventMouseButton and event.pressed:
+			if event.button_index == MOUSE_BUTTON_RIGHT:
+				cancel_command_mode()
+			elif event.button_index == MOUSE_BUTTON_LEFT and (camera_controller == null or camera_controller.is_screen_position_over_map(event.position)):
+				request_area_support_at(_screen_to_world(event.position))
 		return
 	if _is_build_targeting() and event is InputEventMouseMotion:
 		_update_build_preview(_screen_to_world((event as InputEventMouseMotion).position))
@@ -273,6 +289,10 @@ func select_at(world_position: Vector2, additive: bool = false, select_formation
 		if not additive:
 			_set_selection([])
 			last_command_status = GameText.t(&"STATUS_SELECTION_CLEARED")
+		return
+	var selected_hero := snapshot.get_unit(best_id)
+	if selected_hero != null and not selected_hero.hero_commander_id.is_empty():
+		select_commander_card(selected_hero.hero_commander_id)
 		return
 	var atom: Array[int] = []
 	if select_formation or _formal_card_selection_enabled():
@@ -751,6 +771,8 @@ func select_commander_card(commander_id: StringName) -> void:
 		var unit_card := snapshot.get_unit_card(unit_card_id)
 		if unit_card != null:
 			member_ids.append_array(unit_card.active_member_entity_ids)
+	var hero := snapshot.get_unit(commander.hero_entity_id)
+	if hero != null and hero.enabled: member_ids.append(hero.entity_id)
 	_set_selection(member_ids)
 	selected_unit_card_id = &""
 	selected_commander_id = commander_id
@@ -878,6 +900,8 @@ func _commander_task_hit_distance(commander: CommanderSnapshot, world_position: 
 
 
 func _commander_task_origin(commander: CommanderSnapshot, snapshot: WorldSnapshot) -> Vector2:
+	var hero := snapshot.get_unit(commander.hero_entity_id)
+	if hero != null and hero.enabled: return hero.position
 	var origin := Vector2.ZERO
 	var formation_count := 0
 	for unit_card_id in commander.subordinate_unit_card_ids:
@@ -909,9 +933,11 @@ func context_command_selected_at(world_position: Vector2) -> CommandValidationRe
 func issue_commander_objective(world_position: Vector2) -> CommandValidationResult:
 	if selected_commander_id.is_empty():
 		return null
-	var result := simulation_host.submit_command(
-		simulation_host.create_commander_objective_command(selected_commander_id, world_position)
-	)
+	var command := simulation_host.create_commander_objective_command(selected_commander_id, world_position)
+	var plans := LegionDeploymentPreview.project(simulation_host.current_snapshot,simulation_host.get_presentation_grid(),[],selected_commander_id,world_position)
+	if not plans.is_empty():
+		command.use_legion_deployment=true; command.deployment_facing=plans[0].facing
+	var result := simulation_host.submit_command(command)
 	last_command_status = GameText.t(&"STATUS_COMMANDER_OBJECTIVE") % GameText.command_result(result)
 	return result
 
@@ -1204,6 +1230,7 @@ func _find_friendly_building_at(world_position: Vector2) -> int:
 
 
 func move_selected_to(world_position: Vector2) -> CommandValidationResult:
+	_update_deployment_preview(world_position)
 	if not selected_commander_id.is_empty() and selected_unit_card_id.is_empty():
 		return issue_commander_objective(world_position)
 	intent_sequence += 1
@@ -1221,14 +1248,34 @@ func move_selected_to(world_position: Vector2) -> CommandValidationResult:
 	var formation_ids := command_targets["formations"] as Array[int]
 	var standalone_ids := command_targets["units"] as Array[int]
 	var last_result: CommandValidationResult
+	var deployment_plans := LegionDeploymentPreview.project(snapshot,simulation_host.get_presentation_grid(),selected_entity_ids,&"",world_position)
 	for formation_id in formation_ids:
-		last_result = simulation_host.submit_command(simulation_host.create_formation_move_command(formation_id, world_position))
+		var command := simulation_host.create_formation_move_command(formation_id,world_position)
+		for plan in deployment_plans:
+			if plan.formation_id==formation_id:
+				command.target_position=plan.anchor; command.deployment_facing=plan.facing; break
+		last_result = simulation_host.submit_command(command)
 	for entity_id in standalone_ids:
 		last_result = simulation_host.submit_command(simulation_host.create_move_command(entity_id, world_position))
 	last_command_status = GameText.command_result(last_result) if last_result != null else GameText.t(&"STATUS_NO_VALID_SELECTION")
 	if last_result == null or not last_result.is_accepted():
 		pending_move_active = false
 	return last_result
+
+func _update_deployment_preview(goal: Vector2) -> void:
+	if simulation_host==null or world_presentation==null: return
+	if command_mode not in [CommandMode.NORMAL,CommandMode.FORMATION_ROUTE_TARGETING,CommandMode.COMMANDER_ROUTE_TARGETING]:
+		world_presentation.clear_deployment_preview(); return
+	var snapshot := simulation_host.current_snapshot
+	var grid := simulation_host.get_presentation_grid()
+	var commander := selected_commander_id if selected_unit_card_id.is_empty() else &""
+	var plans := LegionDeploymentPreview.project(snapshot,grid,selected_entity_ids,commander,goal)
+	var unknown := false
+	if snapshot!=null and snapshot.knowledge!=null and grid!=null:
+		for plan in plans:
+			for point in plan.standard_points:
+				if not snapshot.knowledge.is_visible(grid.world_to_cell(point)): unknown=true
+	world_presentation.set_deployment_preview(plans,unknown)
 
 
 func stop_selected() -> CommandValidationResult:
@@ -1262,6 +1309,8 @@ func begin_attack_move_targeting() -> void:
 
 func cancel_command_mode() -> void:
 	var previous_mode := command_mode
+	if world_presentation != null:
+		world_presentation.clear_area_support_preview()
 	if previous_mode == CommandMode.DEPLOY_UNIT_CARD_TARGETING:
 		reserve_deployment_cancelled.emit()
 	_decision_reserve_card_id = &""
@@ -1548,12 +1597,16 @@ func return_selected_cards_to_ai() -> CommandValidationResult:
 		return null
 	cancel_command_mode()
 	var result: CommandValidationResult
+	var handoff_results := PackedStringArray()
+	var rejected_result: CommandValidationResult
 	for card_id in ids:
 		result = set_unit_card_control(card_id, UnitCardControlCommand.Action.RETURN_TO_COMMANDER)
+		handoff_results.append("%s: %s" % [GameText.t(simulation_host.current_snapshot.get_unit_card(card_id).display_name_key), GameText.command_result(result)])
+		if result != null and not result.is_accepted(): rejected_result = result
 		if result != null and result.is_accepted():
 			pending_handoff_tick = simulation_host.current_snapshot.tick
-	last_command_status = GameText.t(&"CONTROL_AI_QUEUED") % ids.size() if result != null and result.is_accepted() else GameText.command_result(result)
-	return result
+	last_command_status = "; ".join(handoff_results)
+	return rejected_result if rejected_result != null else result
 
 
 func set_selected_disposition(disposition: UnitDispositionCommand.Disposition, destination_formation_id: int = 0) -> CommandValidationResult:
@@ -1684,11 +1737,20 @@ func _partition_selection_for_commands(snapshot: WorldSnapshot) -> Dictionary:
 	return {"formations": complete_formations, "units": standalone_units}
 
 
+var _selection_snapshot: WorldSnapshot
+var _selection_units: Dictionary = {}
+
 func prune_selection() -> void:
 	var valid_ids: Array[int] = []
 	var snapshot := simulation_host.current_snapshot
+	if snapshot != _selection_snapshot:
+		_selection_snapshot = snapshot
+		_selection_units.clear()
+		if snapshot != null:
+			for unit in snapshot.units:
+				if not _selection_units.has(unit.entity_id): _selection_units[unit.entity_id] = unit
 	for entity_id in selected_entity_ids:
-		var unit := snapshot.get_unit(entity_id) if snapshot != null else null
+		var unit := _selection_units.get(entity_id) as UnitSnapshot
 		if unit != null and _is_selectable(unit):
 			valid_ids.append(entity_id)
 	if valid_ids != selected_entity_ids:
@@ -1764,3 +1826,23 @@ func _formal_card_selection_enabled() -> bool:
 
 func _screen_to_world(screen_position: Vector2) -> Vector2:
 	return camera_controller.screen_to_world(screen_position) if camera_controller != null else screen_position
+
+
+func begin_area_support_targeting(kind: SupportOrderCommand.SupportKind) -> void:
+	if simulation_host == null or simulation_host.get_support_definition(kind) == null:
+		return
+	cancel_command_mode()
+	area_support_kind = kind
+	command_mode = CommandMode.AREA_SUPPORT_TARGETING
+	command_mode_changed.emit(command_mode)
+	last_command_status = GameText.t(&"AREA_SUPPORT_TARGETING")
+
+
+func request_area_support_at(position: Vector2) -> CommandValidationResult:
+	var result := simulation_host.submit_command(simulation_host.create_area_support_command(area_support_kind, position))
+	if result.is_accepted():
+		cancel_command_mode()
+	last_command_status = GameText.command_result(result)
+	if area_support_kind == SupportOrderCommand.SupportKind.FIELD_HOSPITAL and result.reason == CommandValidationResult.Reason.TACTICAL_UNSAFE:
+		last_command_status = GameText.t(&"AREA_HOSPITAL_ENEMY_ZONE")
+	return result

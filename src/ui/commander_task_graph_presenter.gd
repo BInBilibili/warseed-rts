@@ -4,6 +4,8 @@ extends RefCounted
 
 static func describe(snapshot: WorldSnapshot, graph: CommanderTaskGraphSnapshot) -> String:
 	var lines: PackedStringArray = []
+	if graph.approved_plan.coordination != StaffPlanRequest.Coordination.INDEPENDENT:
+		lines.append(cooperation_summary(graph))
 	for card_id in _card_ids(graph):
 		var chosen: CommanderTaskNodeSnapshot
 		for node in graph.nodes:
@@ -42,9 +44,21 @@ static func summary(graph: CommanderTaskGraphSnapshot) -> String:
 		else:
 			waiting += 1
 	var text := GameText.t(&"COMMANDER_GRAPH_SUMMARY") % [active, waiting, complete]
+	if graph.approved_plan.coordination != StaffPlanRequest.Coordination.INDEPENDENT: text = cooperation_summary(graph) + "\n" + text
 	if not graph.last_adaptation_reason.is_empty():
 		text += " · " + GameText.t(graph.last_adaptation_reason)
 	return text
+
+
+static func cooperation_summary(graph: CommanderTaskGraphSnapshot) -> String:
+	var groups: Dictionary = {}
+	for node in graph.nodes:
+		if node.phase != CommanderTaskStageDefinition.Phase.DEPLOY: continue
+		groups[node.commander_id] = bool(groups.get(node.commander_id, true)) and node.is_satisfied()
+	var ready := 0
+	for value in groups.values():
+		if value: ready += 1
+	return GameText.t(StringName("COOP_MODE_%d" % graph.approved_plan.coordination)) + " · " + GameText.t(&"COOP_READY") % [ready, groups.size()]
 
 
 static func _priority(node: CommanderTaskNodeSnapshot) -> int:

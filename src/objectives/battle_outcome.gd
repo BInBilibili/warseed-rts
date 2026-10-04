@@ -6,6 +6,7 @@ enum Result {
 	VICTORY,
 	DEFEAT,
 	ORDERED_WITHDRAWAL,
+	DRAW,
 }
 
 enum Grade {

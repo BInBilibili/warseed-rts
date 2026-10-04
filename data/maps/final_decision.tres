@@ -1,0 +1,589 @@
+[gd_resource type="Resource" script_class="MapDefinition" load_steps=50 format=3]
+
+[ext_resource type="Script" path="res://src/data/map_definition.gd" id="map_definition"]
+[ext_resource type="Script" path="res://src/data/map_lane_definition.gd" id="map_lane_definition"]
+[ext_resource type="Script" path="res://src/data/map_supply_point_definition.gd" id="map_supply_point_definition"]
+[ext_resource type="Script" path="res://src/data/map_wild_region_definition.gd" id="map_wild_region_definition"]
+[ext_resource type="Script" path="res://src/data/map_connector_definition.gd" id="map_connector_definition"]
+
+[sub_resource type="Resource" id="top"]
+script = ExtResource("map_lane_definition")
+lane_id = &"top"
+mirror_id = &"bottom"
+display_name_key = &"FINAL_LANE_TOP"
+width_cells = 32
+route_points = PackedVector2Array(2064, 22544, 2048, 18432, 2048, 7168, 3072, 4096, 6144, 2048, 10240, 2048, 26624, 2048, 30704, 2032)
+supply_point_ids = Array[StringName]([&"blue_base", &"blue_top_high", &"blue_top_inner", &"blue_top_outer", &"red_top_outer", &"red_top_inner", &"red_top_high", &"red_base"])
+
+[sub_resource type="Resource" id="mid"]
+script = ExtResource("map_lane_definition")
+lane_id = &"mid"
+mirror_id = &"mid"
+display_name_key = &"FINAL_LANE_MID"
+width_cells = 32
+route_points = PackedVector2Array(2064, 22544, 6656, 19456, 10688, 16384, 14080, 13824, 18688, 10752, 22080, 8192, 26112, 5120, 30704, 2032)
+supply_point_ids = Array[StringName]([&"blue_base", &"blue_mid_high", &"blue_mid_inner", &"blue_mid_outer", &"red_mid_outer", &"red_mid_inner", &"red_mid_high", &"red_base"])
+
+[sub_resource type="Resource" id="bottom"]
+script = ExtResource("map_lane_definition")
+lane_id = &"bottom"
+mirror_id = &"top"
+display_name_key = &"FINAL_LANE_BOTTOM"
+width_cells = 32
+route_points = PackedVector2Array(2064, 22544, 6144, 22528, 22528, 22528, 26624, 22528, 29696, 20480, 30720, 17408, 30720, 6144, 30704, 2032)
+supply_point_ids = Array[StringName]([&"blue_base", &"blue_bottom_high", &"blue_bottom_inner", &"blue_bottom_outer", &"red_bottom_outer", &"red_bottom_inner", &"red_bottom_high", &"red_base"])
+
+[sub_resource type="Resource" id="blue_base"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_base"
+mirror_id = &"red_base"
+display_name_key = &"FINAL_POINT_BLUE_BASE"
+position = Vector2(2064, 22544)
+tier = 1
+owner_faction_id = 1
+supply_per_settlement = 12
+radius = 512
+capture_ticks = 180
+lane_id = &""
+is_base = true
+is_wild = false
+
+[sub_resource type="Resource" id="red_base"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_base"
+mirror_id = &"blue_base"
+display_name_key = &"FINAL_POINT_RED_BASE"
+position = Vector2(30704, 2032)
+tier = 1
+owner_faction_id = 2
+supply_per_settlement = 12
+radius = 512
+capture_ticks = 180
+lane_id = &""
+is_base = true
+is_wild = false
+
+[sub_resource type="Resource" id="blue_top_high"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_top_high"
+mirror_id = &"red_bottom_high"
+display_name_key = &"FINAL_POINT_BLUE_TOP_HIGH"
+position = Vector2(2048, 18432)
+tier = 2
+owner_faction_id = 0
+supply_per_settlement = 4
+radius = 384
+capture_ticks = 160
+lane_id = &"top"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_bottom_high"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_bottom_high"
+mirror_id = &"blue_top_high"
+display_name_key = &"FINAL_POINT_RED_BOTTOM_HIGH"
+position = Vector2(30720, 6144)
+tier = 2
+owner_faction_id = 0
+supply_per_settlement = 4
+radius = 384
+capture_ticks = 160
+lane_id = &"bottom"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="blue_top_inner"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_top_inner"
+mirror_id = &"red_bottom_inner"
+display_name_key = &"FINAL_POINT_BLUE_TOP_INNER"
+position = Vector2(2048, 12288)
+tier = 3
+owner_faction_id = 0
+supply_per_settlement = 6
+radius = 352
+capture_ticks = 120
+lane_id = &"top"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_bottom_inner"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_bottom_inner"
+mirror_id = &"blue_top_inner"
+display_name_key = &"FINAL_POINT_RED_BOTTOM_INNER"
+position = Vector2(30720, 12288)
+tier = 3
+owner_faction_id = 0
+supply_per_settlement = 6
+radius = 352
+capture_ticks = 120
+lane_id = &"bottom"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="blue_top_outer"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_top_outer"
+mirror_id = &"red_bottom_outer"
+display_name_key = &"FINAL_POINT_BLUE_TOP_OUTER"
+position = Vector2(2048, 7168)
+tier = 4
+owner_faction_id = 0
+supply_per_settlement = 8
+radius = 320
+capture_ticks = 100
+lane_id = &"top"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_bottom_outer"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_bottom_outer"
+mirror_id = &"blue_top_outer"
+display_name_key = &"FINAL_POINT_RED_BOTTOM_OUTER"
+position = Vector2(30720, 17408)
+tier = 4
+owner_faction_id = 0
+supply_per_settlement = 8
+radius = 320
+capture_ticks = 100
+lane_id = &"bottom"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="blue_mid_high"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_mid_high"
+mirror_id = &"red_mid_high"
+display_name_key = &"FINAL_POINT_BLUE_MID_HIGH"
+position = Vector2(6656, 19456)
+tier = 2
+owner_faction_id = 0
+supply_per_settlement = 4
+radius = 384
+capture_ticks = 160
+lane_id = &"mid"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_mid_high"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_mid_high"
+mirror_id = &"blue_mid_high"
+display_name_key = &"FINAL_POINT_RED_MID_HIGH"
+position = Vector2(26112, 5120)
+tier = 2
+owner_faction_id = 0
+supply_per_settlement = 4
+radius = 384
+capture_ticks = 160
+lane_id = &"mid"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="blue_mid_inner"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_mid_inner"
+mirror_id = &"red_mid_inner"
+display_name_key = &"FINAL_POINT_BLUE_MID_INNER"
+position = Vector2(10688, 16384)
+tier = 3
+owner_faction_id = 0
+supply_per_settlement = 6
+radius = 352
+capture_ticks = 120
+lane_id = &"mid"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_mid_inner"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_mid_inner"
+mirror_id = &"blue_mid_inner"
+display_name_key = &"FINAL_POINT_RED_MID_INNER"
+position = Vector2(22080, 8192)
+tier = 3
+owner_faction_id = 0
+supply_per_settlement = 6
+radius = 352
+capture_ticks = 120
+lane_id = &"mid"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="blue_mid_outer"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_mid_outer"
+mirror_id = &"red_mid_outer"
+display_name_key = &"FINAL_POINT_BLUE_MID_OUTER"
+position = Vector2(14080, 13824)
+tier = 4
+owner_faction_id = 0
+supply_per_settlement = 8
+radius = 320
+capture_ticks = 100
+lane_id = &"mid"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_mid_outer"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_mid_outer"
+mirror_id = &"blue_mid_outer"
+display_name_key = &"FINAL_POINT_RED_MID_OUTER"
+position = Vector2(18688, 10752)
+tier = 4
+owner_faction_id = 0
+supply_per_settlement = 8
+radius = 320
+capture_ticks = 100
+lane_id = &"mid"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="blue_bottom_high"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_bottom_high"
+mirror_id = &"red_top_high"
+display_name_key = &"FINAL_POINT_BLUE_BOTTOM_HIGH"
+position = Vector2(6144, 22528)
+tier = 2
+owner_faction_id = 0
+supply_per_settlement = 4
+radius = 384
+capture_ticks = 160
+lane_id = &"bottom"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_top_high"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_top_high"
+mirror_id = &"blue_bottom_high"
+display_name_key = &"FINAL_POINT_RED_TOP_HIGH"
+position = Vector2(26624, 2048)
+tier = 2
+owner_faction_id = 0
+supply_per_settlement = 4
+radius = 384
+capture_ticks = 160
+lane_id = &"top"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="blue_bottom_inner"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_bottom_inner"
+mirror_id = &"red_top_inner"
+display_name_key = &"FINAL_POINT_BLUE_BOTTOM_INNER"
+position = Vector2(12288, 22528)
+tier = 3
+owner_faction_id = 0
+supply_per_settlement = 6
+radius = 352
+capture_ticks = 120
+lane_id = &"bottom"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_top_inner"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_top_inner"
+mirror_id = &"blue_bottom_inner"
+display_name_key = &"FINAL_POINT_RED_TOP_INNER"
+position = Vector2(20480, 2048)
+tier = 3
+owner_faction_id = 0
+supply_per_settlement = 6
+radius = 352
+capture_ticks = 120
+lane_id = &"top"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="blue_bottom_outer"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"blue_bottom_outer"
+mirror_id = &"red_top_outer"
+display_name_key = &"FINAL_POINT_BLUE_BOTTOM_OUTER"
+position = Vector2(22528, 22528)
+tier = 4
+owner_faction_id = 0
+supply_per_settlement = 8
+radius = 320
+capture_ticks = 100
+lane_id = &"bottom"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="red_top_outer"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"red_top_outer"
+mirror_id = &"blue_bottom_outer"
+display_name_key = &"FINAL_POINT_RED_TOP_OUTER"
+position = Vector2(10240, 2048)
+tier = 4
+owner_faction_id = 0
+supply_per_settlement = 8
+radius = 320
+capture_ticks = 100
+lane_id = &"top"
+is_base = false
+is_wild = false
+
+[sub_resource type="Resource" id="upper_rear"]
+script = ExtResource("map_connector_definition")
+connector_id = &"upper_rear"
+mirror_id = &"lower_rear"
+from_lane_id = &"top"
+to_lane_id = &"mid"
+width_cells = 10
+route_points = PackedVector2Array(2048, 18432, 4864, 16384, 6656, 19456)
+supply_point_ids = Array[StringName]([&"blue_top_high", &"jungle_upper_rear", &"blue_mid_high"])
+
+[sub_resource type="Resource" id="wild_upper_rear"]
+script = ExtResource("map_wild_region_definition")
+region_id = &"wild_upper_rear"
+mirror_id = &"wild_lower_rear"
+display_name_key = &"FINAL_WILD_UPPER"
+center = Vector2(4864, 16384)
+width_cells = 24
+depth_cells = 24
+connected_lane_ids = Array[StringName]([&"top", &"mid"])
+
+[sub_resource type="Resource" id="jungle_upper_rear"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"jungle_upper_rear"
+mirror_id = &"jungle_lower_rear"
+display_name_key = &"FINAL_POINT_JUNGLE_UPPER_REAR"
+position = Vector2(4864, 16384)
+tier = 5
+owner_faction_id = 0
+supply_per_settlement = 3
+radius = 224
+capture_ticks = 60
+lane_id = &""
+is_base = false
+is_wild = true
+
+[sub_resource type="Resource" id="lower_rear"]
+script = ExtResource("map_connector_definition")
+connector_id = &"lower_rear"
+mirror_id = &"upper_rear"
+from_lane_id = &"bottom"
+to_lane_id = &"mid"
+width_cells = 10
+route_points = PackedVector2Array(30720, 6144, 27904, 8192, 26112, 5120)
+supply_point_ids = Array[StringName]([&"red_bottom_high", &"jungle_lower_rear", &"red_mid_high"])
+
+[sub_resource type="Resource" id="wild_lower_rear"]
+script = ExtResource("map_wild_region_definition")
+region_id = &"wild_lower_rear"
+mirror_id = &"wild_upper_rear"
+display_name_key = &"FINAL_WILD_LOWER"
+center = Vector2(27904, 8192)
+width_cells = 24
+depth_cells = 24
+connected_lane_ids = Array[StringName]([&"bottom", &"mid"])
+
+[sub_resource type="Resource" id="jungle_lower_rear"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"jungle_lower_rear"
+mirror_id = &"jungle_upper_rear"
+display_name_key = &"FINAL_POINT_JUNGLE_LOWER_REAR"
+position = Vector2(27904, 8192)
+tier = 5
+owner_faction_id = 0
+supply_per_settlement = 3
+radius = 224
+capture_ticks = 60
+lane_id = &""
+is_base = false
+is_wild = true
+
+[sub_resource type="Resource" id="upper_major"]
+script = ExtResource("map_connector_definition")
+connector_id = &"upper_major"
+mirror_id = &"lower_major"
+from_lane_id = &"top"
+to_lane_id = &"mid"
+width_cells = 10
+route_points = PackedVector2Array(2048, 12288, 8192, 9216, 10688, 16384)
+supply_point_ids = Array[StringName]([&"blue_top_inner", &"jungle_upper_major", &"blue_mid_inner"])
+
+[sub_resource type="Resource" id="wild_upper_major"]
+script = ExtResource("map_wild_region_definition")
+region_id = &"wild_upper_major"
+mirror_id = &"wild_lower_major"
+display_name_key = &"FINAL_WILD_UPPER"
+center = Vector2(8192, 9216)
+width_cells = 40
+depth_cells = 32
+connected_lane_ids = Array[StringName]([&"top", &"mid"])
+
+[sub_resource type="Resource" id="jungle_upper_major"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"jungle_upper_major"
+mirror_id = &"jungle_lower_major"
+display_name_key = &"FINAL_POINT_JUNGLE_UPPER_MAJOR"
+position = Vector2(8192, 9216)
+tier = 6
+owner_faction_id = 0
+supply_per_settlement = 7
+radius = 320
+capture_ticks = 100
+lane_id = &""
+is_base = false
+is_wild = true
+
+[sub_resource type="Resource" id="lower_major"]
+script = ExtResource("map_connector_definition")
+connector_id = &"lower_major"
+mirror_id = &"upper_major"
+from_lane_id = &"bottom"
+to_lane_id = &"mid"
+width_cells = 10
+route_points = PackedVector2Array(30720, 12288, 24576, 15360, 22080, 8192)
+supply_point_ids = Array[StringName]([&"red_bottom_inner", &"jungle_lower_major", &"red_mid_inner"])
+
+[sub_resource type="Resource" id="wild_lower_major"]
+script = ExtResource("map_wild_region_definition")
+region_id = &"wild_lower_major"
+mirror_id = &"wild_upper_major"
+display_name_key = &"FINAL_WILD_LOWER"
+center = Vector2(24576, 15360)
+width_cells = 40
+depth_cells = 32
+connected_lane_ids = Array[StringName]([&"bottom", &"mid"])
+
+[sub_resource type="Resource" id="jungle_lower_major"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"jungle_lower_major"
+mirror_id = &"jungle_upper_major"
+display_name_key = &"FINAL_POINT_JUNGLE_LOWER_MAJOR"
+position = Vector2(24576, 15360)
+tier = 6
+owner_faction_id = 0
+supply_per_settlement = 7
+radius = 320
+capture_ticks = 100
+lane_id = &""
+is_base = false
+is_wild = true
+
+[sub_resource type="Resource" id="upper_forward"]
+script = ExtResource("map_connector_definition")
+connector_id = &"upper_forward"
+mirror_id = &"lower_forward"
+from_lane_id = &"top"
+to_lane_id = &"mid"
+width_cells = 10
+route_points = PackedVector2Array(20480, 2048, 18432, 6144, 22080, 8192)
+supply_point_ids = Array[StringName]([&"red_top_inner", &"jungle_upper_forward", &"red_mid_inner"])
+
+[sub_resource type="Resource" id="wild_upper_forward"]
+script = ExtResource("map_wild_region_definition")
+region_id = &"wild_upper_forward"
+mirror_id = &"wild_lower_forward"
+display_name_key = &"FINAL_WILD_UPPER"
+center = Vector2(18432, 6144)
+width_cells = 24
+depth_cells = 24
+connected_lane_ids = Array[StringName]([&"top", &"mid"])
+
+[sub_resource type="Resource" id="jungle_upper_forward"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"jungle_upper_forward"
+mirror_id = &"jungle_lower_forward"
+display_name_key = &"FINAL_POINT_JUNGLE_UPPER_FORWARD"
+position = Vector2(18432, 6144)
+tier = 5
+owner_faction_id = 0
+supply_per_settlement = 3
+radius = 224
+capture_ticks = 60
+lane_id = &""
+is_base = false
+is_wild = true
+
+[sub_resource type="Resource" id="lower_forward"]
+script = ExtResource("map_connector_definition")
+connector_id = &"lower_forward"
+mirror_id = &"upper_forward"
+from_lane_id = &"bottom"
+to_lane_id = &"mid"
+width_cells = 10
+route_points = PackedVector2Array(12288, 22528, 14336, 18432, 10688, 16384)
+supply_point_ids = Array[StringName]([&"blue_bottom_inner", &"jungle_lower_forward", &"blue_mid_inner"])
+
+[sub_resource type="Resource" id="wild_lower_forward"]
+script = ExtResource("map_wild_region_definition")
+region_id = &"wild_lower_forward"
+mirror_id = &"wild_upper_forward"
+display_name_key = &"FINAL_WILD_LOWER"
+center = Vector2(14336, 18432)
+width_cells = 24
+depth_cells = 24
+connected_lane_ids = Array[StringName]([&"bottom", &"mid"])
+
+[sub_resource type="Resource" id="jungle_lower_forward"]
+script = ExtResource("map_supply_point_definition")
+point_id = &"jungle_lower_forward"
+mirror_id = &"jungle_upper_forward"
+display_name_key = &"FINAL_POINT_JUNGLE_LOWER_FORWARD"
+position = Vector2(14336, 18432)
+tier = 5
+owner_faction_id = 0
+supply_per_settlement = 3
+radius = 224
+capture_ticks = 60
+lane_id = &""
+is_base = false
+is_wild = true
+
+[sub_resource type="Resource" id="river"]
+script = ExtResource("map_connector_definition")
+connector_id = &"river"
+mirror_id = &"river"
+from_lane_id = &"top"
+to_lane_id = &"bottom"
+width_cells = 16
+route_points = PackedVector2Array(2048, 7168, 8192, 4096, 12288, 8192, 16384, 12288, 20480, 16384, 24576, 20480, 30720, 17408)
+supply_point_ids = Array[StringName]([&"blue_top_outer", &"red_bottom_outer"])
+
+[sub_resource type="Resource" id="upper_river_link"]
+script = ExtResource("map_connector_definition")
+connector_id = &"upper_river_link"
+mirror_id = &"lower_river_link"
+from_lane_id = &"top"
+to_lane_id = &"mid"
+width_cells = 10
+route_points = PackedVector2Array(4864, 16384, 8192, 9216, 12288, 8192, 18432, 6144)
+supply_point_ids = Array[StringName]([&"jungle_upper_rear", &"jungle_upper_major", &"jungle_upper_forward"])
+
+[sub_resource type="Resource" id="lower_river_link"]
+script = ExtResource("map_connector_definition")
+connector_id = &"lower_river_link"
+mirror_id = &"upper_river_link"
+from_lane_id = &"bottom"
+to_lane_id = &"mid"
+width_cells = 10
+route_points = PackedVector2Array(27904, 8192, 24576, 15360, 20480, 16384, 14336, 18432)
+supply_point_ids = Array[StringName]([&"jungle_lower_rear", &"jungle_lower_major", &"jungle_lower_forward"])
+
+[resource]
+script = ExtResource("map_definition")
+definition_id = &"final_decision"
+grid_size = Vector2i(1024, 768)
+player_spawn_cell = Vector2i(64, 704)
+enemy_spawn_cell = Vector2i(959, 63)
+camera_start_cell = Vector2i(64, 704)
+require_central_symmetry = true
+main_lane_width_cells = 32
+side_lane_width_cells = 10
+lanes = Array[ExtResource("map_lane_definition")]([SubResource("top"), SubResource("mid"), SubResource("bottom")])
+supply_points = Array[ExtResource("map_supply_point_definition")]([SubResource("blue_base"), SubResource("red_base"), SubResource("blue_top_high"), SubResource("red_bottom_high"), SubResource("blue_top_inner"), SubResource("red_bottom_inner"), SubResource("blue_top_outer"), SubResource("red_bottom_outer"), SubResource("blue_mid_high"), SubResource("red_mid_high"), SubResource("blue_mid_inner"), SubResource("red_mid_inner"), SubResource("blue_mid_outer"), SubResource("red_mid_outer"), SubResource("blue_bottom_high"), SubResource("red_top_high"), SubResource("blue_bottom_inner"), SubResource("red_top_inner"), SubResource("blue_bottom_outer"), SubResource("red_top_outer"), SubResource("jungle_upper_rear"), SubResource("jungle_lower_rear"), SubResource("jungle_upper_major"), SubResource("jungle_lower_major"), SubResource("jungle_upper_forward"), SubResource("jungle_lower_forward")])
+wild_regions = Array[ExtResource("map_wild_region_definition")]([SubResource("wild_upper_rear"), SubResource("wild_lower_rear"), SubResource("wild_upper_major"), SubResource("wild_lower_major"), SubResource("wild_upper_forward"), SubResource("wild_lower_forward")])
+connectors = Array[ExtResource("map_connector_definition")]([SubResource("upper_rear"), SubResource("lower_rear"), SubResource("upper_major"), SubResource("lower_major"), SubResource("upper_forward"), SubResource("lower_forward"), SubResource("river"), SubResource("upper_river_link"), SubResource("lower_river_link")])

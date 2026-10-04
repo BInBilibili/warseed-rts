@@ -25,7 +25,7 @@ func validate(
 	if command is EquipDoctrineCommand:
 		return _validate_equip_doctrine(command as EquipDoctrineCommand, commanders, doctrines)
 	if command is CommanderOrderCommand:
-		return _validate_commander_order(command as CommanderOrderCommand, commanders, unit_cards, formations, strategic_regions, battlefield_bounds, pathfinder)
+		return _validate_commander_order(command as CommanderOrderCommand, commanders, unit_cards, formations, strategic_regions, battlefield_bounds, pathfinder, battle_definition != null and battle_definition.growth_mode)
 	if command is UnitCardControlCommand:
 		return _validate_unit_card_control(command as UnitCardControlCommand, unit_cards, units, formations, commanders)
 	if command is SupportOrderCommand:
@@ -55,7 +55,7 @@ func validate(
 	if command is AttackMoveCommand:
 		return _validate_attack_move(command as AttackMoveCommand, units, formations, battlefield_bounds, pathfinder)
 	if command is FormationMoveCommand:
-		return _validate_formation_move(command as FormationMoveCommand, units, formations, battlefield_bounds, pathfinder)
+		return _validate_formation_move(command as FormationMoveCommand, units, formations, battlefield_bounds, pathfinder,unit_cards,commanders,battle_definition!=null and battle_definition.growth_mode)
 	if command is UnitDispositionCommand:
 		return _validate_disposition(command as UnitDispositionCommand, units, formations)
 	if not units.has(command.target_entity_id):
@@ -101,9 +101,17 @@ func _validate_commander_order(
 	formations: Dictionary,
 	strategic_regions: Dictionary,
 	battlefield_bounds: Rect2,
-	pathfinder: GridPathfinder
+	pathfinder: GridPathfinder,
+	resolve_formation_targets: bool = false
 ) -> CommandValidationResult:
 	const MAX_COMMANDER_ROUTE_POINTS := 8
+	if command.order_kind < 0 or command.order_kind >= CommanderOrderCommand.OrderKind.size():
+		return _rejected(CommandValidationResult.Reason.INVALID_DISPOSITION)
+	if command.requested_intent_mode != -1 and (not resolve_formation_targets or command.requested_intent_mode not in [CommanderState.IntentMode.OBJECTIVE, CommanderState.IntentMode.FORCE_ATTACK, CommanderState.IntentMode.RETREAT]):
+		return _rejected(CommandValidationResult.Reason.INVALID_DISPOSITION)
+	if command.order_kind == CommanderOrderCommand.OrderKind.RETURN_AI and not resolve_formation_targets:
+		return _rejected(CommandValidationResult.Reason.INVALID_DISPOSITION)
+	if not command.deployment_facing.is_finite(): return _rejected(CommandValidationResult.Reason.INVALID_POSITION)
 	var commander := commanders.get(command.commander_id) as CommanderState
 	if commander == null:
 		return _rejected(CommandValidationResult.Reason.INVALID_TARGET)
@@ -113,7 +121,7 @@ func _validate_commander_order(
 		return _rejected(CommandValidationResult.Reason.INVALID_DISPOSITION)
 	if command.order_kind == CommanderOrderCommand.OrderKind.SET_POSTURE:
 		return CommandValidationResult.new(CommandValidationResult.Status.ACCEPTED)
-	if command.order_kind == CommanderOrderCommand.OrderKind.CANCEL_INTENT:
+	if command.order_kind in [CommanderOrderCommand.OrderKind.CANCEL_INTENT, CommanderOrderCommand.OrderKind.RETURN_AI]:
 		return CommandValidationResult.new(CommandValidationResult.Status.ACCEPTED)
 	if command.order_kind == CommanderOrderCommand.OrderKind.ASSIGN_INTENT:
 		if command.intent_id.is_empty() or command.target_region_id.is_empty() or command.main_axis_region_id.is_empty():
@@ -134,6 +142,10 @@ func _validate_commander_order(
 		var unit_card := unit_cards.get(unit_card_id) as UnitCardState
 		if unit_card == null or unit_card.deployment_state != UnitCardState.DeploymentState.DEPLOYED:
 			continue
+		# A deliberately absent role has no formation and must not veto the
+		# orders of the legion's configured combat roles.
+		if unit_card.definition.authorized_strength == 0:
+			continue
 		if not formations.has(unit_card.formation_id):
 			return _rejected(CommandValidationResult.Reason.INVALID_TARGET)
 		var formation := formations[unit_card.formation_id] as FormationState
@@ -143,7 +155,10 @@ func _validate_commander_order(
 				if pathfinder.find_path(segment_start, route_point).is_empty():
 					return _rejected(CommandValidationResult.Reason.PATH_UNAVAILABLE)
 				segment_start = route_point
-			if pathfinder.find_path(segment_start, command.target_position).is_empty():
+			# Growth objectives describe an area (including a building footprint).
+			# SimulationWorld validates each resolved formation deployment and path
+			# immediately after this structural validation, before queue acceptance.
+			if not resolve_formation_targets and pathfinder.find_path(segment_start, command.target_position).is_empty():
 				return _rejected(CommandValidationResult.Reason.PATH_UNAVAILABLE)
 		available_cards += 1
 	if available_cards == 0:
@@ -237,6 +252,9 @@ func _validate_support_order(
 	if unit_card.deployment_state != UnitCardState.DeploymentState.DEPLOYED or unit_card.formation_id == 0:
 		return _rejected(CommandValidationResult.Reason.INVALID_DEPLOYMENT_STATE)
 	if command.support_kind == SupportOrderCommand.SupportKind.FIELD_REINFORCEMENT:
+		if command.issuer_kind == GameCommand.IssuerKind.AGENT and battle_definition != null and battle_definition.automatic_reinforcement:
+			if command.agent_id == 0 or command.agent_id != unit_card.assigned_agent_id or unit_card.control_state != UnitCardState.ControlState.AGENT_ASSIGNED:
+				return _rejected(CommandValidationResult.Reason.AGENT_OVERRIDE_BLOCKED)
 		var active_strength := _active_unit_card_strength(unit_card, units)
 		if active_strength >= unit_card.definition.authorized_strength:
 			return _rejected(CommandValidationResult.Reason.UNIT_CARD_FULL_STRENGTH)
@@ -504,11 +522,15 @@ func _validate_formation_move(
 	units: Dictionary,
 	formations: Dictionary,
 	battlefield_bounds: Rect2,
-	pathfinder: GridPathfinder
+	pathfinder: GridPathfinder,
+	unit_cards: Dictionary = {},
+	commanders: Dictionary = {},
+	growth_mode: bool = false
 ) -> CommandValidationResult:
-	const MAX_ROUTE_POINTS := 8
+	var max_route_points := 128 if pathfinder != null and pathfinder.logic_grid.centrally_symmetric_navigation else 8
 	const MIN_DEPLOYMENT_LINE_LENGTH := 48.0
 	const MAX_DEPLOYMENT_LINE_LENGTH := 520.0
+	if not command.deployment_facing.is_finite(): return _rejected(CommandValidationResult.Reason.INVALID_POSITION)
 	if not formations.has(command.formation_id):
 		return _rejected(CommandValidationResult.Reason.INVALID_TARGET)
 	var formation := formations[command.formation_id] as FormationState
@@ -529,7 +551,7 @@ func _validate_formation_move(
 			return _rejected(CommandValidationResult.Reason.AGENT_OVERRIDE_BLOCKED)
 	if active_member_count == 0:
 		return _rejected(CommandValidationResult.Reason.ENTITY_DISABLED)
-	if command.route_points.size() > MAX_ROUTE_POINTS or not _is_valid_position(command.target_position, battlefield_bounds):
+	if command.route_points.size() > max_route_points or not _is_valid_position(command.target_position, battlefield_bounds):
 		return _rejected(CommandValidationResult.Reason.INVALID_POSITION)
 	for waypoint in command.route_points:
 		if not _is_valid_position(waypoint, battlefield_bounds):
@@ -548,10 +570,11 @@ func _validate_formation_move(
 	var segment_start := formation.anchor_position
 	var path := PackedVector2Array()
 	for destination in destinations:
-		path = pathfinder.find_path(segment_start, destination)
+		path = pathfinder.find_body_path(segment_start,destination) if growth_mode else pathfinder.find_path(segment_start, destination)
 		if path.is_empty():
 			return _rejected(CommandValidationResult.Reason.PATH_UNAVAILABLE)
 		segment_start = destination
+	if growth_mode: return CommandValidationResult.new(CommandValidationResult.Status.ACCEPTED)
 	if command.has_deployment_line:
 		for slot_id in range(formation.member_entity_ids.size()):
 			var ratio := 0.5 if formation.member_entity_ids.size() <= 1 else float(slot_id) / float(formation.member_entity_ids.size() - 1)
@@ -559,12 +582,20 @@ func _validate_formation_move(
 			if not _is_valid_position(slot_position, battlefield_bounds) or not pathfinder.logic_grid.is_world_position_walkable(slot_position):
 				return _rejected(CommandValidationResult.Reason.INVALID_POSITION)
 		return CommandValidationResult.new(CommandValidationResult.Status.ACCEPTED)
+	if growth_mode:
+		# Automatic cards already share a whole-legion spatial planner. Manual
+		# card control uses its own subset of the same stable role identities.
+		if LegionManualDeployment.uses_automatic_slots(units,unit_cards,formation,command): return CommandValidationResult.new(CommandValidationResult.Status.ACCEPTED)
+		var plan := LegionManualDeployment.evaluate(units,formations,unit_cards,commanders,formation,command,pathfinder.logic_grid,pathfinder)
+		if plan!=null:
+			return _rejected(CommandValidationResult.Reason.PATH_UNAVAILABLE) if plan.status==LegionDeploymentPlan.Status.BLOCKED else CommandValidationResult.new(CommandValidationResult.Status.ACCEPTED)
 	var tangent := Vector2.RIGHT
 	if path.size() >= 2:
 		tangent = (path[-1] - path[-2]).normalized()
 	var lateral := Vector2(-tangent.y, tangent.x)
+	var recon_spread := formation.strict_deployment_slots and formation.uses_recon_spread(units)
 	for slot_id in range(formation.member_entity_ids.size()):
-		var offset := formation.get_wide_offset(slot_id)
+		var offset := formation.get_recon_offset(slot_id) if recon_spread else formation.get_wide_offset(slot_id)
 		var slot_position := command.target_position + tangent * offset.x + lateral * offset.y
 		if not _is_valid_position(slot_position, battlefield_bounds) or not pathfinder.logic_grid.is_world_position_walkable(slot_position):
 			return _rejected(CommandValidationResult.Reason.INVALID_POSITION)
@@ -796,6 +827,8 @@ func _validate_task_control(command: TaskControlCommand, tasks: Dictionary) -> C
 	if not tasks.has(command.controlled_task_id):
 		return _rejected(CommandValidationResult.Reason.INVALID_TASK)
 	var task := tasks[command.controlled_task_id] as TaskState
+	if task.faction_id != command.issuer_id:
+		return _rejected(CommandValidationResult.Reason.NOT_CONTROLLER)
 	match command.action:
 		TaskControlCommand.Action.PAUSE:
 			if task.lifecycle != TaskState.Lifecycle.EXECUTING:
