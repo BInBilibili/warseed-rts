@@ -25,13 +25,13 @@ git tag -a v0.1.1-test.1 -m "WARSEED Windows playtest"
 git push origin v0.1.1-test.1
 ```
 
-完整门通过后，在[Releases](https://github.com/msdest565/warseed-rts/releases)下载`WARSEED-<tag>-Windows-x64.zip`与对应`.sha256`。已有同名Release会让发布失败，不覆盖旧附件；失败时先查日志，修复后创建新版本标签。分支手动运行只构建，不发布。
+完整门通过后，在[Releases](https://github.com/msdest565/warseed-rts/releases)下载`WARSEED-<tag>-Windows-x64.zip`与对应`.sha256`。发布前解析轻量/附注标签并确认仍指向本次验证提交，标签在构建期间被移动会拒绝发布。已有同名Release会让发布失败，不覆盖旧附件；失败时先查日志，修复后创建新版本标签。分支手动运行只构建，不发布。
 
 解压整个目录并保持EXE、PCK与`data_WARSEED_windows_x86_64`在一起。双击`START_WARSEED.cmd`进入独立试玩会话；主菜单选择“最终决战”。`BUILD_INFO.json`记录标签/构建号、源码提交、引擎、项目内版本及测试构建性质；`MANIFEST.json`记录包内文件SHA-256。标签不改写项目内版本，两者分别显示，避免旧版本字符串被当成构建来源。
 
 ## GitHub 配置与检查
 
-固定Godot4.6.3 Mono与.NET8，解析安装目录中真正的Console EXE并验证版本，先编译C#再验证；安装的导出模板复制到既有发布门使用的隔离APPDATA。验证包括两轮18套、权限/边界/UI、四关矩阵、工具、Windows导出和启动。性能按D-028暂缓，HUMAN与实际FPS不作自动构建通过结论。
+固定Godot4.6.3 Mono与.NET8，解析安装目录中真正的Console EXE并验证版本，先编译C#再验证；安装的导出模板复制到既有发布门使用的隔离APPDATA。验证包括两轮18套、权限/边界/UI、四关矩阵、工具、Windows导出和启动。上传之前额外启动包内EXE并等待真实进程退出，超时、非零退出或脚本错误阻止上传和发布。性能按D-028暂缓，HUMAN与实际FPS不作自动构建通过结论。
 
 默认`GITHUB_TOKEN`足够，不需要把个人token写进仓库。验证任务只有contents:read；只有推送版本标签且验证成功的发布任务具有contents:write。仓库需允许Actions及所引用的固定SHA action；组织策略禁止写权限时，发布会失败，需管理员调整仓库策略。源码提交不会包含gitignore中的本机凭据、构建和验证日志，云端重新生成这些产物。
 

@@ -1,6 +1,6 @@
 # WARSEED AI 开发状态与任务队列
 
-> 2026-10-05：[WS-MAINT-20261005-001](work_items/WS-MAINT-20261005-001.md) GitHub自动发包切片VERIFYING。用户授权提交全部既有工程改动，选择日常推送构建验证、版本标签发布；仅修改CI/打包工具和交接文档，不改游戏。流程使用固定Godot4.6.3 Mono/.NET8、原完整26阶段发布门、Windows自含包/来源/哈希；标签成功后创建测试预发布。实际提交/推送与首次云端结果待核对，证据artifacts/github-release，原父维护仍REWORK，R6/R7不变。
+> 2026-10-05：[WS-MAINT-20261005-001](work_items/WS-MAINT-20261005-001.md) GitHub自动发包切片DONE。全部既有工程改动已提交推送main（ab323d3、70f23a4）；[实际云端运行](https://github.com/msdest565/warseed-rts/actions/runs/37216831802)完整26阶段PASS（2269.51秒），Windows测试包194文件/401项来源与哈希检查及实际下载解压启动PASS。日常推送生成Actions包，v标签成功后创建测试预发布；标签来源保护和明确等待包内真实进程退出的附加检查均本地验证，新推送会再次云端构建，不将旧run声称为附加检查的云端结果。真实标签发布NOT_RUN，本次未创建标签；HUMAN/FPS NOT_RUN，D-028暂缓。仅CI/打包工具、交接文档和14个文件EOF空行规范化，无游戏行为变更；原父维护仍REWORK，R6/R7不变。证据artifacts/github-release。
 
 > 2026-10-04：独立权限切片 [WS-MAINT-20261004-001](work_items/WS-MAINT-20261004-001.md) 已DONE；D-040正式执行持续将领意图/整卡授权及取消坚守/显式交还。权限与边界/UI专项290项、release03完整发布门26/26（1441.592秒）、实际新PCK权限75项及双语五档UI141项均PASS，证据artifacts/control-contract。33个已有文件有本轮差异、12个新增文件；其余1528个基线文件及118个数据文件哈希未变。旧WS-MAINT-20260920-001仍REWORK且其他范围未完成，R5/阶段门不变。全部SIMULATED；旧成长探针NOT_PASS原件保留，HUMAN/实际FPS/本轮自然终局整局NOT_RUN，性能D-028暂缓；无提交推送。
 
@@ -16,7 +16,7 @@
 
 > legion62补验：diagnostic01确认原live01目标可见，但炮兵距484–510，超过实际射程420；516只是特殊炮位选择上限，不能冒充武器射程。目标改为初始据点前240的独立inrange01场景后，真实参谋批准tick55进入战斗、tick71实际发射，三炮就位；撤退/MOVE首tick抢占均通过，共110项。独立replay01同110项且结果JSON逐字节一致。原失败和诊断原件保留，不称远距追击通过。最终mirror09/intent07/authority11/ui08/guard12/moving13及grants02/inrange01/replay01九次审计review-v5 PASS，源码/入口/继承/引擎一致；当前仍仅隔离候选、未正式合入，不代表完整C/D。
 
-> 状态版本：171
+> 状态版本：172
 > 更新时间：2026-10-05
 > 更新规则：每个完成、阻塞或重新规划的工作项都必须更新本文件。
 > 历史原文：[v109 完整快照](archive/state/AI_DEVELOPMENT_STATE_v109.md)，原第 12 节唯一保存的临时维护契约也在其中。
@@ -28,11 +28,16 @@
 
 ```yaml
 workflow_version: 1.2
-state_version: 171
+state_version: 172
 github_release_work_item: WS-MAINT-20261005-001
-github_release_status: VERIFYING
+github_release_status: DONE
 github_release_workflow: .github/workflows/grey-ridge-ci.yml
 github_release_evidence: artifacts/github-release
+github_release_cloud_result: PASS_26_STAGES_70f23a4
+github_release_cloud_run: https://github.com/msdest565/warseed-rts/actions/runs/37216831802
+github_release_artifact: https://github.com/msdest565/warseed-rts/actions/runs/37216831802/artifacts/11310140848
+github_release_guard_validation: LOCAL_PASS_TAG_SHA_AND_REAL_PROCESS_WAIT_CLOUD_REBUILD_PENDING
+github_release_tag_publication: NOT_RUN_NO_TAG_CREATED
 control_contract_work_item: WS-MAINT-20261004-001
 control_contract_status: DONE
 control_contract_release: artifacts/control-contract/release-audit.json
@@ -165,10 +170,10 @@ release_candidate_status: ENGINEERING_BASELINE_ARCHIVED
 release_candidate_package: build/playtest-kits/WARSEED-R1-Feedback-RC2-20260901.zip
 release_candidate_sha256: 730B7F496F8871D62CA887F5B955974CF540014F3B5EA9307E6F5D4070C10A08
 working_build_id: 0.1.0-legion-movement.20260928
-latest_maintenance_work_item: WS-MAINT-20261004-001
+latest_maintenance_work_item: WS-MAINT-20261005-001
 latest_maintenance_status: DONE
-active_maintenance_work_item: WS-MAINT-20261005-001
-active_maintenance_status: VERIFYING
+active_maintenance_work_item: WS-MAINT-20260920-001
+active_maintenance_status: REWORK
 unfinished_maintenance_work_item: WS-MAINT-20260920-001
 unfinished_maintenance_status: REWORK
 final_decision_status: PERFORMANCE_SLICE_VERIFIED_GOAL_INCOMPLETE
@@ -183,7 +188,7 @@ legion32_gameplay_verification: NOT_RUN
 legion32_production_integration: NOT_RUN
 legion32_addendum_status: DONE
 legion32_addendum_evidence: artifacts/legion32-addendum/verification.json
-current_turn_scope: GITHUB_AUTOMATED_WINDOWS_PLAYTEST_RELEASE
+current_turn_scope: GITHUB_RELEASE_SLICE_DONE_PARENT_MAINTENANCE_REWORK
 legion54_status: VERIFICATION_TERMINATED_DESIGN_REWORK
 legion54_report: docs/LEGION_TRANSIT_ACCEPTANCE_20260925.md
 legion54_evidence: artifacts/legion54/verification.json
@@ -658,6 +663,8 @@ motion29当时的大地图自主观察为 6000 tick / 10 分钟，在观察上�
 
 ## 6. 最新交付
 
+2026-10-05 GitHub构建发包工具切片WS-MAINT-20261005-001 DONE：全部已有工程变更已提交推送，实际Windows云端完整26门通过、401项实际下载包审计及真实进程等待启动通过。日常推送/PR/手动上传测试包，v标签在验证后创建预发布并附ZIP/SHA256；源码提交、标签、Mono运行库和清单一起交付。补标签移动拒绝与上传前真实包进程等待，分别经mock-GH四场景和实际下载包的完整工作流脚本本地验证；后续云端结果按新提交独立记录。原首次GUI入口失败保留，Android编辑器初始化诊断一条不掩盖为无错误日志，Windows门/出口均成功。真实标签与真人/FPS未测，本次没有发布版本。详见[GITHUB_RELEASE_GUIDE](GITHUB_RELEASE_GUIDE.md)。
+
 2026-10-04权限契约切片WS-MAINT-20261004-001 DONE：详见[正式契约](PLAYER_AI_CONTROL_CONTRACT_20261004.md)。硬规则优先，同作用域最新有效玩家命令仲裁；整卡接管持续，普通意图恢复后回原目标，强攻不自主撤退，取消转各卡原地坚守，显式交还恢复自治且不复活旧意图。统一入口/队列/应用、值快照、双语UI与公平知识已闭环。release03完整26/26及新专项290项PASS；独立导出PCK权限75/UI141复验PASS，源码1409项无漂移，旧包未覆盖。旧成长探针NOT_PASS及中断门原件保留；真人、实际FPS与本轮自然终局整局未测，父维护仍REWORK。
 
 - ZIP：`build/playable/WARSEED-Movement-Escort-20260921.zip`
@@ -690,6 +697,8 @@ motion29当时的大地图自主观察为 6000 tick / 10 分钟，在观察上�
 [R4 出口](R4_EXIT_EVIDENCE.md)、[R5 出口](R5_EXIT_EVIDENCE.md)、[历史目录](archive/README.md)、[完整 v109 状态](archive/state/AI_DEVELOPMENT_STATE_v109.md)。45 份完成工作项保存在 `docs/archive/work_items/`；活动 001 留在原路径。
 
 ## 10. 最新维护记录
+
+2026-10-05 WS-MAINT-20261005-001 DONE：用户授权全部工程提交，ab323d3及Console入口修复70f23a4已推送main；真实GitHub run37216831802完整26阶段PASS（2269.51秒），194文件/401项下载包哈希/来源审计与解压后的实际进程启动PASS。日常推送/PR/手动构建上传Actions测试包，v标签成功后创建预发布。新标签SHA保护四场景mock-GH通过；新上传前进程等待直接以实际云端包运行完整PowerShell5片段通过，缓存Handle修复原ExitCode空值，均是旧成功run之后的本地工具增量，新CI单独记录。GitHubHeadless导入Android设置诊断一条保留，无脚本错误；初轮GUI入口失败不计通过。最后只提交CI/交接增量，真实标签、真人、实际FPS未运行，性能D-028暂缓；原父维护仍REWORK，R6/R7未开始。
 
 2026-10-04 WS-MAINT-20261004-001 DONE：D-040将权限草案转为正式执行契约；新增typed意图、授权版本、作用范围与值回执，在统一校验/队列/应用入口处理持续将领意图、整卡控制、撤退/取消/交还和旧AI阶段失效。普通目标恢复后回原目标，强攻禁止自主撤退改向，取消各卡原地坚守，显式交还不复活旧任务。双方越权/隐藏扰动/死亡回营/同tick顺序、坚守目标校验和真实终局双语五档UI专项75/74/141共290项PASS；撤退到位防追击、接受不删队列及拒绝接管不抑制合法补员修复后，release03从头完整26/26 PASS、exit0，1441.592秒。实际新PCK权限75/UI141 PASS，与发布记录包哈希一致；源码冻结1409项无漂移、118数据文件未变、无关基线1528项未变。release01/02中断不计通过，旧成长探针NOT_PASS与Windows证书环境诊断保留；证据artifacts/control-contract。旧父001仍REWORK，R6/R7未开始，HUMAN/实际FPS/本轮自然终局整局NOT_RUN，性能D-028暂缓；无提交推送。
 
@@ -807,7 +816,7 @@ motion29当时的大地图自主观察为 6000 tick / 10 分钟，在观察上�
 
 ## 11. 下一次 AI 接手检查单
 
-> 2026-10-05当前切片WS-MAINT-20261005-001 VERIFYING。先看工作项和GITHUB_RELEASE_GUIDE，以及artifacts/github-release的工具、包、提交/推送和云端结果。用户授权提交全部工程变更及配置标签自动发包；不替用户创建本次版本标签，不把Actions运行中标为通过。游戏逻辑未改，原权限完整门可按相同源码复用；云端须重新生成并验证完整Windows包。原父维护仍REWORK。
+> 2026-10-05发包工具切片WS-MAINT-20261005-001 DONE。先看工作项/GITHUB_RELEASE_GUIDE与cloud-audit.json；70f23a4实际云端26门、401项下载包检查与真实启动PASS。最后标签SHA保护及附加包进程等待仅本地验证，最后推送的新CI按其提交单独查看，不能冒充旧run已覆盖；本次未创建版本标签。全部用户既有改动已提交推送，原父维护仍REWORK。继续游戏实现时只选父项受控范围，不由发包工具完成而进入R6/R7。
 
 > 2026-10-04 WS-MAINT-20261004-001已DONE。先读控制块、工作项、D-040及PLAYER_AI_CONTROL_CONTRACT_20261004；release-audit/package-audit/source-audit记录完整26阶段、新专项290项、实际PCK75/141项PASS与1409项源码无漂移。相同源码与环境无需重复完整门。release01/02已中断，旧成长探针NOT_PASS原件保留，不能改写其结论；旧维护WS-MAINT-20260920-001的其他缺口仍REWORK。下一次只按该父项未完成范围建立/领取受控切片，不自动扩大本项或进入R6/R7；真人研究可选、实际FPS未测，性能仍D-028暂缓。
 

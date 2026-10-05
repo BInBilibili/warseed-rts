@@ -75,7 +75,30 @@ jobs:
         run: |
           $version = "ci-${env:GITHUB_RUN_ID}-${env:GITHUB_RUN_ATTEMPT}"
           if ($env:GITHUB_REF_TYPE -eq 'tag') { $version = $env:GITHUB_REF_NAME }
-          .\tools\build_github_package.ps1 -Version $version -Commit $env:GITHUB_SHA
+          $package = .\tools\build_github_package.ps1 -Version $version -Commit $env:GITHUB_SHA
+          $package
+          "WARSEED_PACKAGE_DIRECTORY=$($package.PackageDirectory)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Wait for packaged game smoke
+        shell: powershell
+        run: |
+          $profile = Join-Path $env:GITHUB_WORKSPACE 'artifacts\package-smoke'
+          $env:APPDATA = Join-Path $profile 'Roaming'
+          $env:LOCALAPPDATA = Join-Path $profile 'Local'
+          New-Item -ItemType Directory -Force $env:APPDATA,$env:LOCALAPPDATA | Out-Null
+          $stdout = Join-Path $profile 'stdout.log'
+          $stderr = Join-Path $profile 'stderr.log'
+          $executable = Join-Path $env:WARSEED_PACKAGE_DIRECTORY 'WARSEED.exe'
+          $arguments = @('--headless','--quit-after','3','--',"--playtest-session=ci-${env:GITHUB_RUN_ID}-${env:GITHUB_RUN_ATTEMPT}-package")
+          $process = Start-Process -FilePath $executable -ArgumentList $arguments -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          # Keep the handle open so Windows PowerShell 5 retains ExitCode.
+          $null = $process.Handle
+          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Packaged game boot timed out.' }
+          $process.WaitForExit()
+          $logs = Get-Content -Raw $stdout,$stderr
+          $result = @{exit_code=$process.ExitCode; source_commit=$env:GITHUB_SHA; evidence='SIMULATED_REAL_PACKAGED_PROCESS_WAIT'}
+          $result | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $profile 'result.json')
+          if ($process.ExitCode -ne 0 -or [string]$logs -match 'SCRIPT ERROR') { throw 'Packaged game boot failed.' }
 
       - name: Upload Windows package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -95,6 +118,7 @@ jobs:
           path: |
             artifacts/control-contract/*.json
             artifacts/*report*.json
+            artifacts/package-smoke/*.json
           if-no-files-found: ignore
           retention-days: 14
 
@@ -122,6 +146,17 @@ jobs:
           set -euo pipefail
           cd release
           sha256sum --check --strict *.sha256
+          # Peel annotated tags and reject a tag moved during verification.
+          object="$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq '.object | [.type, .sha] | @tsv')"
+          read -r object_type object_sha <<< "$object"
+          while [ "$object_type" = 'tag' ]; do
+            object="$(gh api "repos/$GH_REPO/git/tags/$object_sha" --jq '.object | [.type, .sha] | @tsv')"
+            read -r object_type object_sha <<< "$object"
+          done
+          if [ "$object_type" != 'commit' ] || [ "$object_sha" != "$SOURCE_COMMIT" ]; then
+            echo 'Release tag no longer matches the verified source commit.' >&2
+            exit 1
+          fi
           gh release create "$RELEASE_TAG" ./*.zip ./*.sha256 \
             --verify-tag --target "$SOURCE_COMMIT" \
             --title "WARSEED $RELEASE_TAG (Windows playtest)" \
