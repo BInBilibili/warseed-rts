@@ -2,7 +2,7 @@
 
 配置入口：[工作流](../.github/workflows/grey-ridge-ci.yml)、[打包脚本](../tools/build_github_package.ps1)。工作项：[WS-MAINT-20261005-001](work_items/WS-MAINT-20261005-001.md)。
 
-Demo V1.0.0发行项：[WS-MAINT-20261005-002](work_items/WS-MAINT-20261005-002.md)。项目版本`1.0.0-demo`，标签`v1.0.0`，发布名称`WARSEED Demo V1.0.0`；包内`channel=demo`。当前正在准备发布，实际结果以该工作项与[版本页面](https://github.com/msdest565/warseed-rts/releases/tag/v1.0.0)为准。Demo仍标为Pre-release，整体开发与阶段状态独立记录。
+Demo V1.0.0已发布：[版本页面](https://github.com/msdest565/warseed-rts/releases/tag/v1.0.0)、[Windows x64 ZIP](https://github.com/msdest565/warseed-rts/releases/download/v1.0.0/WARSEED-v1.0.0-Windows-x64.zip)、[SHA256](https://github.com/msdest565/warseed-rts/releases/download/v1.0.0/WARSEED-v1.0.0-Windows-x64.zip.sha256)。发行项：[WS-MAINT-20261005-002](work_items/WS-MAINT-20261005-002.md) DONE；项目版本`1.0.0-demo`，标签`v1.0.0`，发布名称`WARSEED Demo V1.0.0`，包内`channel=demo`。标签绑定`0f9a0ae`；[实际云端运行](https://github.com/msdest565/warseed-rts/actions/runs/37257810171)完整26阶段、包启动和发布均通过，实际下载附件401项审计与独立启动通过。Demo标为Pre-release，整体开发与阶段状态独立记录。
 
 日常推送到分支、Pull Request 和手动运行会在Windows执行完整发布门，成功后上传Windows ZIP与SHA-256，Actions产物保留14天。推送`v*`标签会在同一套验证和构建成功后，把该次产物发布到GitHub Releases；失败不会进入发布任务。标签发布不被其他推送取消，日常同分支新推送可取消旧构建。
 
