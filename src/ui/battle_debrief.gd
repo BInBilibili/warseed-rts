@@ -81,7 +81,7 @@ func refresh_locale() -> void:
 	cards_button.text = GameText.t(&"DEBRIEF_VIEW_CARDS")
 	causes_button.text = GameText.t(&"DEBRIEF_VIEW_CAUSES")
 	fight_again_button.text = GameText.t(&"DEBRIEF_FIGHT_AGAIN")
-	return_to_operations_button.text = GameText.t(&"RETURN_TO_OPERATIONS")
+	return_to_operations_button.text = GameText.t(&"RETURN_TO_MAIN_MENU")
 	feedback_button.text = GameText.t(&"DEBRIEF_PROVIDE_FEEDBACK")
 	if visible and not _record.is_empty():
 		_refresh()
@@ -526,7 +526,7 @@ func _on_fight_again_pressed() -> void:
 
 
 func _on_return_to_operations_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/game/battle_selector.tscn")
+	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
 func _on_feedback_pressed() -> void:

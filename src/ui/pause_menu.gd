@@ -59,12 +59,12 @@ func _refresh_locale() -> void:
 	battle_audio_toggle.text = GameText.t(&"BATTLE_AUDIO_ENABLED")
 	battle_audio_toggle.tooltip_text = GameText.t(&"BATTLE_AUDIO_ENABLED_TOOLTIP")
 	battle_audio_toggle.set_pressed_no_signal(_battle_audio_enabled)
-	operations_button.text = GameText.t(&"RETURN_TO_OPERATIONS")
-	operations_button.tooltip_text = GameText.t(&"RETURN_TO_OPERATIONS_TOOLTIP")
+	operations_button.text = GameText.t(&"RETURN_TO_MAIN_MENU")
+	operations_button.tooltip_text = GameText.t(&"RETURN_TO_MAIN_MENU_TOOLTIP")
 	exit_button.text = GameText.t(&"EXIT_GAME")
-	return_confirmation.title = GameText.t(&"RETURN_TO_OPERATIONS_CONFIRM_TITLE")
-	return_confirmation.dialog_text = GameText.t(&"RETURN_TO_OPERATIONS_CONFIRM_BODY")
-	return_confirmation.ok_button_text = GameText.t(&"RETURN_TO_OPERATIONS_CONFIRM")
+	return_confirmation.title = GameText.t(&"RETURN_TO_MAIN_MENU_CONFIRM_TITLE")
+	return_confirmation.dialog_text = GameText.t(&"RETURN_TO_MAIN_MENU_CONFIRM_BODY")
+	return_confirmation.ok_button_text = GameText.t(&"RETURN_TO_MAIN_MENU_CONFIRM")
 	return_confirmation.cancel_button_text = GameText.t(&"CANCEL")
 	language_selector.clear()
 	language_selector.add_item(GameText.t(&"LANGUAGE_CHINESE"))
@@ -160,4 +160,4 @@ func _confirm_return_to_operations() -> void:
 func _return_to_operations() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.paused = false
-	tree.change_scene_to_file("res://scenes/game/battle_selector.tscn")
+	tree.change_scene_to_file("res://scenes/ui/main_menu.tscn")

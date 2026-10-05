@@ -17,6 +17,7 @@ const CATALOG_PATH := BattleContentLoader.DEFAULT_CATALOG_PATH
 @onready var replay_tutorial_button: Button = $SafeArea/Layout/Body/Dossier/Content/Training/Replay
 @onready var deploy_button: Button = $SafeArea/Layout/Body/Dossier/Content/Deploy
 @onready var language_button: Button = $SafeArea/Layout/Footer/Language
+@onready var main_menu_button: Button = $SafeArea/Layout/Footer/MainMenu
 @onready var exit_button: Button = $SafeArea/Layout/Footer/Exit
 
 var scene_changes_enabled: bool = true
@@ -43,7 +44,9 @@ func _ready() -> void:
 	else:
 		_black_well_continuity_confirmed = TutorialProgressStore.confirm_black_well_continuity(loaded.record)
 	_load_battles()
+	_select_pending_continue_operation()
 	language_button.pressed.connect(_toggle_language)
+	main_menu_button.pressed.connect(_return_to_main_menu)
 	exit_button.pressed.connect(_exit_game)
 	deploy_button.pressed.connect(_deploy_selected)
 	replay_tutorial_button.pressed.connect(_replay_selected_tutorial)
@@ -53,6 +56,26 @@ func _ready() -> void:
 	refresh_locale()
 	_select_mode(true)
 	_apply_responsive_layout()
+
+
+func _select_pending_continue_operation() -> void:
+	var pending := MainMenu.pending_continue_scenario_id
+	if pending == &"":
+		return
+	MainMenu.pending_continue_scenario_id = &""
+	for index in range(_battles.size()):
+		if _battles[index].scenario_id == pending:
+			_select_battle(index)
+			return
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		var focused := get_viewport().gui_get_focus_owner()
+		if focused != null and is_ancestor_of(focused):
+			# GUI routing gives the clicked control focus afterwards. Background
+			# clicks instead leave no stale keyboard highlight on another button.
+			focused.release_focus()
 
 
 func _load_battles() -> void:
@@ -105,6 +128,7 @@ func refresh_locale() -> void:
 	replay_tutorial_button.text = GameText.t(&"BATTLE_SELECT_TUTORIAL_REPLAY")
 	replay_tutorial_button.tooltip_text = GameText.t(&"BATTLE_SELECT_TUTORIAL_REPLAY_TOOLTIP")
 	language_button.text = GameText.t(&"BATTLE_SELECT_LANGUAGE")
+	main_menu_button.text = GameText.t(&"RETURN_TO_MAIN_MENU")
 	exit_button.text = GameText.t(&"EXIT_GAME")
 	if _mode_buttons.size() == 2:
 		_mode_buttons[0].text = GameText.t(&"GROWTH_MODE")
@@ -129,8 +153,6 @@ func _select_battle(index: int) -> void:
 		_battle_buttons[button_index].button_pressed = button_index == index
 	_refresh_dossier()
 	deploy_button.disabled = false
-	if deploy_button.is_inside_tree():
-		deploy_button.grab_focus()
 
 
 func _refresh_dossier() -> void:
@@ -213,6 +235,10 @@ func _deploy_selected() -> void:
 func _toggle_language() -> void:
 	TranslationServer.set_locale("en" if TranslationServer.get_locale().begins_with("zh") else "zh_CN")
 	refresh_locale()
+
+
+func _return_to_main_menu() -> void:
+	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
 func _exit_game() -> void:

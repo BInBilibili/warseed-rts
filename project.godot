@@ -12,9 +12,13 @@ config_version=5
 
 config/name="WARSEED"
 config/version="1.0.0-demo"
-run/main_scene="res://scenes/game/battle_selector.tscn"
+run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.6", "C#", "GL Compatibility")
 run/max_fps=120
+
+[autoload]
+
+FpsOverlay="*res://src/ui/fps_overlay.gd"
 
 [display]
 

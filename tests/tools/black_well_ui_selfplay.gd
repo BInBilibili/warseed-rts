@@ -111,23 +111,21 @@ func _initialize() -> void:
 
 	await _click_control(game.battle_debrief.return_to_operations_button)
 	await _wait_frames(16)
-	var selector := current_scene as BattleSelector
-	if selector == null:
-		_fail("Return to Operations did not open the battle selector")
+	var menu := current_scene as MainMenu
+	if menu == null:
+		_fail("Return to Main Menu did not open the main menu")
 	else:
-		if not selector._black_well_continuity_confirmed:
-			_fail("selector did not confirm the Black Well growth on the same card ID")
 		var persisted := ArmyRosterStore.load_record()
 		var persisted_card := (persisted.get("cards", {}) as Dictionary).get(String(growth_card_id), {}) as Dictionary
 		if persisted_card.is_empty() or String(persisted_card.get("equipment_id", "")).is_empty():
 			_fail("shared roster lost the selected Black Well equipment after scene return")
 		await _save_screenshot(CONTINUITY_OUTPUT_PATH)
-	print("WARSEED_BLACK_WELL_UI_STAGE operations_returned selector=%s" % [selector != null])
-	print("WARSEED_BLACK_WELL_UI_SELFPLAY withdrawn=%s growth_card=%s selector=%s map=%s" % [
+	print("WARSEED_BLACK_WELL_UI_STAGE main_menu_returned menu=%s" % [menu != null])
+	print("WARSEED_BLACK_WELL_UI_SELFPLAY withdrawn=%s growth_card=%s main_menu=%s map=%s" % [
 		withdrawn_guard.withdrawn_strength if withdrawn_guard != null else 0,
-		growth_card_id, selector != null, battlefield_bounds,
+		growth_card_id, menu != null, battlefield_bounds,
 	])
-	await _finish(selector)
+	await _finish(menu)
 
 
 func _touch_five_commander_setups(planner: PrebattlePlanner) -> void:

@@ -1,0 +1,4 @@
+interface:
+  display_name: "WARSEED 项目启动"
+  short_description: "修改 WARSEED 后验证并提供启动链接"
+  default_prompt: "在 WARSEED 项目中修改代码，完成验证，并在回复中提供启动链接。"

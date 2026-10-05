@@ -112,3 +112,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\verify_grey_ridge_release.ps1 `
 3. 更新 `docs/AI_DEVELOPMENT_STATE.md` 中对应任务、证据、风险和下一任务；
 4. 明确说明已验证、未验证和仍属可选产品研究的事项；
 5. 未经用户明确要求，不提交、不推送、不创建分支或 PR。
+
+## 7. 项目启动技能
+
+本项目的局部技能位于 `.codex/skills/warseed-launch/SKILL.md`。处理本项目修改时应用该技能：完成适当验证，自动运行 `START_WARSEED.cmd`，并在用户回复中优先提供 `warseed://launch` 启动链接，附带脚本备用入口。

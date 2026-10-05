@@ -1,4 +1,10 @@
 # WARSEED AI 开发状态与任务队列
+> 2026-10-05: [WS-MAINT-20261005-005](work_items/WS-MAINT-20261005-005.md) REWORK. Added a localized return-to-main-menu button to the operation selector footer; focused navigation smoke passes, while the existing real UI matrix remains blocked by out-of-scope tactical failures.
+> 2026-10-05: [WS-MAINT-20261005-006](work_items/WS-MAINT-20261005-006.md) REWORK. Fixed stale deploy-button focus in the operation selector; focused mouse and keyboard smoke passes. The required real UI matrix still has out-of-scope tactical failures, and real-window verification was interrupted by Escape.
+
+> 2026-10-05：[WS-MAINT-20261005-004](work_items/WS-MAINT-20261005-004.md) REWORK。暂停菜单和战后结算的“返回作战区”已改为“返回主菜单”，两条实际导航路径专项通过；中英文 5 个新翻译键同步，18 套既有测试、.NET 构建和返回导航 smoke 通过。真实 `accessibility_resolution_matrix` 在 1280×720 的范围外战术提示和工程点击检查失败，不能宣称完整 UI 矩阵 PASS；证据 `artifacts/return-to-main-menu-smoke.log`、`artifacts/test-runner-return-main-menu.log`、`artifacts/accessibility-resolution-matrix-return-main-menu.log`。父001仍 REWORK，R6/R7不变。全部为 SIMULATED，HUMAN/实际 FPS 体验 NOT_RUN，D-028 性能门仍暂缓。
+
+> 2026-10-05：[WS-MAINT-20261005-003](work_items/WS-MAINT-20261005-003.md) REWORK。修正主菜单 FPS 开关即时同步；全局 FPS 覆盖层、主菜单中英刷新和五档主菜单布局专项通过，18 套既有测试通过，.NET/Godot 启动检查通过。真实 `accessibility_resolution_matrix` 在 1280×720 的既有战术提示、混成编制提示和工程点击检查处失败，不能宣称完整 UI 矩阵 PASS；证据 `artifacts/main-menu-smoke.log`、`artifacts/accessibility-resolution-matrix.log`、`artifacts/accessibility_resolution_matrix.json`、`artifacts/test-runner-ui-maintenance.log`。本切片范围外失败待独立维护项修复；父001仍 REWORK，R6/R7不变。全部为 SIMULATED，HUMAN/实际 FPS 体验 NOT_RUN，D-028 性能门仍暂缓。
 
 > 2026-10-05：[WS-MAINT-20261005-002](work_items/WS-MAINT-20261005-002.md) DONE。[WARSEED Demo V1.0.0](https://github.com/msdest565/warseed-rts/releases/tag/v1.0.0)已公开预发布，标签v1.0.0绑定0f9a0ae；[实际标签云端运行](https://github.com/msdest565/warseed-rts/actions/runs/37257810171)完整26阶段PASS（1815.669秒），真实包进程等待、标签来源保护、发布均成功。实际下载附件73,024,457字节/194文件/401项哈希来源检查、独立EXE启动exit0及实际PCK版本1.0.0-demo通过。ZIP SHA256 1468825073819299dbf963c94487d0a809c9be99b653ab564d6866f0b0c4e9b2，证据artifacts/demo-v1。只改版本/发行工具/交接文档，无游戏行为或存档变化；父001仍REWORK，R6/R7不变。全部SIMULATED；HUMAN/真实画面/FPS/无.NET实机NOT_RUN，性能D-028暂缓。
 
@@ -30,7 +36,19 @@
 
 ```yaml
 workflow_version: 1.2
-state_version: 174
+state_version: 178
+operation_selector_focus_work_item: WS-MAINT-20261005-006
+operation_selector_focus_status: REWORK
+operation_selector_focus_evidence: artifacts/selector-focus-smoke.log,artifacts/test-runner-selector-focus.log,artifacts/selector-focus-build.log,artifacts/selector-focus-editor.log,artifacts/accessibility-resolution-matrix-selector-focus.log
+operation_selector_main_menu_work_item: WS-MAINT-20261005-005
+operation_selector_main_menu_status: REWORK
+operation_selector_main_menu_evidence: artifacts/return-to-main-menu-smoke-selector.log,artifacts/test-runner-operation-selector.log,artifacts/dotnet-build-operation-selector.log,artifacts/godot-editor-operation-selector.log,artifacts/accessibility-resolution-matrix-operation-selector.log
+return_to_main_menu_work_item: WS-MAINT-20261005-004
+return_to_main_menu_status: REWORK
+return_to_main_menu_evidence: artifacts/return-to-main-menu-smoke.log,artifacts/test-runner-return-main-menu.log,artifacts/accessibility-resolution-matrix-return-main-menu.log
+menu_ui_work_item: WS-MAINT-20261005-003
+menu_ui_status: REWORK
+menu_ui_evidence: artifacts/main-menu-smoke.log,artifacts/accessibility-resolution-matrix.log,artifacts/accessibility_resolution_matrix.json,artifacts/test-runner-ui-maintenance.log
 demo_release_work_item: WS-MAINT-20261005-002
 demo_release_status: DONE
 demo_release_tag: v1.0.0
@@ -832,7 +850,14 @@ motion29当时的大地图自主观察为 6000 tick / 10 分钟，在观察上�
 
 2026-09-21 docs30 文档切片 DONE，001 整体仍 REWORK。全面审读原 114 份 docs Markdown，归档 80 份旧设计/报告/发布/完成任务，另保存 v109 全量状态；新增文档入口、现行玩法与修订提案。保留打包工具读取的历史说明原路径，修复其适用范围提示。122 份 Markdown 本地链接与围栏无错误，新入口表格及五组 60/12 编制检查通过；原文遗失 0，81 份归档/快照正文除范围提示和引用路径外无变化。1191 个运行/测试/工具文件零漂移、零新增，git diff --check 通过。两项只读复核后补齐权限边界。未运行新游戏测试，不创建新目标、不推进 R6；证据见[文档审计](DOCUMENTATION_AUDIT_20260921.md)。
 
+2026-10-05 WS-MAINT-20261005-005 REWORK: Added the operation selector footer button, localized with RETURN_TO_MAIN_MENU in both existing PO files and wired to main_menu.tscn. Focused navigation smoke and the existing regression/build/editor checks are recorded; the real UI matrix remains REWORK because its out-of-scope tactical tooltip and engineering-click checks still fail at 1280x720.
+2026-10-05 WS-MAINT-20261005-006 REWORK: Removed forced deploy-button focus from operation selection and added background-click focus clearing. Focused mouse/keyboard smoke, 18-suite regression, build, and editor checks pass. The real UI matrix still fails on out-of-scope tactical card and engineering-click checks; Computer Use verification was interrupted by Escape.
 ## 11. 下一次 AI 接手检查单
+> 2026-10-05 WS-MAINT-20261005-006: Focus-highlight fix is recorded in `docs/work_items/WS-MAINT-20261005-006.md`. The deploy button is no longer forced to focus after operation selection, background clicks clear stale focus, and keyboard navigation remains covered by smoke. Computer Use real-window verification was stopped by Escape.
+
+
+> 2026-10-05 WS-MAINT-20261005-005: Operation selector return-to-main-menu handoff is recorded in `docs/work_items/WS-MAINT-20261005-005.md`. The button uses the synchronized existing translation key and routes to `res://scenes/ui/main_menu.tscn`; focused smoke is passing. Keep status REWORK until the known out-of-scope real UI matrix failures are repaired.
+
 
 > 2026-10-05发行项WS-MAINT-20261005-002 DONE：Demo V1.0.0公开预发布及ZIP/SHA256可下载；0f9a0ae标签run37257810171完整26阶段/包真实进程/发布通过，下载包401项、独立EXE启动和Console加载实际PCK的版本检查通过。见artifacts/demo-v1/release-audit.json；模板不支持--script的首次版本探针超时原件保留，修正探针未改包。仅版本、发行工具和文档，无游戏行为扩围。最后仅文档提交使用[skip ci]复用标签证据，标签不移动；父001仍REWORK，下一步只领取其剩余范围受控切片。
 

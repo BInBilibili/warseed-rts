@@ -36,6 +36,7 @@ func _test_operation_selector_flow(failures: Array[String]) -> void:
 	var forest_button := selector.get_battle_button(&"fog_forest")
 	var black_well_button := selector.get_battle_button(&"black_well")
 	_expect(grey_button != null and bridge_button != null and forest_button != null and black_well_button != null, "each playable battle should have a keyboard-focusable operation button", failures)
+	_expect(selector.main_menu_button != null and selector.main_menu_button.text == GameText.t(&"RETURN_TO_MAIN_MENU"), "the operation selector should provide a localized return-to-main-menu button", failures)
 	var request: Dictionary = {}
 	selector.battle_requested.connect(func(scenario_id: StringName, scene_path: String) -> void:
 		request["scenario_id"] = scenario_id
@@ -578,7 +579,7 @@ func _test_grey_ridge_scene_is_the_playable_slice(failures: Array[String]) -> vo
 	_expect(battle_debrief.timeline_button.button_pressed and not battle_debrief.causes_button.button_pressed, "Grey Ridge debrief should expose a reachable turning-point view", failures)
 	battle_debrief.refresh_locale()
 	var debrief_return := battle_debrief.get_node_or_null("Backdrop/Panel/Margin/Layout/Footer/ReturnToOperations") as Button
-	_expect(debrief_return != null and debrief_return.text == GameText.t(&"RETURN_TO_OPERATIONS"), "the debrief should provide a localized return path to operation selection", failures)
+	_expect(debrief_return != null and debrief_return.text == GameText.t(&"RETURN_TO_MAIN_MENU"), "the debrief should provide a localized return path to the main menu", failures)
 	battle_debrief.visible = false
 	var pause_menu := game.get_node("PauseMenu") as PauseMenu
 	game.pause_menu = pause_menu
@@ -1002,7 +1003,7 @@ func _test_game_scene_task_and_pause_controls(failures: Array[String]) -> void:
 	_expect(host.get_queue_size() == 1, "Develop button should submit a strategic command through the host", failures)
 	pause_menu.open()
 	_expect(Engine.get_main_loop().paused and pause_menu.backdrop.visible, "ESC menu should pause the game and remain visible", failures)
-	_expect(pause_menu.operations_button != null and pause_menu.return_confirmation.dialog_text == GameText.t(&"RETURN_TO_OPERATIONS_CONFIRM_BODY"), "leaving an unfinished battle should expose a localized confirmation instead of returning immediately", failures)
+	_expect(pause_menu.operations_button != null and pause_menu.return_confirmation.dialog_text == GameText.t(&"RETURN_TO_MAIN_MENU_CONFIRM_BODY"), "leaving an unfinished battle should expose a localized main-menu confirmation instead of returning immediately", failures)
 	pause_menu.close()
 	_expect(not Engine.get_main_loop().paused and not pause_menu.backdrop.visible, "Continue should resume the game and hide the menu", failures)
 	pause_menu._select_language(0)
