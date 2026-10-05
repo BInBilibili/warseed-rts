@@ -42,17 +42,23 @@ Copy-Item -LiteralPath (Join-Path $repositoryRoot 'docs\CURRENT_GAMEPLAY.md') -D
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'docs\PLAYER_AI_CONTROL_CONTRACT_20261004.md') -Destination (Join-Path $packageRoot 'PLAYER_AI_CONTROL_CONTRACT.md')
 $utf8 = [Text.UTF8Encoding]::new($false)
 $projectVersion = (Select-String -LiteralPath (Join-Path $repositoryRoot 'project.godot') -Pattern '^config/version="([^"]+)"$').Matches[0].Groups[1].Value
+$channel = 'playtest'
+$packageTitle = "WARSEED Windows 测试包 $Version"
+if ($projectVersion -match '^([0-9]+\.[0-9]+\.[0-9]+)-demo$') {
+    $channel = 'demo'
+    $packageTitle = "WARSEED Demo V$($Matches[1]) — Windows x64"
+}
 $metadata = [ordered]@{
     schema_version = 1; version = $Version; source_commit = $Commit.ToLowerInvariant()
     project_version = $projectVersion; godot_version = '4.6.3.stable.mono'
-    platform = 'windows-x86_64'; configuration = 'debug'; channel = 'playtest'
+    platform = 'windows-x86_64'; configuration = 'debug'; channel = $channel
     created_utc = [DateTimeOffset]::UtcNow.ToString('o')
     scenario_ids = @('final_decision', 'grey_ridge', 'broken_bridge', 'fog_forest', 'black_well')
     evidence = 'SIMULATED'; HUMAN = 'NOT_RUN'; FPS = 'NOT_RUN'; performance_policy = 'D-028 DEFERRED'
 }
 [IO.File]::WriteAllText((Join-Path $packageRoot 'BUILD_INFO.json'), ($metadata | ConvertTo-Json -Depth 8), $utf8)
 $readme = @"
-# WARSEED Windows 测试包 $Version
+# $packageTitle
 
 请解压整个目录，保持 WARSEED.exe、WARSEED.pck 和 data_WARSEED_windows_x86_64 一起。
 双击 START_WARSEED.cmd 启动隔离试玩；主菜单选择“最终决战”，也可体验四场旧会战。

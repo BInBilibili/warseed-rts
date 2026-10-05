@@ -1,5 +1,7 @@
 # WARSEED AI 开发状态与任务队列
 
+> 2026-10-05：[WS-MAINT-20261005-002](work_items/WS-MAINT-20261005-002.md) Demo V1.0.0发行切片VERIFYING。用户明确授权直接发布最新包；版本1.0.0-demo、标签v1.0.0，完整标签构建成功后创建GitHub Demo预发布。工具语法、Demo元数据、发布参数及标签/checksum保护专项PASS；真实发布和附件下载结果待记录。不改游戏行为、原父维护REWORK及R6/R7。
+
 > 2026-10-05：[WS-MAINT-20261005-001](work_items/WS-MAINT-20261005-001.md) GitHub自动发包切片DONE。全部既有工程改动已提交推送main（ab323d3、70f23a4）；[实际云端运行](https://github.com/msdest565/warseed-rts/actions/runs/37216831802)完整26阶段PASS（2269.51秒），Windows测试包194文件/401项来源与哈希检查及实际下载解压启动PASS。日常推送生成Actions包，v标签成功后创建测试预发布；标签来源保护和明确等待包内真实进程退出的附加检查均本地验证，新推送会再次云端构建，不将旧run声称为附加检查的云端结果。真实标签发布NOT_RUN，本次未创建标签；HUMAN/FPS NOT_RUN，D-028暂缓。仅CI/打包工具、交接文档和14个文件EOF空行规范化，无游戏行为变更；原父维护仍REWORK，R6/R7不变。证据artifacts/github-release。
 
 > 2026-10-04：独立权限切片 [WS-MAINT-20261004-001](work_items/WS-MAINT-20261004-001.md) 已DONE；D-040正式执行持续将领意图/整卡授权及取消坚守/显式交还。权限与边界/UI专项290项、release03完整发布门26/26（1441.592秒）、实际新PCK权限75项及双语五档UI141项均PASS，证据artifacts/control-contract。33个已有文件有本轮差异、12个新增文件；其余1528个基线文件及118个数据文件哈希未变。旧WS-MAINT-20260920-001仍REWORK且其他范围未完成，R5/阶段门不变。全部SIMULATED；旧成长探针NOT_PASS原件保留，HUMAN/实际FPS/本轮自然终局整局NOT_RUN，性能D-028暂缓；无提交推送。
@@ -16,7 +18,7 @@
 
 > legion62补验：diagnostic01确认原live01目标可见，但炮兵距484–510，超过实际射程420；516只是特殊炮位选择上限，不能冒充武器射程。目标改为初始据点前240的独立inrange01场景后，真实参谋批准tick55进入战斗、tick71实际发射，三炮就位；撤退/MOVE首tick抢占均通过，共110项。独立replay01同110项且结果JSON逐字节一致。原失败和诊断原件保留，不称远距追击通过。最终mirror09/intent07/authority11/ui08/guard12/moving13及grants02/inrange01/replay01九次审计review-v5 PASS，源码/入口/继承/引擎一致；当前仍仅隔离候选、未正式合入，不代表完整C/D。
 
-> 状态版本：172
+> 状态版本：173
 > 更新时间：2026-10-05
 > 更新规则：每个完成、阻塞或重新规划的工作项都必须更新本文件。
 > 历史原文：[v109 完整快照](archive/state/AI_DEVELOPMENT_STATE_v109.md)，原第 12 节唯一保存的临时维护契约也在其中。
@@ -28,7 +30,13 @@
 
 ```yaml
 workflow_version: 1.2
-state_version: 172
+state_version: 173
+demo_release_work_item: WS-MAINT-20261005-002
+demo_release_status: VERIFYING
+demo_release_tag: v1.0.0
+demo_release_project_version: 1.0.0-demo
+demo_release_publication: NOT_RUN
+demo_release_evidence: artifacts/demo-v1
 github_release_work_item: WS-MAINT-20261005-001
 github_release_status: DONE
 github_release_workflow: .github/workflows/grey-ridge-ci.yml
@@ -169,11 +177,11 @@ release_candidate: R1-FEEDBACK-RC2
 release_candidate_status: ENGINEERING_BASELINE_ARCHIVED
 release_candidate_package: build/playtest-kits/WARSEED-R1-Feedback-RC2-20260901.zip
 release_candidate_sha256: 730B7F496F8871D62CA887F5B955974CF540014F3B5EA9307E6F5D4070C10A08
-working_build_id: 0.1.0-legion-movement.20260928
-latest_maintenance_work_item: WS-MAINT-20261005-001
-latest_maintenance_status: DONE
-active_maintenance_work_item: WS-MAINT-20260920-001
-active_maintenance_status: REWORK
+working_build_id: 1.0.0-demo
+latest_maintenance_work_item: WS-MAINT-20261005-002
+latest_maintenance_status: VERIFYING
+active_maintenance_work_item: WS-MAINT-20261005-002
+active_maintenance_status: VERIFYING
 unfinished_maintenance_work_item: WS-MAINT-20260920-001
 unfinished_maintenance_status: REWORK
 final_decision_status: PERFORMANCE_SLICE_VERIFIED_GOAL_INCOMPLETE
@@ -188,7 +196,7 @@ legion32_gameplay_verification: NOT_RUN
 legion32_production_integration: NOT_RUN
 legion32_addendum_status: DONE
 legion32_addendum_evidence: artifacts/legion32-addendum/verification.json
-current_turn_scope: GITHUB_RELEASE_SLICE_DONE_PARENT_MAINTENANCE_REWORK
+current_turn_scope: DEMO_V1_RELEASE_ONLY_PARENT_MAINTENANCE_REWORK
 legion54_status: VERIFICATION_TERMINATED_DESIGN_REWORK
 legion54_report: docs/LEGION_TRANSIT_ACCEPTANCE_20260925.md
 legion54_evidence: artifacts/legion54/verification.json
@@ -815,6 +823,8 @@ motion29当时的大地图自主观察为 6000 tick / 10 分钟，在观察上�
 2026-09-21 docs30 文档切片 DONE，001 整体仍 REWORK。全面审读原 114 份 docs Markdown，归档 80 份旧设计/报告/发布/完成任务，另保存 v109 全量状态；新增文档入口、现行玩法与修订提案。保留打包工具读取的历史说明原路径，修复其适用范围提示。122 份 Markdown 本地链接与围栏无错误，新入口表格及五组 60/12 编制检查通过；原文遗失 0，81 份归档/快照正文除范围提示和引用路径外无变化。1191 个运行/测试/工具文件零漂移、零新增，git diff --check 通过。两项只读复核后补齐权限边界。未运行新游戏测试，不创建新目标、不推进 R6；证据见[文档审计](DOCUMENTATION_AUDIT_20260921.md)。
 
 ## 11. 下一次 AI 接手检查单
+
+> 2026-10-05当前发行项WS-MAINT-20261005-002 VERIFYING：用户授权Demo V1.0.0实际发布，按该项等待v1.0.0标签云端门与发布附件核验，不移动标签、不将旧run当作本次版本证据。原父001仍REWORK；此次仅版本与发行工具，无游戏实现扩围。
 
 > 2026-10-05发包工具切片WS-MAINT-20261005-001 DONE。先看工作项/GITHUB_RELEASE_GUIDE与cloud-audit.json；70f23a4实际云端26门、401项下载包检查与真实启动PASS。最后标签SHA保护及附加包进程等待仅本地验证，最后推送的新CI按其提交单独查看，不能冒充旧run已覆盖；本次未创建版本标签。全部用户既有改动已提交推送，原父维护仍REWORK。继续游戏实现时只选父项受控范围，不由发包工具完成而进入R6/R7。
 

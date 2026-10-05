@@ -136,7 +136,7 @@ jobs:
           name: warseed-windows-${{ github.run_id }}-${{ github.run_attempt }}
           path: release
 
-      - name: Verify checksum and publish playtest release
+      - name: Verify checksum and publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -157,7 +157,13 @@ jobs:
             echo 'Release tag no longer matches the verified source commit.' >&2
             exit 1
           fi
+          title="WARSEED $RELEASE_TAG (Windows playtest)"
+          notes='Windows x64 playtest. Extract the complete package and run START_WARSEED.cmd.'
+          if [ "$RELEASE_TAG" = 'v1.0.0' ]; then
+            title='WARSEED Demo V1.0.0'
+            notes='WARSEED Demo V1.0.0（Windows x64）。下载 WARSEED-v1.0.0-Windows-x64.zip，完整解压后双击 START_WARSEED.cmd。主菜单可体验最终决战及四场旧会战。将领意图与整卡接管持续有效；取消转坚守，显式交还恢复 AI。包内附玩法说明、权限契约、版本来源与 SHA-256 清单。此版本为 Demo；完整游戏开发继续进行。'
+          fi
           gh release create "$RELEASE_TAG" ./*.zip ./*.sha256 \
             --verify-tag --target "$SOURCE_COMMIT" \
-            --title "WARSEED $RELEASE_TAG (Windows playtest)" \
+            --title "$title" --notes "$notes" \
             --generate-notes --prerelease --latest=false

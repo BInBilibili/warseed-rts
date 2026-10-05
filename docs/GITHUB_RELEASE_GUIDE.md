@@ -2,6 +2,8 @@
 
 配置入口：[工作流](../.github/workflows/grey-ridge-ci.yml)、[打包脚本](../tools/build_github_package.ps1)。工作项：[WS-MAINT-20261005-001](work_items/WS-MAINT-20261005-001.md)。
 
+Demo V1.0.0发行项：[WS-MAINT-20261005-002](work_items/WS-MAINT-20261005-002.md)。项目版本`1.0.0-demo`，标签`v1.0.0`，发布名称`WARSEED Demo V1.0.0`；包内`channel=demo`。当前正在准备发布，实际结果以该工作项与[版本页面](https://github.com/msdest565/warseed-rts/releases/tag/v1.0.0)为准。Demo仍标为Pre-release，整体开发与阶段状态独立记录。
+
 日常推送到分支、Pull Request 和手动运行会在Windows执行完整发布门，成功后上传Windows ZIP与SHA-256，Actions产物保留14天。推送`v*`标签会在同一套验证和构建成功后，把该次产物发布到GitHub Releases；失败不会进入发布任务。标签发布不被其他推送取消，日常同分支新推送可取消旧构建。
 
 本项目仍是开发测试版本，自动创建的Release标为**Pre-release**，不修改产品阶段或原维护项完成状态。新包包含终局决战与旧四关；当前仅构建Windows x64，使用debug导出，与既有发布验证相同。自动发包不包含玩家客户端的自动下载或更新。
